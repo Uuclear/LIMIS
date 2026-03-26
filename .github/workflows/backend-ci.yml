@@ -1,0 +1,77 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - 'requirements.txt'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - 'requirements.txt'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: limis
+          POSTGRES_USER: limis
+          POSTGRES_PASSWORD: limis123
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run migrations
+      env:
+        DB_NAME: limis
+        DB_USER: limis
+        DB_PASSWORD: limis123
+        DB_HOST: localhost
+        DB_PORT: 5432
+        SECRET_KEY: dummy-key-for-ci
+        DEBUG: "True"
+      run: |
+        python manage.py makemigrations --check
+        python manage.py migrate --noinput
+
+    - name: Run tests
+      env:
+        DB_NAME: limis
+        DB_USER: limis
+        DB_PASSWORD: limis123
+        DB_HOST: localhost
+        DB_PORT: 5432
+        SECRET_KEY: dummy-key-for-ci
+      run: |
+        python manage.py test --verbosity=2
+
+    - name: Check code style
+      run: |
+        python -m pip install flake8
+        flake8 --exclude=migrations,venv --max-line-length=120 || echo "Flake8 check completed (warnings allowed)"
