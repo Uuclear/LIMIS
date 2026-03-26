@@ -1,0 +1,103 @@
+:root {
+  --lims-primary: #2563eb;
+  --lims-primary-light: #3b82f6;
+  --lims-primary-dark: #1d4ed8;
+  --lims-bg: #f0f2f5;
+  --lims-sidebar-bg: #001529;
+  --lims-sidebar-width: 220px;
+  --lims-sidebar-collapsed-width: 64px;
+  --lims-header-height: 56px;
+  --lims-header-bg: #ffffff;
+  --lims-text-primary: #1f2937;
+  --lims-text-secondary: #6b7280;
+  --lims-border-color: #e5e7eb;
+
+  --el-color-primary: var(--lims-primary);
+  --el-color-primary-light-3: #60a5fa;
+  --el-color-primary-light-5: #93c5fd;
+  --el-color-primary-light-7: #bfdbfe;
+  --el-color-primary-light-8: #dbeafe;
+  --el-color-primary-light-9: #eff6ff;
+  --el-color-primary-dark-2: var(--lims-primary-dark);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  color: var(--lims-text-primary);
+  background-color: var(--lims-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+#nprogress .bar {
+  background: var(--lims-primary) !important;
+  height: 3px !important;
+}
+
+#nprogress .peg {
+  box-shadow: 0 0 10px var(--lims-primary), 0 0 5px var(--lims-primary) !important;
+}
+
+#nprogress .spinner-icon {
+  display: none !important;
+}
+
+.page-container {
+  padding: 20px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.el-table .el-button + .el-button {
+  margin-left: 4px;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}

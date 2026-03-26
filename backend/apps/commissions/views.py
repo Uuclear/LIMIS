@@ -1,0 +1,114 @@
+from __future__ import annotations
+
+from rest_framework import permissions, status
+from rest_framework.decorators import action
+from rest_framework.request import Request
+from rest_framework.response import Response
+
+from core.views import BaseModelViewSet
+
+from . import services
+from .filters import CommissionFilter
+from .models import Commission, CommissionItem, ContractReview
+from .serializers import (
+    CommissionCreateSerializer,
+    CommissionDetailSerializer,
+    CommissionItemSerializer,
+    CommissionListSerializer,
+    CommissionUpdateSerializer,
+    ContractReviewSerializer,
+)
+
+
+class CommissionViewSet(BaseModelViewSet):
+    queryset = Commission.objects.select_related(
+        'project', 'sub_project', 'witness', 'reviewer', 'created_by',
+    ).prefetch_related('items')
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_class = CommissionFilter
+    search_fields = ['commission_no', 'construction_part']
+    ordering_fields = ['commission_date', 'created_at', 'commission_no']
+
+    def get_serializer_class(self) -> type:
+        if self.action == 'list':
+            return CommissionListSerializer
+        if self.action == 'create':
+            return CommissionCreateSerializer
+        if self.action in ('update', 'partial_update'):
+            return CommissionUpdateSerializer
+        return CommissionDetailSerializer
+
+    def perform_create(self, serializer) -> None:
+        commission_no = services.generate_commission_no(
+            serializer.validated_data.get('project'),
+        )
+        if self.request.user.is_authenticated:
+            serializer.save(
+                commission_no=commission_no,
+                created_by=self.request.user,
+            )
+        else:
+            serializer.save(commission_no=commission_no)
+
+    @action(detail=True, methods=['post'])
+    def submit(self, request: Request, pk: str = None) -> Response:
+        commission = services.submit_commission(pk, request.user)
+        return Response({
+            'code': 200,
+            'message': '提交成功',
+            'data': CommissionDetailSerializer(commission).data,
+        })
+
+    @action(detail=True, methods=['post'])
+    def review(self, request: Request, pk: str = None) -> Response:
+        approved = request.data.get('approved', True)
+        comment = request.data.get('comment', '')
+        commission = services.review_commission(
+            pk, request.user, approved, comment,
+        )
+        return Response({
+            'code': 200,
+            'message': '评审完成',
+            'data': CommissionDetailSerializer(commission).data,
+        })
+
+
+class CommissionItemViewSet(BaseModelViewSet):
+    serializer_class = CommissionItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return CommissionItem.objects.filter(
+            commission_id=self.kwargs['commission_pk'],
+        )
+
+    def perform_create(self, serializer) -> None:
+        commission = Commission.objects.get(
+            pk=self.kwargs['commission_pk'],
+        )
+        if self.request.user.is_authenticated:
+            serializer.save(
+                commission=commission, created_by=self.request.user,
+            )
+        else:
+            serializer.save(commission=commission)
+
+
+class ContractReviewViewSet(BaseModelViewSet):
+    serializer_class = ContractReviewSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
+
+    def get_queryset(self):
+        return ContractReview.objects.filter(
+            commission_id=self.kwargs['commission_pk'],
+        ).select_related('reviewer')
+
+    def perform_create(self, serializer) -> None:
+        commission = Commission.objects.get(
+            pk=self.kwargs['commission_pk'],
+        )
+        serializer.save(
+            commission=commission,
+            reviewer=self.request.user,
+        )

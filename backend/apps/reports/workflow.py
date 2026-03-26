@@ -1,0 +1,126 @@
+from __future__ import annotations
+
+from django.db import transaction
+from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied, ValidationError
+
+from .models import Report, ReportApproval
+
+
+def _check_permission(user, required_role: str) -> None:
+    role_perm_map = {
+        'compile': 'reports.compile_report',
+        'audit': 'reports.audit_report',
+        'approve': 'reports.approve_report',
+    }
+    perm = role_perm_map.get(required_role)
+    if perm and not user.has_perm(perm):
+        raise PermissionDenied(f'没有{required_role}权限')
+
+
+def _create_approval(
+    report: Report,
+    role: str,
+    action: str,
+    user,
+    comment: str = '',
+    signature=None,
+) -> ReportApproval:
+    return ReportApproval.objects.create(
+        report=report,
+        role=role,
+        action=action,
+        user=user,
+        comment=comment,
+        signature=signature,
+        created_by=user,
+    )
+
+
+@transaction.atomic
+def submit_for_audit(report_id: int, user) -> Report:
+    report = Report.objects.select_for_update().get(pk=report_id)
+    if report.status != 'draft':
+        raise ValidationError('只有草稿状态可以提交审核')
+
+    _check_permission(user, 'compile')
+    report.status = 'pending_audit'
+    report.compiler = user
+    report.compile_date = timezone.now()
+    report.save(update_fields=[
+        'status', 'compiler', 'compile_date', 'updated_at',
+    ])
+    _create_approval(report, 'compile', 'submit', user)
+    return report
+
+
+@transaction.atomic
+def audit_report(
+    report_id: int,
+    user,
+    approved: bool,
+    comment: str = '',
+    signature=None,
+) -> Report:
+    report = Report.objects.select_for_update().get(pk=report_id)
+    if report.status != 'pending_audit':
+        raise ValidationError('只有待审核状态可以审核')
+
+    _check_permission(user, 'audit')
+    action = 'pass' if approved else 'reject'
+    report.auditor = user
+    report.audit_date = timezone.now()
+    report.status = 'pending_approve' if approved else 'draft'
+    report.save(update_fields=[
+        'status', 'auditor', 'audit_date', 'updated_at',
+    ])
+    _create_approval(report, 'audit', action, user, comment, signature)
+    return report
+
+
+@transaction.atomic
+def approve_report(
+    report_id: int,
+    user,
+    approved: bool,
+    comment: str = '',
+    signature=None,
+) -> Report:
+    report = Report.objects.select_for_update().get(pk=report_id)
+    if report.status != 'pending_approve':
+        raise ValidationError('只有待批准状态可以批准')
+
+    _check_permission(user, 'approve')
+    action = 'pass' if approved else 'reject'
+    report.approver = user
+    report.approve_date = timezone.now()
+    report.status = 'approved' if approved else 'pending_audit'
+    report.save(update_fields=[
+        'status', 'approver', 'approve_date', 'updated_at',
+    ])
+    _create_approval(report, 'approve', action, user, comment, signature)
+    return report
+
+
+@transaction.atomic
+def issue_report(report_id: int, user) -> Report:
+    report = Report.objects.select_for_update().get(pk=report_id)
+    if report.status != 'approved':
+        raise ValidationError('只有已批准的报告可以发放')
+
+    report.status = 'issued'
+    report.issue_date = timezone.now().date()
+    report.save(update_fields=['status', 'issue_date', 'updated_at'])
+    return report
+
+
+@transaction.atomic
+def void_report(report_id: int, user, reason: str = '') -> Report:
+    report = Report.objects.select_for_update().get(pk=report_id)
+    if report.status == 'voided':
+        raise ValidationError('报告已作废')
+
+    report.status = 'voided'
+    report.save(update_fields=['status', 'updated_at'])
+    _create_approval(report, 'approve', 'reject', user, comment=reason)
+    return report

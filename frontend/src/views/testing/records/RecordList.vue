@@ -1,0 +1,174 @@
+<script setup lang="ts">
+import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { Search, Refresh } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getOriginalRecordList, submitRecord } from '@/api/testing'
+import type { OriginalRecord } from '@/types/testing'
+
+const router = useRouter()
+const loading = ref(false)
+const tableData = ref<OriginalRecord[]>([])
+const total = ref(0)
+
+const query = reactive({
+  page: 1,
+  page_size: 20,
+  status: '',
+  recorder_name: '',
+})
+
+const statusOptions = [
+  { label: '草稿', value: 'draft' },
+  { label: '已提交', value: 'submitted' },
+  { label: '已审核', value: 'reviewed' },
+  { label: '已驳回', value: 'rejected' },
+]
+
+const statusMap: Record<string, string> = {
+  draft: '草稿',
+  submitted: '已提交',
+  reviewed: '已审核',
+  rejected: '已驳回',
+}
+
+const statusTagType: Record<string, string> = {
+  draft: 'info',
+  submitted: 'warning',
+  reviewed: 'success',
+  rejected: 'danger',
+}
+
+async function fetchList() {
+  loading.value = true
+  try {
+    const res: any = await getOriginalRecordList(query)
+    tableData.value = res.results ?? res.list ?? []
+    total.value = res.total ?? res.count ?? 0
+  } finally {
+    loading.value = false
+  }
+}
+
+function handleSearch() {
+  query.page = 1
+  fetchList()
+}
+
+function handleReset() {
+  Object.assign(query, { page: 1, status: '', recorder_name: '' })
+  fetchList()
+}
+
+function goEdit(record: OriginalRecord) {
+  router.push(`/testing/records/${record.id}`)
+}
+
+function goView(record: OriginalRecord) {
+  router.push(`/testing/records/${record.id}`)
+}
+
+async function handleSubmit(record: OriginalRecord) {
+  try {
+    await ElMessageBox.confirm('确认提交该原始记录？提交后不可修改。', '提示')
+    await submitRecord(record.id)
+    ElMessage.success('提交成功')
+    fetchList()
+  } catch { /* cancelled */ }
+}
+
+onMounted(fetchList)
+</script>
+
+<template>
+  <div class="page-container">
+    <el-card shadow="never">
+      <el-form inline @submit.prevent="handleSearch">
+        <el-form-item label="状态">
+          <el-select v-model="query.status" placeholder="全部" clearable style="width: 120px">
+            <el-option
+              v-for="s in statusOptions"
+              :key="s.value"
+              :label="s.label"
+              :value="s.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="记录人">
+          <el-input
+            v-model="query.recorder_name"
+            placeholder="记录人姓名"
+            clearable
+            style="width: 160px"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
+          <el-button :icon="Refresh" @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <el-card shadow="never" style="margin-top: 16px">
+      <template #header>
+        <span>原始记录管理</span>
+      </template>
+
+      <el-table v-loading="loading" :data="tableData" stripe border>
+        <el-table-column prop="record_no" label="记录编号" width="180" />
+        <el-table-column prop="task_no" label="任务编号" width="180" />
+        <el-table-column prop="template_name" label="模板名称" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="recorder_name" label="记录人" width="120" />
+        <el-table-column label="状态" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="statusTagType[row.status]" size="small">
+              {{ statusMap[row.status] ?? row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="review_date" label="审核日期" width="120" />
+        <el-table-column label="操作" width="200" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.status === 'draft' || row.status === 'rejected'"
+              link
+              type="primary"
+              @click="goEdit(row)"
+            >
+              填写
+            </el-button>
+            <el-button
+              v-else
+              link
+              type="primary"
+              @click="goView(row)"
+            >
+              查看
+            </el-button>
+            <el-button
+              v-if="row.status === 'draft' || row.status === 'rejected'"
+              link
+              type="success"
+              @click="handleSubmit(row)"
+            >
+              提交审核
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <el-pagination
+        v-if="total > 0"
+        style="margin-top: 16px; justify-content: flex-end"
+        background
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="total"
+        :page-size="query.page_size"
+        :current-page="query.page"
+        :page-sizes="[20, 50, 100]"
+        @current-change="(p: number) => { query.page = p; fetchList() }"
+        @size-change="(s: number) => { query.page_size = s; query.page = 1; fetchList() }"
+      />
+    </el-card>
+  </div>
+</template>

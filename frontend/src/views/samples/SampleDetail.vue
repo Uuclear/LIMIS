@@ -1,0 +1,189 @@
+<script setup lang="ts">
+import { ref, reactive, onMounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Printer } from '@element-plus/icons-vue'
+import { getSample, changeSampleStatus, getSampleTimeline, getSampleLabel, disposeSample } from '@/api/samples'
+import type { Sample } from '@/types/sample'
+
+const route = useRoute()
+const router = useRouter()
+const sampleId = computed(() => Number(route.params.id))
+
+const detail = ref<Sample>({} as Sample)
+const loading = ref(false)
+const timeline = ref<{ time: string; status: string; operator: string; remark: string }[]>([])
+
+const statusSteps = [
+  { label: '待检', value: 'pending' },
+  { label: '检测中', value: 'testing' },
+  { label: '已检', value: 'tested' },
+  { label: '留样', value: 'retention' },
+  { label: '已处置', value: 'disposed' },
+]
+
+const currentStep = computed(() => {
+  const idx = statusSteps.findIndex(s => s.value === detail.value.status)
+  return idx >= 0 ? idx : 0
+})
+
+async function fetchDetail() {
+  loading.value = true
+  try {
+    detail.value = await getSample(sampleId.value) as any
+  } finally {
+    loading.value = false
+  }
+}
+
+async function fetchTimeline() {
+  const res: any = await getSampleTimeline(sampleId.value)
+  timeline.value = res ?? []
+}
+
+async function handleStatusChange(newStatus: string) {
+  const label = statusSteps.find(s => s.value === newStatus)?.label ?? newStatus
+  await ElMessageBox.confirm(`确认将状态变更为"${label}"？`, '提示', { type: 'warning' })
+  await changeSampleStatus(sampleId.value, { status: newStatus })
+  ElMessage.success('状态变更成功')
+  fetchDetail()
+  fetchTimeline()
+}
+
+async function handlePrintLabel() {
+  const res: any = await getSampleLabel(sampleId.value)
+  if (res?.url) window.open(res.url, '_blank')
+  else ElMessage.info('标签生成中，请稍后')
+}
+
+const disposeDialogVisible = ref(false)
+const disposeForm = reactive({ disposal_method: '', remark: '' })
+
+function openDisposeDialog() {
+  disposeForm.disposal_method = ''
+  disposeForm.remark = ''
+  disposeDialogVisible.value = true
+}
+
+async function handleDispose() {
+  if (!disposeForm.disposal_method) return ElMessage.warning('请选择处置方式')
+  await disposeSample(sampleId.value, disposeForm)
+  ElMessage.success('处置成功')
+  disposeDialogVisible.value = false
+  fetchDetail()
+  fetchTimeline()
+}
+
+function statusTagType(status: string) {
+  const map: Record<string, string> = {
+    pending: 'info', testing: 'warning', tested: 'success', retention: '', disposed: 'danger',
+  }
+  return map[status] ?? 'info'
+}
+
+function statusLabel(status: string) {
+  return statusSteps.find(s => s.value === status)?.label ?? status
+}
+
+const nextStatus = computed(() => {
+  const idx = currentStep.value
+  if (idx < statusSteps.length - 1 && detail.value.status !== 'disposed') {
+    return statusSteps[idx + 1]
+  }
+  return null
+})
+
+onMounted(() => { fetchDetail(); fetchTimeline() })
+</script>
+
+<template>
+  <div class="page-container">
+    <el-page-header @back="router.push('/sample')">
+      <template #content>
+        <div style="display: flex; align-items: center; gap: 12px">
+          <span style="font-size: 18px; font-weight: 600">样品详情</span>
+          <el-tag :type="statusTagType(detail.status)">{{ statusLabel(detail.status) }}</el-tag>
+        </div>
+      </template>
+      <template #extra>
+        <el-button :icon="Printer" @click="handlePrintLabel">打印标签</el-button>
+        <el-button
+          v-if="nextStatus && detail.status !== 'retention'"
+          type="primary"
+          @click="handleStatusChange(nextStatus.value)"
+        >
+          变更为「{{ nextStatus.label }}」
+        </el-button>
+        <el-button v-if="detail.status === 'retention'" type="danger" @click="openDisposeDialog">
+          样品处置
+        </el-button>
+      </template>
+    </el-page-header>
+
+    <!-- Status Steps -->
+    <el-card shadow="never" style="margin-top: 20px">
+      <el-steps :active="currentStep" finish-status="success" align-center>
+        <el-step v-for="s in statusSteps" :key="s.value" :title="s.label" />
+      </el-steps>
+    </el-card>
+
+    <!-- Info -->
+    <el-card v-loading="loading" shadow="never" style="margin-top: 16px">
+      <template #header><span>样品信息</span></template>
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="样品编号">{{ detail.sample_no }}</el-descriptions-item>
+        <el-descriptions-item label="样品名称">{{ detail.name }}</el-descriptions-item>
+        <el-descriptions-item label="规格型号">{{ detail.specification }}</el-descriptions-item>
+        <el-descriptions-item label="设计等级">{{ detail.grade }}</el-descriptions-item>
+        <el-descriptions-item label="数量">{{ detail.quantity }} {{ detail.unit }}</el-descriptions-item>
+        <el-descriptions-item label="取样日期">{{ detail.sampling_date }}</el-descriptions-item>
+        <el-descriptions-item label="接收日期">{{ detail.received_date }}</el-descriptions-item>
+        <el-descriptions-item label="委托编号">{{ detail.commission_no }}</el-descriptions-item>
+        <el-descriptions-item label="工程名称" :span="2">{{ detail.project_name }}</el-descriptions-item>
+        <el-descriptions-item v-if="detail.retention_date" label="留样日期">
+          {{ detail.retention_date }}
+        </el-descriptions-item>
+        <el-descriptions-item v-if="detail.disposal_date" label="处置日期">
+          {{ detail.disposal_date }}
+        </el-descriptions-item>
+      </el-descriptions>
+    </el-card>
+
+    <!-- Timeline -->
+    <el-card shadow="never" style="margin-top: 16px">
+      <template #header><span>状态记录</span></template>
+      <el-timeline v-if="timeline.length">
+        <el-timeline-item
+          v-for="(item, idx) in timeline"
+          :key="idx"
+          :timestamp="item.time"
+          placement="top"
+        >
+          <p><strong>{{ statusLabel(item.status) }}</strong> — {{ item.operator }}</p>
+          <p v-if="item.remark" style="color: var(--el-text-color-secondary); font-size: 13px">{{ item.remark }}</p>
+        </el-timeline-item>
+      </el-timeline>
+      <el-empty v-else description="暂无记录" :image-size="60" />
+    </el-card>
+
+    <!-- Dispose Dialog -->
+    <el-dialog v-model="disposeDialogVisible" title="样品处置" width="460px" destroy-on-close>
+      <el-form :model="disposeForm" label-width="80px">
+        <el-form-item label="处置方式">
+          <el-select v-model="disposeForm.disposal_method" style="width: 100%">
+            <el-option label="退还委托方" value="return" />
+            <el-option label="实验室销毁" value="destroy" />
+            <el-option label="其他" value="other" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="disposeForm.remark" type="textarea" :rows="3" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="disposeDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleDispose">确定</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
