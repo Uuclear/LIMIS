@@ -23,6 +23,7 @@
 - **前后端分离架构** - Django REST Framework + Vue3 + TypeScript
 - **JWT 认证** - 安全的 Token 认证机制
 - **操作审计** - 所有敏感操作自动记录
+- **API 文档** - 自动生成的 Swagger/OpenAPI 文档
 - **响应式设计** - 支持 PC 端和移动端访问
 - **容器化部署** - Docker + docker-compose 一键部署
 
@@ -124,7 +125,9 @@ limis/
 
 ## 📖 文档
 
-- [项目状态跟踪](./PROJECT_STATUS.md)
+- **[部署文档](./DEPLOY.md)** - 详细的部署和初始化指南
+- **[项目状态](./PROJECT_STATUS.md)** - 当前功能完成情况
+- **[API 文档](./api-docs)** - Swagger 在线接口文档
 - [开发计划](./docs/PLAN.md)
 - [待办事项](./docs/TODO.md)
 
