@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from rest_framework import permissions, status
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -26,7 +26,7 @@ class SampleViewSet(BaseModelViewSet):
     queryset = Sample.objects.select_related(
         'commission', 'commission__project', 'group',
     ).all()
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'sample'
     filterset_class = SampleFilter
     search_fields = ['sample_no', 'blind_no', 'name']
     ordering_fields = ['created_at', 'sampling_date', 'received_date', 'sample_no']
@@ -137,6 +137,6 @@ class SampleViewSet(BaseModelViewSet):
 class SampleGroupViewSet(BaseModelViewSet):
     queryset = SampleGroup.objects.all()
     serializer_class = SampleGroupSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'sample'
     search_fields = ['group_no', 'name']
     ordering_fields = ['created_at', 'group_no']

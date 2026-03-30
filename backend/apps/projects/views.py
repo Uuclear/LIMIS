@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from django.db.models import Count, Q, QuerySet
-from rest_framework import permissions
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -25,7 +24,7 @@ from .serializers import (
 
 
 class ProjectViewSet(BaseModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'project'
     filterset_class = ProjectFilter
     search_fields = ['name', 'code']
     ordering_fields = ['name', 'code', 'start_date', 'created_at']
@@ -61,7 +60,7 @@ class ProjectViewSet(BaseModelViewSet):
 
 class ProjectNestedMixin:
     """Scopes queryset to the parent project from URL kwargs."""
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'project'
 
     def get_project_id(self) -> int:
         return int(self.kwargs['project_pk'])

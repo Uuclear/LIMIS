@@ -7,6 +7,53 @@ from rest_framework.request import Request
 from rest_framework.views import APIView
 
 
+class LimsModulePermission(BasePermission):
+    """
+    在 ViewSet 上设置 `lims_module = 'commission'` 等，按 HTTP 方法映射到
+    view/create/edit/delete；对 @action 可通过 `lims_action_permission` 覆盖。
+    未设置 lims_module 时仅校验登录（兼容旧接口）。
+    """
+
+    message = '无此模块操作权限'
+
+    _method_action: dict[str, str] = {
+        'GET': 'view',
+        'HEAD': 'view',
+        'OPTIONS': 'view',
+        'POST': 'create',
+        'PUT': 'edit',
+        'PATCH': 'edit',
+        'DELETE': 'delete',
+    }
+
+    def has_permission(self, request: Request, view: APIView) -> bool:
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if getattr(request.user, 'is_superuser', False):
+            return True
+
+        module = getattr(view, 'lims_module', None)
+        if not module:
+            return True
+
+        action_override = getattr(view, 'lims_action_permission', None)
+        if action_override:
+            action = action_override
+        else:
+            va = getattr(view, 'action', None)
+            mapped = getattr(view, 'lims_action_map', None) or {}
+            if isinstance(mapped, dict) and va in mapped:
+                action = mapped[va]
+            elif request.method in self._method_action:
+                action = self._method_action[request.method]
+            else:
+                action = 'view'
+
+        if hasattr(request.user, 'has_lims_permission'):
+            return bool(request.user.has_lims_permission(module, action))
+        return False
+
+
 class IsAuthenticated(BasePermission):
     message = '请先登录'
 

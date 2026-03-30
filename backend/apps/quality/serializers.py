@@ -77,6 +77,9 @@ class InternalAuditListSerializer(BaseModelSerializer):
             'status', 'status_display', 'created_at',
         ]
         read_only_fields = ['id', 'created_at']
+        extra_kwargs = {
+            'audit_no': {'required': False, 'allow_blank': True},
+        }
 
     def get_lead_auditor_name(self, obj: InternalAudit) -> str:
         if obj.lead_auditor:
@@ -133,6 +136,9 @@ class ManagementReviewListSerializer(BaseModelSerializer):
             'status', 'status_display', 'created_at',
         ]
         read_only_fields = ['id', 'created_at']
+        extra_kwargs = {
+            'review_no': {'required': False, 'allow_blank': True},
+        }
 
     def get_chairperson_name(self, obj: ManagementReview) -> str:
         if obj.chairperson:

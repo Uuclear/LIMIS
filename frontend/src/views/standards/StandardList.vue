@@ -34,8 +34,10 @@ const formData = reactive({
   implement_date: '',
   status: 'active',
   replaced_by: null as number | null,
+  replaced_case: '',
   remark: '',
 })
+const attachmentFile = ref<File | null>(null)
 const dialogTitle = computed(() => formData.id ? '编辑标准' : '新增标准')
 
 async function fetchList() {
@@ -69,8 +71,10 @@ function openCreate() {
     implement_date: '',
     status: 'active',
     replaced_by: null,
+    replaced_case: '',
     remark: '',
   })
+  attachmentFile.value = null
   dialogVisible.value = true
 }
 
@@ -84,8 +88,10 @@ function openEdit(row: any) {
     implement_date: row.implement_date ?? row.implementation_date ?? '',
     status: row.status,
     replaced_by: row.replaced_by ?? null,
+    replaced_case: row.replaced_case ?? '',
     remark: row.remark ?? '',
   })
+  attachmentFile.value = null
   dialogVisible.value = true
 }
 
@@ -99,26 +105,69 @@ function buildStandardPayload() {
     publish_date: formData.publish_date || null,
     implement_date: formData.implement_date || null,
     abolish_date: null,
+    replaced_case: formData.replaced_case || '',
   }
-  if (formData.replaced_by != null && formData.replaced_by !== ('' as unknown)) {
-    p.replaced_by = formData.replaced_by
-  } else {
-    p.replaced_by = null
-  }
+  p.replaced_by = formData.replaced_by != null ? formData.replaced_by : null
   return p
 }
 
 async function handleSubmit() {
   const payload = buildStandardPayload()
-  if (formData.id) {
-    await request.put(`/v1/standards/${formData.id}/`, payload)
-    ElMessage.success('更新成功')
+  if (attachmentFile.value) {
+    const fd = new FormData()
+    Object.entries(payload).forEach(([k, v]) => {
+      if (v === null || v === undefined) return
+      if (k === 'replaced_by' && (v as any) === '') return
+      fd.append(k, String(v))
+    })
+    fd.append('attachment', attachmentFile.value)
+
+    if (formData.id) {
+      await request.put(`/v1/standards/${formData.id}/`, fd)
+      ElMessage.success('更新成功')
+    } else {
+      await request.post('/v1/standards/', fd)
+      ElMessage.success('创建成功')
+    }
   } else {
-    await request.post('/v1/standards/', payload)
-    ElMessage.success('创建成功')
+    if (formData.id) {
+      await request.put(`/v1/standards/${formData.id}/`, payload)
+      ElMessage.success('更新成功')
+    } else {
+      await request.post('/v1/standards/', payload)
+      ElMessage.success('创建成功')
+    }
   }
   dialogVisible.value = false
   fetchList()
+}
+
+async function handleCrawl() {
+  if (!formData.standard_no) {
+    ElMessage.warning('请先填写标准编号')
+    return
+  }
+  const crawled: any = await request.post('/v1/standards/crawl/', { standard_no: formData.standard_no })
+  // request.ts 会把 {code,data} 解包为 data
+  formData.standard_no = crawled.standard_no ?? formData.standard_no
+  formData.category = crawled.category ?? formData.category
+  formData.status = crawled.status ?? formData.status
+  formData.name = crawled.name ?? formData.name
+  formData.publish_date = crawled.publish_date ?? ''
+  formData.implement_date = crawled.implement_date ?? ''
+  formData.replaced_by = crawled.replaced_by ?? null
+  formData.replaced_case = crawled.replaced_case ?? ''
+  formData.remark = (crawled.remark ?? '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\\n/g, '\n')
+  attachmentFile.value = null
+  ElMessage.success('爬取成功，已填充表单')
+}
+
+function onAttachmentChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const f = input.files?.[0] ?? null
+  attachmentFile.value = f
 }
 
 function statusTagType(status: string) {
@@ -185,6 +234,20 @@ onMounted(fetchList)
             <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="附件" width="120" align="center">
+          <template #default="{ row }">
+            <el-link
+              v-if="row.attachment"
+              type="primary"
+              :href="encodeURI(row.attachment)"
+              target="_blank"
+              :underline="false"
+            >
+              查看/下载
+            </el-link>
+            <span v-else>—</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
@@ -210,7 +273,16 @@ onMounted(fetchList)
       <el-form :model="formData" label-width="90px">
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="标准号"><el-input v-model="formData.standard_no" /></el-form-item>
+            <el-form-item label="标准号">
+              <el-input v-model="formData.standard_no" placeholder="例如：GB/T 50081-2019" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="爬取">
+              <el-button type="primary" @click="handleCrawl" style="width: 100%">
+                从工标网爬取
+              </el-button>
+            </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="分类">
@@ -242,15 +314,17 @@ onMounted(fetchList)
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="替代标准 ID">
+        <el-form-item label="替代情况">
           <el-input
-            :model-value="formData.replaced_by === null || formData.replaced_by === undefined ? '' : String(formData.replaced_by)"
-            placeholder="填写被替代标准的记录 ID，无则留空"
+            v-model="formData.replaced_case"
+            placeholder="从工标网爬取后自动填充，例如：GB/T 50081-2002"
             clearable
-            @update:model-value="(v: string) => { formData.replaced_by = v === '' ? null : Number(v) }"
           />
         </el-form-item>
         <el-form-item label="备注"><el-input v-model="formData.remark" type="textarea" /></el-form-item>
+        <el-form-item label="附件">
+          <input type="file" @change="onAttachmentChange" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>

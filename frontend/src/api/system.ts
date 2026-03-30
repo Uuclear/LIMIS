@@ -11,4 +11,6 @@ export function createRole(data: any) { return request.post('/v1/system/roles/',
 export function updateRole(id: number, data: any) { return request.put(`/v1/system/roles/${id}/`, data) }
 export function deleteRole(id: number) { return request.delete(`/v1/system/roles/${id}/`) }
 export function getPermissionList(params?: any) { return request.get('/v1/system/permissions/', { params }) }
+/** 按 module 分组的权限列表（用于角色分配） */
+export function getPermissionGrouped() { return request.get('/v1/system/permissions/grouped/') }
 export function getAuditLogs(params?: any) { return request.get('/v1/system/audit-logs/', { params }) }

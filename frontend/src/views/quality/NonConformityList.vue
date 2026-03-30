@@ -3,6 +3,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, Plus } from '@element-plus/icons-vue'
 import { getNcList, createNc, getComplaintList, createComplaint } from '@/api/quality'
+import { getUserList } from '@/api/system'
 
 const activeTab = ref('nc')
 
@@ -13,18 +14,30 @@ const ncTotal = ref(0)
 const ncQuery = reactive({ page: 1, page_size: 20, keyword: '', status: '' })
 
 const ncStatusOptions = [
-  { label: '待处理', value: 'pending' },
-  { label: '处理中', value: 'processing' },
-  { label: '已纠正', value: 'corrected' },
-  { label: '已验证', value: 'verified' },
+  { label: '待处理', value: 'open' },
+  { label: '处理中', value: 'in_progress' },
   { label: '已关闭', value: 'closed' },
 ]
 
+const ncSourceOptions = [
+  { label: '内部发现', value: 'internal' },
+  { label: '审核发现', value: 'audit' },
+  { label: '投诉', value: 'complaint' },
+  { label: '能力验证', value: 'proficiency' },
+  { label: '其他', value: 'other' },
+]
+
+const userOptions = ref<{ id: number; username: string }[]>([])
+
 const ncDialogVisible = ref(false)
 const ncForm = reactive({
-  nc_no: '', source: '', description: '', severity: 'minor',
-  responsible: '', root_cause: '', corrective_action: '',
-  due_date: '', status: 'pending',
+  nc_no: '',
+  source: 'internal',
+  description: '',
+  impact_assessment: '',
+  corrective_action: '',
+  responsible_person: null as number | null,
+  status: 'open',
 })
 
 async function fetchNcList() {
@@ -38,17 +51,50 @@ async function fetchNcList() {
   }
 }
 
+async function loadUsers() {
+  const res: any = await getUserList({ page_size: 500 })
+  const rows = res.results ?? res.list ?? []
+  userOptions.value = rows.map((u: any) => ({
+    id: u.id,
+    username: u.username || u.first_name || String(u.id),
+  }))
+}
+
 function openNcCreate() {
   Object.assign(ncForm, {
-    nc_no: '', source: '', description: '', severity: 'minor',
-    responsible: '', root_cause: '', corrective_action: '',
-    due_date: '', status: 'pending',
+    nc_no: '',
+    source: 'internal',
+    description: '',
+    impact_assessment: '',
+    corrective_action: '',
+    responsible_person: null,
+    status: 'open',
   })
   ncDialogVisible.value = true
 }
 
 async function handleNcSubmit() {
-  await createNc(ncForm)
+  if (!ncForm.nc_no?.trim()) {
+    ElMessage.warning('请填写不符合项编号')
+    return
+  }
+  if (!ncForm.description?.trim()) {
+    ElMessage.warning('请填写描述')
+    return
+  }
+  if (!ncForm.responsible_person) {
+    ElMessage.warning('请选择责任人')
+    return
+  }
+  await createNc({
+    nc_no: ncForm.nc_no,
+    source: ncForm.source,
+    description: ncForm.description,
+    impact_assessment: ncForm.impact_assessment || '',
+    corrective_action: ncForm.corrective_action || '',
+    responsible_person: ncForm.responsible_person,
+    status: ncForm.status,
+  })
   ElMessage.success('创建成功')
   ncDialogVisible.value = false
   fetchNcList()
@@ -56,8 +102,7 @@ async function handleNcSubmit() {
 
 function ncStatusTagType(status: string) {
   const map: Record<string, string> = {
-    pending: 'danger', processing: 'warning', corrected: '',
-    verified: 'success', closed: 'info',
+    open: 'danger', in_progress: 'warning', closed: 'info',
   }
   return map[status] ?? 'info'
 }
@@ -74,13 +119,19 @@ const cmpQuery = reactive({ page: 1, page_size: 20, keyword: '' })
 
 const cmpDialogVisible = ref(false)
 const cmpForm = reactive({
-  complaint_no: '', complainant: '', contact: '', content: '',
-  receive_date: '', handler: '', result: '', status: 'pending',
+  complaint_no: '',
+  complainant: '',
+  content: '',
+  complaint_date: '',
+  handler: null as number | null,
+  investigation: '',
+  handling_result: '',
+  status: 'received',
 })
 
 const cmpStatusOptions = [
-  { label: '待处理', value: 'pending' },
-  { label: '处理中', value: 'processing' },
+  { label: '已接收', value: 'received' },
+  { label: '调查中', value: 'investigating' },
   { label: '已处理', value: 'resolved' },
   { label: '已关闭', value: 'closed' },
 ]
@@ -98,14 +149,37 @@ async function fetchCmpList() {
 
 function openCmpCreate() {
   Object.assign(cmpForm, {
-    complaint_no: '', complainant: '', contact: '', content: '',
-    receive_date: '', handler: '', result: '', status: 'pending',
+    complaint_no: '',
+    complainant: '',
+    content: '',
+    complaint_date: '',
+    handler: null,
+    investigation: '',
+    handling_result: '',
+    status: 'received',
   })
   cmpDialogVisible.value = true
 }
 
 async function handleCmpSubmit() {
-  await createComplaint(cmpForm)
+  if (!cmpForm.complaint_no?.trim() || !cmpForm.complainant?.trim()) {
+    ElMessage.warning('请填写投诉编号与投诉人')
+    return
+  }
+  if (!cmpForm.complaint_date || !cmpForm.content?.trim()) {
+    ElMessage.warning('请填写投诉日期与内容')
+    return
+  }
+  await createComplaint({
+    complaint_no: cmpForm.complaint_no,
+    complainant: cmpForm.complainant,
+    complaint_date: cmpForm.complaint_date,
+    content: cmpForm.content,
+    investigation: cmpForm.investigation || '',
+    handling_result: cmpForm.handling_result || '',
+    handler: cmpForm.handler,
+    status: cmpForm.status,
+  })
   ElMessage.success('创建成功')
   cmpDialogVisible.value = false
   fetchCmpList()
@@ -113,7 +187,7 @@ async function handleCmpSubmit() {
 
 function cmpStatusTagType(status: string) {
   const map: Record<string, string> = {
-    pending: 'danger', processing: 'warning', resolved: 'success', closed: 'info',
+    received: 'info', investigating: 'warning', resolved: 'success', closed: '',
   }
   return map[status] ?? 'info'
 }
@@ -127,7 +201,10 @@ function handleTabChange(tab: string) {
   else fetchCmpList()
 }
 
-onMounted(fetchNcList)
+onMounted(() => {
+  fetchNcList()
+  loadUsers()
+})
 </script>
 
 <template>
@@ -161,17 +238,11 @@ onMounted(fetchNcList)
           </template>
           <el-table v-loading="ncLoading" :data="ncData" stripe border>
             <el-table-column prop="nc_no" label="编号" width="150" />
-            <el-table-column prop="source" label="来源" width="120" />
-            <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-            <el-table-column label="严重程度" width="100" align="center">
-              <template #default="{ row }">
-                <el-tag :type="row.severity === 'major' ? 'danger' : 'warning'" size="small">
-                  {{ row.severity === 'major' ? '严重' : '一般' }}
-                </el-tag>
-              </template>
+            <el-table-column label="来源" width="120">
+              <template #default="{ row }">{{ row.source_display || row.source }}</template>
             </el-table-column>
-            <el-table-column prop="responsible" label="责任人" width="100" />
-            <el-table-column prop="due_date" label="整改期限" width="120" />
+            <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="responsible_person_name" label="责任人" width="120" />
             <el-table-column label="状态" width="100" align="center">
               <template #default="{ row }">
                 <el-tag :type="ncStatusTagType(row.status)" size="small">{{ ncStatusLabel(row.status) }}</el-tag>
@@ -219,8 +290,8 @@ onMounted(fetchNcList)
             <el-table-column prop="complaint_no" label="投诉编号" width="150" />
             <el-table-column prop="complainant" label="投诉人" width="100" />
             <el-table-column prop="content" label="投诉内容" min-width="200" show-overflow-tooltip />
-            <el-table-column prop="receive_date" label="接收日期" width="120" />
-            <el-table-column prop="handler" label="处理人" width="100" />
+            <el-table-column prop="complaint_date" label="投诉日期" width="120" />
+            <el-table-column prop="handler_name" label="处理人" width="120" />
             <el-table-column label="状态" width="100" align="center">
               <template #default="{ row }">
                 <el-tag :type="cmpStatusTagType(row.status)" size="small">{{ cmpStatusLabel(row.status) }}</el-tag>
@@ -246,33 +317,31 @@ onMounted(fetchNcList)
 
     <!-- NC Dialog -->
     <el-dialog v-model="ncDialogVisible" title="新增不符合项" width="620px" destroy-on-close>
-      <el-form :model="ncForm" label-width="90px">
+      <el-form :model="ncForm" label-width="100px">
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="编号"><el-input v-model="ncForm.nc_no" /></el-form-item>
+            <el-form-item label="编号" required><el-input v-model="ncForm.nc_no" /></el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="来源"><el-input v-model="ncForm.source" placeholder="内审/外审/监督等" /></el-form-item>
-          </el-col>
-        </el-row>
-        <el-form-item label="描述"><el-input v-model="ncForm.description" type="textarea" :rows="3" /></el-form-item>
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="严重程度">
-              <el-radio-group v-model="ncForm.severity">
-                <el-radio value="minor">一般</el-radio>
-                <el-radio value="major">严重</el-radio>
-              </el-radio-group>
+            <el-form-item label="来源">
+              <el-select v-model="ncForm.source" style="width: 100%">
+                <el-option v-for="t in ncSourceOptions" :key="t.value" :label="t.label" :value="t.value" />
+              </el-select>
             </el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="责任人"><el-input v-model="ncForm.responsible" /></el-form-item>
-          </el-col>
         </el-row>
-        <el-form-item label="原因分析"><el-input v-model="ncForm.root_cause" type="textarea" :rows="2" /></el-form-item>
+        <el-form-item label="描述" required><el-input v-model="ncForm.description" type="textarea" :rows="3" /></el-form-item>
+        <el-form-item label="影响评价"><el-input v-model="ncForm.impact_assessment" type="textarea" :rows="2" /></el-form-item>
         <el-form-item label="纠正措施"><el-input v-model="ncForm.corrective_action" type="textarea" :rows="2" /></el-form-item>
-        <el-form-item label="整改期限">
-          <el-date-picker v-model="ncForm.due_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+        <el-form-item label="责任人" required>
+          <el-select v-model="ncForm.responsible_person" placeholder="选择用户" filterable style="width: 100%">
+            <el-option v-for="u in userOptions" :key="u.id" :label="u.username" :value="u.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="ncForm.status" style="width: 200px">
+            <el-option v-for="s in ncStatusOptions" :key="s.value" :label="s.label" :value="s.value" />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -289,22 +358,25 @@ onMounted(fetchNcList)
             <el-form-item label="投诉编号"><el-input v-model="cmpForm.complaint_no" /></el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="接收日期">
-              <el-date-picker v-model="cmpForm.receive_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+            <el-form-item label="投诉日期">
+              <el-date-picker v-model="cmpForm.complaint_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
             </el-form-item>
           </el-col>
         </el-row>
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="投诉人"><el-input v-model="cmpForm.complainant" /></el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="联系方式"><el-input v-model="cmpForm.contact" /></el-form-item>
-          </el-col>
-        </el-row>
+        <el-form-item label="投诉人"><el-input v-model="cmpForm.complainant" /></el-form-item>
         <el-form-item label="投诉内容"><el-input v-model="cmpForm.content" type="textarea" :rows="3" /></el-form-item>
-        <el-form-item label="处理人"><el-input v-model="cmpForm.handler" /></el-form-item>
-        <el-form-item label="处理结果"><el-input v-model="cmpForm.result" type="textarea" :rows="2" /></el-form-item>
+        <el-form-item label="处理人">
+          <el-select v-model="cmpForm.handler" placeholder="可选" clearable filterable style="width: 100%">
+            <el-option v-for="u in userOptions" :key="u.id" :label="u.username" :value="u.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="调查"><el-input v-model="cmpForm.investigation" type="textarea" :rows="2" /></el-form-item>
+        <el-form-item label="处理意见"><el-input v-model="cmpForm.handling_result" type="textarea" :rows="2" /></el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="cmpForm.status" style="width: 200px">
+            <el-option v-for="s in cmpStatusOptions" :key="s.value" :label="s.label" :value="s.value" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="cmpDialogVisible = false">取消</el-button>

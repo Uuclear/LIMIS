@@ -3,6 +3,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, Plus } from '@element-plus/icons-vue'
 import { getReviewList, createReview } from '@/api/quality'
+import { getUserList } from '@/api/system'
 
 const loading = ref(false)
 const tableData = ref<any[]>([])
@@ -11,16 +12,32 @@ const total = ref(0)
 const query = reactive({ page: 1, page_size: 20, keyword: '', status: '' })
 
 const statusOptions = [
-  { label: '准备中', value: 'preparing' },
-  { label: '进行中', value: 'in_progress' },
+  { label: '计划中', value: 'planned' },
   { label: '已完成', value: 'completed' },
+  { label: '已关闭', value: 'closed' },
 ]
+
+const userOptions = ref<{ id: number; username: string }[]>([])
 
 const dialogVisible = ref(false)
 const formData = reactive({
-  review_no: '', topic: '', review_date: '', chairperson: '',
-  participants: '', agenda: '', status: 'preparing', remark: '',
+  review_no: '',
+  title: '',
+  review_date: '',
+  chairperson: null as number | null,
+  participants: '',
+  minutes: '',
+  status: 'planned',
 })
+
+async function loadUsers() {
+  const res: any = await getUserList({ page_size: 500 })
+  const rows = res.results ?? res.list ?? []
+  userOptions.value = rows.map((u: any) => ({
+    id: u.id,
+    username: u.username || u.first_name || String(u.id),
+  }))
+}
 
 async function fetchList() {
   loading.value = true
@@ -45,21 +62,47 @@ function handleReset() {
 
 function openCreate() {
   Object.assign(formData, {
-    review_no: '', topic: '', review_date: '', chairperson: '',
-    participants: '', agenda: '', status: 'preparing', remark: '',
+    review_no: '',
+    title: '',
+    review_date: '',
+    chairperson: null,
+    participants: '',
+    minutes: '',
+    status: 'planned',
   })
   dialogVisible.value = true
 }
 
 async function handleSubmit() {
-  await createReview(formData)
+  if (!formData.title?.trim()) {
+    ElMessage.warning('请填写评审主题')
+    return
+  }
+  if (!formData.review_date) {
+    ElMessage.warning('请选择评审日期')
+    return
+  }
+  if (!formData.chairperson) {
+    ElMessage.warning('请选择主持人')
+    return
+  }
+  await createReview({
+    review_no: formData.review_no || undefined,
+    title: formData.title,
+    review_date: formData.review_date,
+    chairperson: formData.chairperson,
+    participants: formData.participants || '',
+    input_materials: '',
+    minutes: formData.minutes || '',
+    status: formData.status,
+  })
   ElMessage.success('创建成功')
   dialogVisible.value = false
   fetchList()
 }
 
 function statusTagType(status: string) {
-  const map: Record<string, string> = { preparing: 'info', in_progress: 'warning', completed: 'success' }
+  const map: Record<string, string> = { planned: 'info', completed: 'success', closed: '' }
   return map[status] ?? 'info'
 }
 
@@ -67,7 +110,10 @@ function statusLabel(status: string) {
   return statusOptions.find(o => o.value === status)?.label ?? status
 }
 
-onMounted(fetchList)
+onMounted(() => {
+  fetchList()
+  loadUsers()
+})
 </script>
 
 <template>
@@ -99,15 +145,14 @@ onMounted(fetchList)
 
       <el-table v-loading="loading" :data="tableData" stripe border>
         <el-table-column prop="review_no" label="评审编号" width="150" />
-        <el-table-column prop="topic" label="评审主题" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="title" label="评审主题" min-width="200" show-overflow-tooltip />
         <el-table-column prop="review_date" label="评审日期" width="120" />
-        <el-table-column prop="chairperson" label="主持人" width="100" />
+        <el-table-column prop="chairperson_name" label="主持人" width="120" />
         <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="remark" label="备注" min-width="160" show-overflow-tooltip />
       </el-table>
 
       <el-pagination
@@ -128,7 +173,7 @@ onMounted(fetchList)
       <el-form :model="formData" label-width="90px">
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="评审编号"><el-input v-model="formData.review_no" /></el-form-item>
+            <el-form-item label="评审编号"><el-input v-model="formData.review_no" placeholder="可留空" /></el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="评审日期">
@@ -136,17 +181,19 @@ onMounted(fetchList)
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="评审主题"><el-input v-model="formData.topic" /></el-form-item>
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="主持人"><el-input v-model="formData.chairperson" /></el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="参加人员"><el-input v-model="formData.participants" /></el-form-item>
-          </el-col>
-        </el-row>
-        <el-form-item label="议程"><el-input v-model="formData.agenda" type="textarea" :rows="3" /></el-form-item>
-        <el-form-item label="备注"><el-input v-model="formData.remark" type="textarea" :rows="2" /></el-form-item>
+        <el-form-item label="评审主题" required><el-input v-model="formData.title" /></el-form-item>
+        <el-form-item label="主持人" required>
+          <el-select v-model="formData.chairperson" placeholder="选择用户" filterable style="width: 100%">
+            <el-option v-for="u in userOptions" :key="u.id" :label="u.username" :value="u.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="参会人员"><el-input v-model="formData.participants" type="textarea" :rows="2" /></el-form-item>
+        <el-form-item label="会议纪要"><el-input v-model="formData.minutes" type="textarea" :rows="3" /></el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="formData.status" style="width: 200px">
+            <el-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>

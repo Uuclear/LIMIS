@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from rest_framework import permissions, status
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -44,13 +44,13 @@ from .serializers import (
 class TestCategoryViewSet(BaseModelViewSet):
     queryset = TestCategory.objects.filter(parent__isnull=True)
     serializer_class = TestCategorySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'testing'
     search_fields = ['name', 'code']
 
 
 class TestMethodViewSet(BaseModelViewSet):
     queryset = TestMethod.objects.select_related('category')
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'testing'
     filterset_class = TestMethodFilter
     search_fields = ['name', 'standard_no', 'standard_name']
 
@@ -63,7 +63,7 @@ class TestMethodViewSet(BaseModelViewSet):
 class TestParameterViewSet(BaseModelViewSet):
     queryset = TestParameter.objects.select_related('method')
     serializer_class = TestParameterSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'testing'
     filterset_fields = ['method']
 
 
@@ -72,7 +72,12 @@ class TestTaskViewSet(BaseModelViewSet):
         'sample', 'commission', 'test_method',
         'test_parameter', 'assigned_tester',
     )
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'testing'
+    lims_action_map = {
+        'assign': 'edit',
+        'start': 'edit',
+        'complete': 'edit',
+    }
     filterset_class = TestTaskFilter
     search_fields = ['task_no']
     ordering_fields = ['planned_date', 'created_at', 'task_no']
@@ -156,7 +161,7 @@ class TestTaskViewSet(BaseModelViewSet):
 class RecordTemplateViewSet(BaseModelViewSet):
     queryset = RecordTemplate.objects.select_related('test_method')
     serializer_class = RecordTemplateSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'testing'
     filterset_fields = ['test_method', 'is_active']
     search_fields = ['name', 'code']
 
@@ -165,7 +170,11 @@ class OriginalRecordViewSet(BaseModelViewSet):
     queryset = OriginalRecord.objects.select_related(
         'task', 'template', 'recorder', 'reviewer',
     ).prefetch_related('revisions')
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'testing'
+    lims_action_map = {
+        'submit': 'edit',
+        'review': 'approve',
+    }
     filterset_class = OriginalRecordFilter
     search_fields = ['task__task_no']
 
@@ -208,7 +217,8 @@ class OriginalRecordViewSet(BaseModelViewSet):
 
 class TestResultViewSet(BaseModelViewSet):
     queryset = TestResult.objects.select_related('task', 'parameter')
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'testing'
+    lims_action_map = {'calculate': 'edit'}
     filterset_class = TestResultFilter
 
     def get_serializer_class(self) -> type:
@@ -231,6 +241,6 @@ class TestResultViewSet(BaseModelViewSet):
 class JudgmentRuleViewSet(BaseModelViewSet):
     queryset = JudgmentRule.objects.select_related('test_parameter')
     serializer_class = JudgmentRuleSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'testing'
     filterset_fields = ['test_parameter']
     search_fields = ['grade']

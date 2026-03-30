@@ -2,7 +2,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, Plus } from '@element-plus/icons-vue'
-import { getAuditList, createAudit } from '@/api/quality'
+import { getAuditList, createAudit, getAudit } from '@/api/quality'
+import { getUserList } from '@/api/system'
 
 const loading = ref(false)
 const tableData = ref<any[]>([])
@@ -18,19 +19,35 @@ const statusOptions = [
 ]
 
 const typeOptions = [
-  { label: '内部审核', value: 'internal' },
-  { label: '管理层审核', value: 'management' },
+  { label: '例行审核', value: 'scheduled' },
   { label: '专项审核', value: 'special' },
 ]
 
+const userOptions = ref<{ id: number; username: string }[]>([])
+
 const dialogVisible = ref(false)
 const formData = reactive({
-  audit_no: '', topic: '', type: 'internal', planned_date: '',
-  lead_auditor: '', scope: '', status: 'planned', remark: '',
+  audit_no: '',
+  title: '',
+  audit_type: 'scheduled',
+  planned_date: '',
+  lead_auditor: null as number | null,
+  scope: '',
+  status: 'planned',
 })
 
 const detailVisible = ref(false)
 const currentAudit = ref<any>(null)
+const detailLoading = ref(false)
+
+async function loadUsers() {
+  const res: any = await getUserList({ page_size: 500 })
+  const rows = res.results ?? res.list ?? []
+  userOptions.value = rows.map((u: any) => ({
+    id: u.id,
+    username: u.username || u.first_name || String(u.id),
+  }))
+}
 
 async function fetchList() {
   loading.value = true
@@ -55,22 +72,61 @@ function handleReset() {
 
 function openCreate() {
   Object.assign(formData, {
-    audit_no: '', topic: '', type: 'internal', planned_date: '',
-    lead_auditor: '', scope: '', status: 'planned', remark: '',
+    audit_no: '',
+    title: '',
+    audit_type: 'scheduled',
+    planned_date: '',
+    lead_auditor: null,
+    scope: '',
+    status: 'planned',
   })
   dialogVisible.value = true
 }
 
 async function handleSubmit() {
-  await createAudit(formData)
+  if (!formData.title?.trim()) {
+    ElMessage.warning('请填写审核主题')
+    return
+  }
+  if (!formData.audit_type) {
+    ElMessage.warning('请选择审核类型')
+    return
+  }
+  if (!formData.planned_date) {
+    ElMessage.warning('请选择计划日期')
+    return
+  }
+  if (!formData.scope?.trim()) {
+    ElMessage.warning('请填写审核范围')
+    return
+  }
+  if (!formData.lead_auditor) {
+    ElMessage.warning('请选择审核组长')
+    return
+  }
+  await createAudit({
+    audit_no: formData.audit_no || undefined,
+    title: formData.title,
+    audit_type: formData.audit_type,
+    planned_date: formData.planned_date,
+    lead_auditor: formData.lead_auditor,
+    scope: formData.scope,
+    status: formData.status,
+  })
   ElMessage.success('创建成功')
   dialogVisible.value = false
   fetchList()
 }
 
-function showDetail(row: any) {
-  currentAudit.value = row
+async function showDetail(row: any) {
   detailVisible.value = true
+  detailLoading.value = true
+  currentAudit.value = null
+  try {
+    currentAudit.value = (await getAudit(row.id)) as any
+  } finally {
+    detailLoading.value = false
+  }
 }
 
 function statusTagType(status: string) {
@@ -88,7 +144,10 @@ function typeLabel(type: string) {
   return typeOptions.find(o => o.value === type)?.label ?? type
 }
 
-onMounted(fetchList)
+onMounted(() => {
+  fetchList()
+  loadUsers()
+})
 </script>
 
 <template>
@@ -120,9 +179,9 @@ onMounted(fetchList)
 
       <el-table v-loading="loading" :data="tableData" stripe border @row-click="showDetail">
         <el-table-column prop="audit_no" label="审核编号" width="150" />
-        <el-table-column prop="topic" label="主题" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="title" label="主题" min-width="180" show-overflow-tooltip />
         <el-table-column label="类型" width="110">
-          <template #default="{ row }">{{ typeLabel(row.type) }}</template>
+          <template #default="{ row }">{{ typeLabel(row.audit_type) }}</template>
         </el-table-column>
         <el-table-column prop="planned_date" label="计划日期" width="120" />
         <el-table-column label="状态" width="100" align="center">
@@ -130,7 +189,7 @@ onMounted(fetchList)
             <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="lead_auditor" label="审核组长" width="100" />
+        <el-table-column prop="lead_auditor_name" label="审核组长" width="120" />
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click.stop="showDetail(row)">查看</el-button>
@@ -152,22 +211,21 @@ onMounted(fetchList)
       />
     </el-card>
 
-    <!-- Create Dialog -->
     <el-dialog v-model="dialogVisible" title="新增内部审核" width="600px" destroy-on-close>
       <el-form :model="formData" label-width="90px">
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="审核编号"><el-input v-model="formData.audit_no" /></el-form-item>
+            <el-form-item label="审核编号"><el-input v-model="formData.audit_no" placeholder="可留空由后台生成" /></el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="类型">
-              <el-select v-model="formData.type" style="width: 100%">
+              <el-select v-model="formData.audit_type" style="width: 100%">
                 <el-option v-for="t in typeOptions" :key="t.value" :label="t.label" :value="t.value" />
               </el-select>
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="审核主题"><el-input v-model="formData.topic" /></el-form-item>
+        <el-form-item label="审核主题" required><el-input v-model="formData.title" /></el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="计划日期">
@@ -175,11 +233,19 @@ onMounted(fetchList)
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="审核组长"><el-input v-model="formData.lead_auditor" /></el-form-item>
+            <el-form-item label="审核组长">
+              <el-select v-model="formData.lead_auditor" placeholder="选择用户" filterable style="width: 100%">
+                <el-option v-for="u in userOptions" :key="u.id" :label="u.username" :value="u.id" />
+              </el-select>
+            </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="审核范围"><el-input v-model="formData.scope" type="textarea" :rows="2" /></el-form-item>
-        <el-form-item label="备注"><el-input v-model="formData.remark" type="textarea" :rows="2" /></el-form-item>
+        <el-form-item label="审核范围" required><el-input v-model="formData.scope" type="textarea" :rows="2" /></el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="formData.status" style="width: 200px">
+            <el-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -187,15 +253,15 @@ onMounted(fetchList)
       </template>
     </el-dialog>
 
-    <!-- Detail Dialog -->
     <el-dialog v-model="detailVisible" title="审核详情" width="700px" destroy-on-close>
-      <template v-if="currentAudit">
+      <el-skeleton v-if="detailLoading" rows="6" animated />
+      <template v-else-if="currentAudit">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="审核编号">{{ currentAudit.audit_no }}</el-descriptions-item>
-          <el-descriptions-item label="类型">{{ typeLabel(currentAudit.type) }}</el-descriptions-item>
-          <el-descriptions-item label="主题" :span="2">{{ currentAudit.topic }}</el-descriptions-item>
+          <el-descriptions-item label="类型">{{ typeLabel(currentAudit.audit_type) }}</el-descriptions-item>
+          <el-descriptions-item label="主题" :span="2">{{ currentAudit.title }}</el-descriptions-item>
           <el-descriptions-item label="计划日期">{{ currentAudit.planned_date }}</el-descriptions-item>
-          <el-descriptions-item label="审核组长">{{ currentAudit.lead_auditor }}</el-descriptions-item>
+          <el-descriptions-item label="审核组长">{{ currentAudit.lead_auditor_name || '—' }}</el-descriptions-item>
           <el-descriptions-item label="状态">
             <el-tag :type="statusTagType(currentAudit.status)" size="small">{{ statusLabel(currentAudit.status) }}</el-tag>
           </el-descriptions-item>
@@ -203,14 +269,12 @@ onMounted(fetchList)
         </el-descriptions>
 
         <div style="margin-top: 20px">
-          <h4 style="margin-bottom: 12px">发现问题及纠正措施</h4>
+          <h4 style="margin-bottom: 12px">审核发现</h4>
           <el-table :data="currentAudit.findings ?? []" stripe border>
+            <el-table-column prop="finding_type_display" label="类型" width="120" />
             <el-table-column prop="clause" label="条款" width="120" />
-            <el-table-column prop="description" label="问题描述" min-width="200" show-overflow-tooltip />
-            <el-table-column prop="severity" label="严重程度" width="100" />
-            <el-table-column prop="corrective_action" label="纠正措施" min-width="200" show-overflow-tooltip />
-            <el-table-column prop="due_date" label="整改期限" width="120" />
-            <el-table-column prop="status" label="状态" width="80" />
+            <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="department" label="责任部门" width="120" />
           </el-table>
         </div>
       </template>

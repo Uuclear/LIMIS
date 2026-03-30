@@ -2,17 +2,20 @@ from __future__ import annotations
 
 from typing import Any
 
-from rest_framework import status
+from rest_framework import permissions, status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from .pagination import StandardPagination
+from .permissions import LimsModulePermission
 from .serializers import CreatedByMixin
 
 
 class BaseModelViewSet(CreatedByMixin, ModelViewSet):
     pagination_class = StandardPagination
+    permission_classes = [permissions.IsAuthenticated, LimsModulePermission]
+    lims_module: str | None = None
 
     def get_queryset(self):
         qs = super().get_queryset()

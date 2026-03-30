@@ -33,6 +33,9 @@ class Standard(BaseModel):
         'self', null=True, blank=True,
         on_delete=models.SET_NULL, verbose_name='替代标准',
     )
+    replaced_case = models.CharField(
+        max_length=200, blank=True, verbose_name='替代情况',
+    )
     attachment = models.FileField(
         upload_to='standards/', blank=True, null=True,
         verbose_name='标准文件',

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from rest_framework import permissions, status
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -29,7 +29,7 @@ from .serializers import (
 
 class EquipmentViewSet(BaseModelViewSet):
     queryset = Equipment.objects.all()
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'equipment'
     filterset_class = EquipmentFilter
     search_fields = ['name', 'manage_no', 'model_no', 'serial_no']
     ordering_fields = ['manage_no', 'name', 'created_at', 'next_calibration_date']
@@ -62,7 +62,7 @@ class EquipmentViewSet(BaseModelViewSet):
 
 class CalibrationViewSet(BaseModelViewSet):
     serializer_class = CalibrationSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'equipment'
 
     def get_queryset(self):
         return Calibration.objects.filter(
@@ -85,7 +85,7 @@ class CalibrationViewSet(BaseModelViewSet):
 
 class PeriodCheckViewSet(BaseModelViewSet):
     serializer_class = PeriodCheckSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'equipment'
 
     def get_queryset(self):
         return PeriodCheck.objects.filter(
@@ -104,7 +104,7 @@ class PeriodCheckViewSet(BaseModelViewSet):
 
 class MaintenanceViewSet(BaseModelViewSet):
     serializer_class = MaintenanceSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'equipment'
 
     def get_queryset(self):
         return Maintenance.objects.filter(
@@ -123,7 +123,7 @@ class MaintenanceViewSet(BaseModelViewSet):
 
 class EquipUsageLogViewSet(BaseModelViewSet):
     serializer_class = EquipUsageLogSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'equipment'
     http_method_names = ['get', 'head', 'options']
 
     def get_queryset(self):

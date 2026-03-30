@@ -6,13 +6,13 @@ import { use } from 'echarts/core'
 import { LineChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
-import { getMonitoringPoints, getRealtimeData, getHistoryData, getAlarms, resolveAlarm } from '@/api/environment'
+import { getMonitoringPoints, getLatestRecords, getAlarms, resolveAlarm } from '@/api/environment'
 
 use([LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer])
 
 const points = ref<any[]>([])
 const realtimeData = ref<any[]>([])
-const historyData = ref<any>({})
+const historyData = ref<any>({ times: [], temperatures: [], humidities: [] })
 const alarmList = ref<any[]>([])
 const selectedPoint = ref<number | null>(null)
 let timer: ReturnType<typeof setInterval> | null = null
@@ -20,7 +20,12 @@ let timer: ReturnType<typeof setInterval> | null = null
 async function fetchPoints() {
   try {
     const res: any = await getMonitoringPoints()
-    points.value = res.results ?? res.list ?? res ?? []
+    const list = res.results ?? res.list ?? res ?? []
+    points.value = (list || []).map((p: any) => ({
+      ...p,
+      temp_range: p.temp_min != null && p.temp_max != null ? `${p.temp_min}~${p.temp_max}` : '',
+      humid_range: p.humidity_min != null && p.humidity_max != null ? `${p.humidity_min}~${p.humidity_max}` : '',
+    }))
     if (points.value.length && !selectedPoint.value) {
       selectedPoint.value = points.value[0].id
     }
@@ -28,24 +33,51 @@ async function fetchPoints() {
 }
 
 async function fetchRealtime() {
+  if (!points.value.length) return
   try {
-    const res: any = await getRealtimeData()
-    realtimeData.value = res.results ?? res.list ?? res ?? []
+    const list = await Promise.all(
+      points.value.map(async (p: any) => {
+        const recsRes: any = await getLatestRecords(p.id, { limit: 1 })
+        const recs: any[] = Array.isArray(recsRes) ? recsRes : []
+        const latest = recs.length ? recs[0] : null
+        return {
+          point_id: p.id,
+          temperature: latest?.temperature ?? null,
+          humidity: latest?.humidity ?? null,
+          recorded_at: latest?.recorded_at ?? null,
+          is_alarm: latest?.is_alarm ?? false,
+        }
+      }),
+    )
+    realtimeData.value = list
   } catch { /* ignore */ }
 }
 
 async function fetchHistory() {
   if (!selectedPoint.value) return
   try {
-    const res: any = await getHistoryData({ point_id: selectedPoint.value, hours: 24 })
-    historyData.value = res ?? {}
+    const recsRes: any = await getLatestRecords(selectedPoint.value, { limit: 24 })
+    const recs: any[] = Array.isArray(recsRes) ? recsRes : []
+    historyData.value = {
+      times: (recs ?? []).map((r) => r.recorded_at ?? ''),
+      temperatures: (recs ?? []).map((r) => r.temperature ?? null),
+      humidities: (recs ?? []).map((r) => r.humidity ?? null),
+    }
   } catch { /* ignore */ }
 }
 
 async function fetchAlarms() {
   try {
-    const res: any = await getAlarms({ status: 'active' })
-    alarmList.value = res.results ?? res.list ?? res ?? []
+    const res: any = await getAlarms({ is_resolved: false })
+    const list = res.results ?? res.list ?? res ?? []
+    alarmList.value = (list || []).map((a: any) => ({
+      ...a,
+      type: a.alarm_type_display || a.alarm_type || '',
+      message: a.alarm_type_display ? `${a.alarm_type_display}告警` : '告警',
+      value: a.alarm_value ?? '',
+      threshold: a.threshold ?? '',
+      created_at: a.alarm_time ?? a.created_at ?? '',
+    }))
   } catch { /* ignore */ }
 }
 
@@ -57,13 +89,13 @@ async function handleResolve(alarm: any) {
 
 function pointStatus(data: any) {
   if (!data) return 'info'
-  if (data.alarm) return 'danger'
+  if (data.is_alarm) return 'danger'
   return 'success'
 }
 
 function pointStatusText(data: any) {
   if (!data) return '离线'
-  if (data.alarm) return '异常'
+  if (data.is_alarm) return '异常'
   return '正常'
 }
 

@@ -12,6 +12,8 @@ from .models import (
     Training,
 )
 
+from apps.system.models import User
+
 
 class CertificateSerializer(BaseModelSerializer):
     class Meta:
@@ -123,3 +125,90 @@ class StaffProfileDetailSerializer(BaseModelSerializer):
 
     def get_user_name(self, obj: StaffProfile) -> str:
         return obj.user.get_full_name() or obj.user.username
+
+
+class StaffProfileCreateSerializer(serializers.Serializer):
+    """
+    兼容前端当前“新增人员”表单字段（staff_no/name/department/title/education/phone/email/entry_date 等）。
+    后端真正的数据结构是 User + StaffProfile，这里做自动映射与创建。
+    """
+
+    # 前端会带上 id，这里允许忽略
+    id = serializers.IntegerField(required=False)
+
+    # 这些字段只用于写入/创建；响应里不需要序列化到 StaffProfile 实例上
+    staff_no = serializers.CharField(required=True, write_only=True)
+    name = serializers.CharField(required=True, write_only=True)
+    gender = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    department = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    title = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    education = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    phone = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    email = serializers.EmailField(required=False, allow_blank=True, write_only=True)
+    entry_date = serializers.DateField(required=False, allow_null=True, write_only=True)
+
+    def create(self, validated_data: dict) -> StaffProfile:
+        staff_no = validated_data['staff_no'].strip()
+        full_name = validated_data['name'].strip()
+
+        # 默认密码：仅用于演示/可登录；生产环境建议改为可配置或让用户先设定密码
+        default_password = 'Limis@123456'
+
+        user, _created = User.objects.get_or_create(
+            username=staff_no,
+            defaults={
+                'first_name': full_name,
+                'last_name': '',
+                'department': validated_data.get('department', ''),
+                'title': validated_data.get('title', ''),
+                'phone': validated_data.get('phone', ''),
+                'email': validated_data.get('email', ''),
+                'is_active': True,
+            },
+        )
+        # 若已存在则也同步一份基础信息（演示用）
+        user.first_name = full_name
+        user.department = validated_data.get('department', '') or user.department
+        user.title = validated_data.get('title', '') or user.title
+        user.phone = validated_data.get('phone', '') or user.phone
+        user.email = validated_data.get('email', '') or user.email
+        user.set_password(default_password)
+        user.save()
+
+        profile, _ = StaffProfile.objects.get_or_create(
+            user=user,
+            defaults={
+                'employee_no': staff_no,
+                'education': validated_data.get('education', ''),
+                'hire_date': validated_data.get('entry_date', None),
+                'major': '',
+            },
+        )
+        profile.employee_no = staff_no
+        profile.education = validated_data.get('education', '') or profile.education
+        profile.hire_date = validated_data.get('entry_date', None)
+        profile.save()
+        return profile
+
+    def update(self, instance: StaffProfile, validated_data: dict) -> StaffProfile:
+        """
+        兼容前端“编辑人员”PUT：同一套字段映射到 User + StaffProfile。
+        """
+        staff_no = validated_data['staff_no'].strip()
+        full_name = validated_data['name'].strip()
+
+        user = instance.user
+        # staff_no -> user.username / profile.employee_no
+        user.username = staff_no
+        user.first_name = full_name
+        user.department = validated_data.get('department', '') or user.department
+        user.title = validated_data.get('title', '') or user.title
+        user.phone = validated_data.get('phone', '') or user.phone
+        user.email = validated_data.get('email', '') or user.email
+        user.save()
+
+        instance.employee_no = staff_no
+        instance.education = validated_data.get('education', '') or instance.education
+        instance.hire_date = validated_data.get('entry_date', None)
+        instance.save()
+        return instance

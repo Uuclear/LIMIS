@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from rest_framework import permissions, status
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -24,7 +24,11 @@ class CommissionViewSet(BaseModelViewSet):
     queryset = Commission.objects.select_related(
         'project', 'sub_project', 'witness', 'reviewer', 'created_by',
     ).prefetch_related('items')
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'commission'
+    lims_action_map = {
+        'submit': 'edit',
+        'review': 'approve',
+    }
     filterset_class = CommissionFilter
     search_fields = ['commission_no', 'construction_part']
     ordering_fields = ['commission_date', 'created_at', 'commission_no']
@@ -75,7 +79,7 @@ class CommissionViewSet(BaseModelViewSet):
 
 class CommissionItemViewSet(BaseModelViewSet):
     serializer_class = CommissionItemSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'commission'
 
     def get_queryset(self):
         return CommissionItem.objects.filter(
@@ -96,7 +100,7 @@ class CommissionItemViewSet(BaseModelViewSet):
 
 class ContractReviewViewSet(BaseModelViewSet):
     serializer_class = ContractReviewSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'commission'
     http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
 
     def get_queryset(self):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from django.db import models, transaction
-from rest_framework import permissions, serializers, status
+from rest_framework import serializers, status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -21,14 +21,14 @@ from .serializers import (
 class SupplierViewSet(BaseModelViewSet):
     queryset = Supplier.objects.all()
     serializer_class = SupplierSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'consumables'
     filterset_fields = ['is_qualified']
     search_fields = ['name', 'contact_person']
 
 
 class ConsumableViewSet(BaseModelViewSet):
     queryset = Consumable.objects.select_related('supplier').all()
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'consumables'
     filterset_fields = ['category', 'supplier']
     search_fields = ['name', 'code', 'specification']
 
@@ -51,7 +51,7 @@ class ConsumableInViewSet(BaseModelViewSet):
         'consumable', 'operator',
     ).all()
     serializer_class = ConsumableInSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'consumables'
     filterset_fields = ['consumable']
 
     def perform_create(self, serializer):
@@ -67,7 +67,7 @@ class ConsumableOutViewSet(BaseModelViewSet):
         'consumable', 'recipient',
     ).all()
     serializer_class = ConsumableOutSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'consumables'
     filterset_fields = ['consumable', 'recipient']
 
     def perform_create(self, serializer):

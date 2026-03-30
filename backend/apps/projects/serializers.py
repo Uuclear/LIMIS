@@ -24,7 +24,10 @@ class OrganizationSerializer(BaseModelSerializer):
             'contact_person', 'contact_phone',
             'created_at', 'updated_at', 'created_by', 'created_by_name',
         ]
-        read_only_fields = ('id', 'created_at', 'updated_at', 'created_by')
+        # project 由 URL 的 project_pk 注入；前端无需提交
+        read_only_fields = (
+            'id', 'project', 'created_at', 'updated_at', 'created_by',
+        )
 
 
 # ───────────────────── SubProject ─────────────────────
@@ -40,7 +43,10 @@ class SubProjectSerializer(BaseModelSerializer):
             'children',
             'created_at', 'updated_at', 'created_by', 'created_by_name',
         ]
-        read_only_fields = ('id', 'created_at', 'updated_at', 'created_by')
+        # project 由 URL 的 project_pk 注入；前端无需提交
+        read_only_fields = (
+            'id', 'project', 'created_at', 'updated_at', 'created_by',
+        )
 
     def get_children(self, obj) -> list[dict]:
         children = obj.children.filter(is_deleted=False)
@@ -58,7 +64,10 @@ class ContractSerializer(BaseModelSerializer):
             'sign_date', 'start_date', 'end_date', 'scope', 'attachment',
             'created_at', 'updated_at', 'created_by', 'created_by_name',
         ]
-        read_only_fields = ('id', 'created_at', 'updated_at', 'created_by')
+        # project 由 URL 的 project_pk 注入；前端无需提交
+        read_only_fields = (
+            'id', 'project', 'created_at', 'updated_at', 'created_by',
+        )
 
 
 # ───────────────────── Witness ─────────────────────
@@ -76,7 +85,10 @@ class WitnessSerializer(BaseModelSerializer):
             'organization_name', 'phone', 'certificate_no', 'is_active',
             'created_at', 'updated_at', 'created_by', 'created_by_name',
         ]
-        read_only_fields = ('id', 'created_at', 'updated_at', 'created_by')
+        # project 由 URL 的 project_pk 注入；前端无需提交
+        read_only_fields = (
+            'id', 'project', 'created_at', 'updated_at', 'created_by',
+        )
 
 
 # ───────────────────── Project ─────────────────────

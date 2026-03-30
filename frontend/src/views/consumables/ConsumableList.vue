@@ -4,14 +4,14 @@ import { ElMessage } from 'element-plus'
 import { Search, Refresh, Plus, WarningFilled } from '@element-plus/icons-vue'
 import {
   getConsumableList, createConsumable, consumableIn, consumableOut,
-  getLowStock, getExpiring,
+  getLowStock,
 } from '@/api/consumables'
 
 const loading = ref(false)
 const tableData = ref<any[]>([])
 const total = ref(0)
 const lowStockList = ref<any[]>([])
-const expiringList = ref<any[]>([])
+// 后端目前仅实现了 low-stock，无 expiring 接口
 
 const query = reactive({ page: 1, page_size: 20, keyword: '' })
 
@@ -41,9 +41,8 @@ async function fetchList() {
 
 async function fetchAlerts() {
   try {
-    const [low, exp]: any[] = await Promise.all([getLowStock(), getExpiring()])
-    lowStockList.value = low?.results ?? low?.list ?? low ?? []
-    expiringList.value = exp?.results ?? exp?.list ?? exp ?? []
+    const lowRes: any = await getLowStock()
+    lowStockList.value = lowRes?.results ?? lowRes?.list ?? lowRes ?? []
   } catch { /* ignore */ }
 }
 
@@ -66,7 +65,20 @@ function openCreate() {
 }
 
 async function handleCreateSubmit() {
-  await createConsumable(createForm)
+  // 后端 Consumable 模型字段为 name/code/specification/unit/safety_stock 等
+  // 前端表单存在 spec/stock/supplier(字符串)/remark 等差异，这里做一次 payload 映射，避免 422/400
+  const payload: Record<string, unknown> = {
+    code: createForm.code,
+    name: createForm.name,
+    specification: createForm.spec || '',
+    unit: createForm.unit,
+    category: createForm.category || '',
+    manufacturer: '',
+    safety_stock: createForm.safety_stock ?? 10,
+    expiry_date: createForm.expiry_date || null,
+    storage_location: '',
+  }
+  await createConsumable(payload)
   ElMessage.success('创建成功')
   createVisible.value = false
   fetchList()
@@ -102,20 +114,12 @@ onMounted(() => {
 
 <template>
   <div class="page-container">
-    <el-row :gutter="16" v-if="lowStockList.length || expiringList.length" style="margin-bottom: 16px">
+    <el-row :gutter="16" v-if="lowStockList.length" style="margin-bottom: 16px">
       <el-col :span="12" v-if="lowStockList.length">
         <el-alert type="warning" :closable="false" show-icon>
           <template #title>
             <el-icon><WarningFilled /></el-icon>
             <strong>{{ lowStockList.length }}</strong> 种耗材库存不足
-          </template>
-        </el-alert>
-      </el-col>
-      <el-col :span="12" v-if="expiringList.length">
-        <el-alert type="error" :closable="false" show-icon>
-          <template #title>
-            <el-icon><WarningFilled /></el-icon>
-            <strong>{{ expiringList.length }}</strong> 种耗材即将过期
           </template>
         </el-alert>
       </el-col>

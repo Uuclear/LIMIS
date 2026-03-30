@@ -26,13 +26,14 @@ class RoleSerializer(serializers.ModelSerializer):
 
 
 class RoleCreateUpdateSerializer(serializers.ModelSerializer):
-    permissions = serializers.PrimaryKeyRelatedField(
+    permission_ids = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Permission.objects.all(), required=False,
+        source='permissions',
     )
 
     class Meta:
         model = Role
-        fields = ['id', 'name', 'code', 'description', 'permissions']
+        fields = ['id', 'name', 'code', 'description', 'permission_ids']
 
     def create(self, validated_data: dict) -> Role:
         permissions = validated_data.pop('permissions', [])

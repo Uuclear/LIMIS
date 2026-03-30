@@ -1,23 +1,16 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getRoleList, createRole, updateRole, deleteRole, getPermissionList } from '@/api/system'
+import { getRoleList, createRole, updateRole, deleteRole, getPermissionGrouped } from '@/api/system'
 
 interface RoleRow {
   id: number
   name: string
   code: string
   description: string
-  user_count: number
-  permissions: number[]
-}
-
-interface PermNode {
-  id: number
-  name: string
-  code: string
-  children?: PermNode[]
+  user_count?: number
+  permissions?: { id: number }[]
 }
 
 const loading = ref(false)
@@ -28,15 +21,38 @@ const query = reactive({ page: 1, page_size: 20 })
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref()
-const treeRef = ref()
-const permTree = ref<PermNode[]>([])
 
-const form = reactive({ id: 0, name: '', code: '', description: '', permission_ids: [] as number[] })
+const form = reactive({
+  id: 0,
+  name: '',
+  code: '',
+  description: '',
+  permission_ids: [] as number[],
+})
 
 const rules = {
   name: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
   code: [{ required: true, message: '请输入角色编码', trigger: 'blur' }],
 }
+
+const grouped = ref<Record<string, any[]>>({})
+
+const moduleTitle: Record<string, string> = {
+  system: '系统管理',
+  project: '工程项目',
+  commission: '委托受理',
+  testing: '检测管理',
+  report: '报告管理',
+  quality: '质量管理',
+  equipment: '设备管理',
+  consumables: '耗材管理',
+  staff: '人员管理',
+  standards: '标准规范',
+  environment: '环境监控',
+  sample: '样品管理',
+}
+
+const moduleKeys = computed(() => Object.keys(grouped.value).sort())
 
 async function fetchList() {
   loading.value = true
@@ -50,52 +66,48 @@ async function fetchList() {
 }
 
 async function fetchPermissions() {
-  const res: any = await getPermissionList({ page_size: 500 })
-  permTree.value = buildTree(res.results ?? res.list ?? res ?? [])
-}
-
-function buildTree(list: any[]): PermNode[] {
-  const map = new Map<number, PermNode>()
-  const roots: PermNode[] = []
-  for (const item of list) {
-    map.set(item.id, { ...item, children: [] })
-  }
-  for (const item of list) {
-    const node = map.get(item.id)!
-    if (item.parent_id && map.has(item.parent_id)) {
-      map.get(item.parent_id)!.children!.push(node)
-    } else {
-      roots.push(node)
-    }
-  }
-  return roots
+  const res: any = await getPermissionGrouped()
+  grouped.value = res && typeof res === 'object' ? res : {}
 }
 
 function openCreate() {
   dialogTitle.value = '新增角色'
-  Object.assign(form, { id: 0, name: '', code: '', description: '', permission_ids: [] })
+  Object.assign(form, {
+    id: 0,
+    name: '',
+    code: '',
+    description: '',
+    permission_ids: [],
+  })
   dialogVisible.value = true
-  setTimeout(() => treeRef.value?.setCheckedKeys([]), 0)
 }
 
 function openEdit(row: RoleRow) {
   dialogTitle.value = '编辑角色'
-  Object.assign(form, { ...row, permission_ids: row.permissions ?? [] })
+  const ids = (row.permissions ?? []).map((p) => p.id)
+  Object.assign(form, {
+    id: row.id,
+    name: row.name,
+    code: row.code,
+    description: row.description ?? '',
+    permission_ids: ids,
+  })
   dialogVisible.value = true
-  setTimeout(() => treeRef.value?.setCheckedKeys(form.permission_ids), 0)
 }
 
 async function handleSubmit() {
   await formRef.value?.validate()
-  const checkedKeys = treeRef.value?.getCheckedKeys(false) ?? []
-  const halfKeys = treeRef.value?.getHalfCheckedKeys() ?? []
-  const data = { ...form, permission_ids: [...checkedKeys, ...halfKeys] }
-
+  const payload = {
+    name: form.name,
+    code: form.code,
+    description: form.description,
+    permission_ids: form.permission_ids,
+  }
   if (form.id) {
-    await updateRole(form.id, data)
+    await updateRole(form.id, payload)
     ElMessage.success('更新成功')
   } else {
-    await createRole(data)
+    await createRole(payload)
     ElMessage.success('创建成功')
   }
   dialogVisible.value = false
@@ -109,7 +121,10 @@ async function handleDelete(row: RoleRow) {
   fetchList()
 }
 
-onMounted(() => { fetchList(); fetchPermissions() })
+onMounted(() => {
+  fetchList()
+  fetchPermissions()
+})
 </script>
 
 <template>
@@ -149,7 +164,7 @@ onMounted(() => { fetchList(); fetchPermissions() })
       />
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px" destroy-on-close>
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="720px" destroy-on-close>
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
         <el-form-item label="角色名称" prop="name">
           <el-input v-model="form.name" />
@@ -161,15 +176,25 @@ onMounted(() => { fetchList(); fetchPermissions() })
           <el-input v-model="form.description" type="textarea" :rows="2" />
         </el-form-item>
         <el-form-item label="权限">
-          <el-tree
-            ref="treeRef"
-            :data="permTree"
-            show-checkbox
-            node-key="id"
-            :props="{ label: 'name', children: 'children' }"
-            default-expand-all
-            style="width: 100%; border: 1px solid var(--el-border-color); border-radius: 4px; padding: 8px"
-          />
+          <el-scrollbar max-height="360px">
+            <el-collapse>
+              <el-collapse-item
+                v-for="mod in moduleKeys"
+                :key="mod"
+                :title="moduleTitle[mod] || mod"
+              >
+                <el-checkbox-group v-model="form.permission_ids" class="perm-group">
+                  <el-checkbox
+                    v-for="p in grouped[mod]"
+                    :key="p.id"
+                    :label="p.id"
+                  >
+                    {{ p.name }}（{{ p.code }}）
+                  </el-checkbox>
+                </el-checkbox-group>
+              </el-collapse-item>
+            </el-collapse>
+          </el-scrollbar>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -179,3 +204,11 @@ onMounted(() => { fetchList(); fetchPermissions() })
     </el-dialog>
   </div>
 </template>
+
+<style scoped>
+.perm-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+</style>

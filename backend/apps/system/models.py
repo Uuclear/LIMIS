@@ -24,6 +24,12 @@ class User(AbstractUser):
     def __str__(self) -> str:
         return self.get_full_name() or self.username
 
+    def has_lims_permission(self, module: str, action: str) -> bool:
+        """与 Permission 表（module + action）对齐的权限判断。"""
+        from . import services
+
+        return services.has_permission(self, module, action)
+
 
 class Role(BaseModel):
     ADMIN = 'admin'

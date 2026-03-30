@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import timedelta
 
 from django.utils import timezone
-from rest_framework import permissions
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -29,17 +28,20 @@ from .serializers import (
     CompetencyEvalSerializer,
     StaffProfileDetailSerializer,
     StaffProfileListSerializer,
+    StaffProfileCreateSerializer,
     TrainingSerializer,
 )
 
 
 class StaffProfileViewSet(BaseModelViewSet):
     queryset = StaffProfile.objects.select_related('user').all()
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'staff'
     filterset_class = StaffProfileFilter
     search_fields = ['employee_no', 'user__first_name', 'user__last_name']
 
     def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return StaffProfileCreateSerializer
         if self.action == 'retrieve':
             return StaffProfileDetailSerializer
         return StaffProfileListSerializer
@@ -59,7 +61,7 @@ class StaffProfileViewSet(BaseModelViewSet):
 class CertificateViewSet(BaseModelViewSet):
     queryset = Certificate.objects.select_related('staff').all()
     serializer_class = CertificateSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'staff'
     filterset_class = CertificateFilter
     search_fields = ['cert_type', 'cert_no']
 
@@ -69,14 +71,14 @@ class AuthorizationViewSet(BaseModelViewSet):
         'staff', 'test_category',
     ).all()
     serializer_class = AuthorizationSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'staff'
     filterset_fields = ['staff', 'test_category', 'is_active']
 
 
 class TrainingViewSet(BaseModelViewSet):
     queryset = Training.objects.select_related('staff').all()
     serializer_class = TrainingSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'staff'
     filterset_class = TrainingFilter
     search_fields = ['title', 'trainer']
 
@@ -86,5 +88,5 @@ class CompetencyEvalViewSet(BaseModelViewSet):
         'staff', 'evaluator',
     ).all()
     serializer_class = CompetencyEvalSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'staff'
     filterset_class = CompetencyEvalFilter

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from rest_framework import permissions
+from django.utils import timezone
 
 from core.views import BaseModelViewSet
 
@@ -43,7 +43,7 @@ from .serializers import (
 
 class InternalAuditViewSet(BaseModelViewSet):
     queryset = InternalAudit.objects.select_related('lead_auditor').all()
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'quality'
     filterset_class = InternalAuditFilter
     search_fields = ['audit_no', 'title']
 
@@ -52,11 +52,17 @@ class InternalAuditViewSet(BaseModelViewSet):
             return InternalAuditDetailSerializer
         return InternalAuditListSerializer
 
+    def perform_create(self, serializer):
+        audit_no = (serializer.validated_data.get('audit_no') or '').strip()
+        if not audit_no:
+            audit_no = f"IA-{timezone.now().strftime('%Y%m%d%H%M%S')}"
+        serializer.save(audit_no=audit_no)
+
 
 class AuditFindingViewSet(BaseModelViewSet):
     queryset = AuditFinding.objects.select_related('audit').all()
     serializer_class = AuditFindingSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'quality'
     filterset_fields = ['audit', 'finding_type', 'department']
 
 
@@ -65,7 +71,7 @@ class CorrectiveActionViewSet(BaseModelViewSet):
         'finding', 'responsible_person',
     ).all()
     serializer_class = CorrectiveActionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'quality'
     filterset_fields = ['finding', 'status']
 
 
@@ -74,7 +80,7 @@ class CorrectiveActionViewSet(BaseModelViewSet):
 
 class ManagementReviewViewSet(BaseModelViewSet):
     queryset = ManagementReview.objects.select_related('chairperson').all()
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'quality'
     filterset_class = ManagementReviewFilter
     search_fields = ['review_no', 'title']
 
@@ -83,13 +89,19 @@ class ManagementReviewViewSet(BaseModelViewSet):
             return ManagementReviewDetailSerializer
         return ManagementReviewListSerializer
 
+    def perform_create(self, serializer):
+        review_no = (serializer.validated_data.get('review_no') or '').strip()
+        if not review_no:
+            review_no = f"MR-{timezone.now().strftime('%Y%m%d%H%M%S')}"
+        serializer.save(review_no=review_no)
+
 
 class ReviewDecisionViewSet(BaseModelViewSet):
     queryset = ReviewDecision.objects.select_related(
         'review', 'responsible_person',
     ).all()
     serializer_class = ReviewDecisionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'quality'
     filterset_fields = ['review', 'status']
 
 
@@ -101,7 +113,7 @@ class NonConformityViewSet(BaseModelViewSet):
         'responsible_person',
     ).all()
     serializer_class = NonConformitySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'quality'
     filterset_class = NonConformityFilter
     search_fields = ['nc_no', 'description']
 
@@ -109,7 +121,7 @@ class NonConformityViewSet(BaseModelViewSet):
 class ComplaintViewSet(BaseModelViewSet):
     queryset = Complaint.objects.select_related('handler').all()
     serializer_class = ComplaintSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'quality'
     filterset_class = ComplaintFilter
     search_fields = ['complaint_no', 'complainant', 'content']
 
@@ -120,7 +132,7 @@ class ComplaintViewSet(BaseModelViewSet):
 class ProficiencyTestViewSet(BaseModelViewSet):
     queryset = ProficiencyTest.objects.all()
     serializer_class = ProficiencyTestSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'quality'
     filterset_class = ProficiencyTestFilter
     search_fields = ['name', 'test_item', 'organizer']
 
@@ -128,6 +140,6 @@ class ProficiencyTestViewSet(BaseModelViewSet):
 class QualitySupervisionViewSet(BaseModelViewSet):
     queryset = QualitySupervision.objects.select_related('supervisor').all()
     serializer_class = QualitySupervisionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'quality'
     filterset_class = QualitySupervisionFilter
     search_fields = ['plan_no']

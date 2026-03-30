@@ -93,11 +93,35 @@ function openEdit(row: any) {
 }
 
 async function handleSubmit() {
+  // 后端 Equipment 字段为 manage_no/model_no/next_calibration_date 等；
+  // 前端表单仍使用 equipment_no/model/calibration_due/custom 字段，这里做 payload 映射
+  const statusMap: Record<string, string> = {
+    in_use: 'in_use',
+    disabled: 'stopped',
+    calibrating: 'calibrating',
+    repairing: 'in_use',
+    scrapped: 'scrapped',
+  }
+
+  const payload: Record<string, unknown> = {
+    manage_no: formData.equipment_no,
+    name: formData.name,
+    model_no: formData.model,
+    serial_no: formData.serial_no,
+    manufacturer: formData.manufacturer,
+    category: formData.category,
+    status: statusMap[formData.status] ?? 'in_use',
+    purchase_date: formData.purchase_date || null,
+    next_calibration_date: formData.calibration_due || null,
+    location: formData.location,
+    remark: formData.remark || '',
+  }
+
   if (formData.id) {
-    await updateEquipment(formData.id, formData)
+    await updateEquipment(formData.id, payload)
     ElMessage.success('更新成功')
   } else {
-    await createEquipment(formData)
+    await createEquipment(payload)
     ElMessage.success('创建成功')
   }
   dialogVisible.value = false

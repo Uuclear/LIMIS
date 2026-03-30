@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 
 from django.utils import timezone
-from rest_framework import permissions, status
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -22,7 +22,7 @@ from . import services
 class MonitoringPointViewSet(BaseModelViewSet):
     queryset = MonitoringPoint.objects.all()
     serializer_class = MonitoringPointSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'environment'
     filterset_fields = ['is_active']
     search_fields = ['name', 'code', 'location']
 
@@ -36,7 +36,7 @@ class MonitoringPointViewSet(BaseModelViewSet):
 class EnvRecordViewSet(BaseModelViewSet):
     queryset = EnvRecord.objects.select_related('point').all()
     serializer_class = EnvRecordSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'environment'
     filterset_fields = ['point', 'is_alarm']
 
     def get_queryset(self):
@@ -65,7 +65,7 @@ class EnvRecordViewSet(BaseModelViewSet):
 class EnvAlarmViewSet(BaseModelViewSet):
     queryset = EnvAlarm.objects.select_related('point', 'resolved_by').all()
     serializer_class = EnvAlarmSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'environment'
     filterset_fields = ['point', 'alarm_type', 'is_resolved']
 
     @action(detail=True, methods=['post'], url_path='resolve')

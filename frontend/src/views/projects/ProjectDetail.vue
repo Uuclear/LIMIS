@@ -12,16 +12,21 @@ import type { Project, Organization, SubProject, Contract, Witness } from '@/typ
 
 const route = useRoute()
 const router = useRouter()
-const projectId = computed(() => Number(route.params.id))
+const projectId = computed(() => {
+  const n = Number(route.params.id)
+  return Number.isFinite(n) ? n : 0
+})
 const activeTab = ref('basic')
 const project = ref<Project>({} as Project)
 
 // --- Basic Info ---
 async function fetchProject() {
   try {
+    if (!projectId.value) return
     project.value = (await getProject(projectId.value)) as any
-  } catch {
-    ElMessage.error('加载项目失败')
+  } catch (e: any) {
+    // request.ts 通常已弹出后端 message/detail；这里不重复弹框
+    project.value = {} as Project
   }
 }
 

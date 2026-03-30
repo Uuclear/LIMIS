@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from django.http import FileResponse, HttpResponse
-from rest_framework import permissions, status
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -23,7 +23,19 @@ class ReportViewSet(BaseModelViewSet):
     queryset = Report.objects.select_related(
         'commission', 'compiler', 'auditor', 'approver', 'created_by',
     ).prefetch_related('approvals', 'distributions')
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'report'
+    lims_action_map = {
+        'generate': 'edit',
+        'submit_audit': 'edit',
+        'audit': 'approve',
+        'approve': 'approve',
+        'issue': 'approve',
+        'void': 'delete',
+        'preview': 'view',
+        'download': 'export',
+        'distribute': 'edit',
+        'verify': 'view',
+    }
     filterset_class = ReportFilter
     search_fields = ['report_no', 'commission__commission_no']
     ordering_fields = ['created_at', 'compile_date', 'issue_date']
@@ -176,7 +188,7 @@ class ReportViewSet(BaseModelViewSet):
 
 class ReportDistributionViewSet(BaseModelViewSet):
     serializer_class = ReportDistributionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    lims_module = 'report'
 
     def get_queryset(self):
         return ReportDistribution.objects.filter(

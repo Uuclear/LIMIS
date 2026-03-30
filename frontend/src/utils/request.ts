@@ -24,16 +24,22 @@ service.interceptors.response.use(
   (response: AxiosResponse) => {
     const resData = response.data
 
-    if (resData && typeof resData === 'object' && 'code' in resData) {
-      if (resData.code === 200 || resData.code === 201) {
-        return resData.data as unknown as AxiosResponse
+    // 仅把「数值型 code + 业务信封」当作统一响应；避免与业务字段 code（如项目编号）冲突
+    if (
+      resData &&
+      typeof resData === 'object' &&
+      typeof (resData as { code?: unknown }).code === 'number'
+    ) {
+      const code = (resData as { code: number; message?: string; data?: unknown }).code
+      if (code === 200 || code === 201) {
+        return (resData as { data: unknown }).data as unknown as AxiosResponse
       }
-      if (resData.code === 401) {
+      if (code === 401) {
         handleUnauthorized()
-        return Promise.reject(new Error(resData.message))
+        return Promise.reject(new Error((resData as { message?: string }).message))
       }
-      ElMessage.error(resData.message || '请求失败')
-      return Promise.reject(new Error(resData.message))
+      ElMessage.error((resData as { message?: string }).message || '请求失败')
+      return Promise.reject(new Error((resData as { message?: string }).message))
     }
 
     return resData as unknown as AxiosResponse

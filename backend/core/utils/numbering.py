@@ -4,6 +4,7 @@ import threading
 from datetime import datetime
 
 from django.db import connection
+from django.db.utils import ProgrammingError
 
 
 class NumberGenerator:
@@ -51,6 +52,16 @@ class NumberGenerator:
     def _db_fallback(cls, key: str) -> int:
         with cls._lock:
             with connection.cursor() as cursor:
+                # In some dev environments the `core_sequence` table/migration may be missing.
+                # Fallback to create it on-the-fly to avoid Commission/Project number generation failing.
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS core_sequence (
+                        seq_key varchar(255) PRIMARY KEY,
+                        current_val bigint NOT NULL
+                    )
+                    """,
+                )
                 cursor.execute(
                     """
                     INSERT INTO core_sequence (seq_key, current_val)

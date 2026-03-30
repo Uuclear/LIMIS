@@ -24,21 +24,27 @@ async function fetchDetail() {
 }
 
 const canReview = computed(() => {
-  return detail.value.status === 'pending_review' &&
-    userStore.permissions.includes('commission:review')
+  if (detail.value.status !== 'pending_review') return false
+  // 如果前端权限列表未下发（或还没加载完成），则允许已登录用户先走评审流程
+  if (!userStore.permissions?.length) return true
+  return userStore.permissions.includes('commission:approve')
 })
 
 const reviewDialogVisible = ref(false)
-const reviewForm = reactive({ result: 'approved' as string, opinion: '' })
+// 后端评审接口字段：approved（bool） + comment（string）
+const reviewForm = reactive({ approved: true as boolean, comment: '' })
 
 function openReviewDialog() {
-  reviewForm.result = 'approved'
-  reviewForm.opinion = ''
+  reviewForm.approved = true
+  reviewForm.comment = ''
   reviewDialogVisible.value = true
 }
 
 async function handleReview() {
-  await reviewCommission(commissionId.value, reviewForm)
+  await reviewCommission(commissionId.value, {
+    approved: reviewForm.approved,
+    comment: reviewForm.comment,
+  })
   ElMessage.success('评审完成')
   reviewDialogVisible.value = false
   fetchDetail()
@@ -126,13 +132,13 @@ onMounted(fetchDetail)
     <el-dialog v-model="reviewDialogVisible" title="合同评审" width="480px" destroy-on-close>
       <el-form :model="reviewForm" label-width="80px">
         <el-form-item label="评审结果">
-          <el-radio-group v-model="reviewForm.result">
-            <el-radio value="approved">通过</el-radio>
-            <el-radio value="rejected">退回</el-radio>
+          <el-radio-group v-model="reviewForm.approved">
+            <el-radio :value="true">通过</el-radio>
+            <el-radio :value="false">退回</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="评审意见">
-          <el-input v-model="reviewForm.opinion" type="textarea" :rows="4" placeholder="请输入评审意见" />
+          <el-input v-model="reviewForm.comment" type="textarea" :rows="4" placeholder="请输入评审意见" />
         </el-form-item>
       </el-form>
       <template #footer>

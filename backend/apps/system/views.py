@@ -13,6 +13,8 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from core.permissions import LimsModulePermission
+
 from . import services
 from .models import AuditLog, Permission, Role, User
 from .serializers import (
@@ -51,7 +53,12 @@ class AuditLogFilter(django_filters.FilterSet):
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.prefetch_related('roles').all()
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, LimsModulePermission]
+    lims_module = 'system'
+    lims_action_map = {
+        'reset_password': 'edit',
+        'toggle_active': 'edit',
+    }
     search_fields = ['username', 'first_name', 'last_name', 'phone', 'department']
     filterset_fields = ['is_active', 'department']
     ordering_fields = ['date_joined', 'username']
@@ -87,7 +94,9 @@ class UserViewSet(viewsets.ModelViewSet):
 
 class RoleViewSet(viewsets.ModelViewSet):
     queryset = Role.objects.prefetch_related('permissions').all()
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, LimsModulePermission]
+    lims_module = 'system'
+    lims_action_map = {'assign_permissions': 'edit'}
     search_fields = ['name', 'code']
 
     def get_serializer_class(self) -> type:
@@ -107,7 +116,9 @@ class RoleViewSet(viewsets.ModelViewSet):
 class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Permission.objects.all()
     serializer_class = PermissionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, LimsModulePermission]
+    lims_module = 'system'
+    lims_action_map = {'grouped': 'view'}
     pagination_class = None
 
     @action(detail=False, methods=['get'], url_path='grouped')
@@ -122,7 +133,8 @@ class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AuditLog.objects.select_related('user').all()
     serializer_class = AuditLogSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, LimsModulePermission]
+    lims_module = 'system'
     filterset_class = AuditLogFilter
     ordering_fields = ['timestamp']
 
