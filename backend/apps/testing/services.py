@@ -157,3 +157,94 @@ def review_record(
         'review_comment', 'updated_at',
     ])
     return record
+
+
+def build_merged_record_schema_for_task(task_id: int) -> dict:
+    """
+    按检测方法下参数（若任务指定了 test_parameter 则仅该参数）合并各参数对应的
+    原始记录模板 schema；无参数级模板时回退到方法级通用模板。
+    """
+    from .models import RecordTemplate, TestParameter, TestTask
+
+    task = (
+        TestTask.objects.select_related('test_method', 'test_parameter')
+        .get(pk=task_id)
+    )
+    method = task.test_method
+    param_qs = TestParameter.objects.filter(
+        method=method, is_deleted=False,
+    ).order_by('id')
+    if task.test_parameter_id:
+        param_qs = param_qs.filter(pk=task.test_parameter_id)
+    params: list[TestParameter] = list(param_qs)
+
+    if not params:
+        tpl = (
+            RecordTemplate.objects.filter(
+                test_method=method,
+                test_parameter__isnull=True,
+                is_active=True,
+            ).order_by('-created_at').first()
+        )
+        schema = (tpl.schema if tpl else {}) or {}
+        return {
+            'task_id': task.id,
+            'task_no': task.task_no,
+            'sections': [{
+                'parameter_id': None,
+                'parameter_code': None,
+                'parameter_name': None,
+                'template_id': tpl.id if tpl else None,
+                'template_code': tpl.code if tpl else None,
+                'template_name': tpl.name if tpl else None,
+                'schema': schema,
+            }],
+            'merged_fields': schema if isinstance(schema, dict) else {'fields': []},
+        }
+
+    sections: list[dict] = []
+    merged_field_list: list[dict] = []
+
+    for param in params:
+        tpl = (
+            RecordTemplate.objects.filter(
+                test_method=method,
+                test_parameter=param,
+                is_active=True,
+            ).order_by('-created_at').first()
+        )
+        if tpl is None:
+            tpl = (
+                RecordTemplate.objects.filter(
+                    test_method=method,
+                    test_parameter__isnull=True,
+                    is_active=True,
+                ).order_by('-created_at').first()
+            )
+        schema = (tpl.schema if tpl else {}) or {}
+        sections.append({
+            'parameter_id': param.id,
+            'parameter_code': param.code,
+            'parameter_name': param.name,
+            'template_id': tpl.id if tpl else None,
+            'template_code': tpl.code if tpl else None,
+            'template_name': tpl.name if tpl else None,
+            'schema': schema,
+        })
+        if isinstance(schema, dict):
+            fields = schema.get('fields')
+            if isinstance(fields, list):
+                for f in fields:
+                    if isinstance(f, dict):
+                        merged_field_list.append({
+                            **f,
+                            '_parameter_id': param.id,
+                            '_parameter_name': param.name,
+                        })
+
+    return {
+        'task_id': task.id,
+        'task_no': task.task_no,
+        'sections': sections,
+        'merged_fields': {'fields': merged_field_list},
+    }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ArrowDown, Bell, User, Lock, SwitchButton } from '@element-plus/icons-vue'
@@ -8,11 +8,26 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
+/** 站内提醒（示例数据，后续可对接通知接口） */
+const notifications = ref([
+  { id: 1, title: '待办：委托评审', desc: '有委托单待您评审', path: '/entrustment' },
+  { id: 2, title: '设备校准提醒', desc: '部分设备即将到检', path: '/equipment' },
+  { id: 3, title: '质量体系', desc: '内部审核计划请关注', path: '/quality/audit' },
+])
+
+const unreadCount = computed(() => notifications.value.length)
+
 const breadcrumbs = computed(() => {
   return route.matched
     .filter((item) => item.meta?.title)
     .map((item) => ({ title: item.meta.title as string, path: item.path }))
 })
+
+function openNotification(n: { path?: string }) {
+  if (n.path) {
+    router.push(n.path)
+  }
+}
 
 async function handleCommand(command: string) {
   if (command === 'logout') {
@@ -41,9 +56,30 @@ async function handleCommand(command: string) {
     </div>
 
     <div class="header-right">
-      <el-badge :value="3" :max="99" class="notification-badge">
-        <el-icon :size="18" class="header-icon"><Bell /></el-icon>
-      </el-badge>
+      <el-popover placement="bottom-end" :width="340" trigger="click">
+        <template #reference>
+          <span class="notif-trigger" role="button" tabindex="0">
+            <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="notification-badge">
+              <el-icon :size="18" class="header-icon"><Bell /></el-icon>
+            </el-badge>
+          </span>
+        </template>
+        <div class="notif-panel">
+          <div class="notif-panel-title">消息提醒</div>
+          <el-scrollbar max-height="280px">
+            <div
+              v-for="n in notifications"
+              :key="n.id"
+              class="notif-item"
+              @click="openNotification(n)"
+            >
+              <div class="notif-item-title">{{ n.title }}</div>
+              <div class="notif-item-desc">{{ n.desc }}</div>
+            </div>
+            <el-empty v-if="!notifications.length" description="暂无消息" :image-size="64" />
+          </el-scrollbar>
+        </div>
+      </el-popover>
 
       <el-dropdown trigger="click" @command="handleCommand">
         <div class="user-info">
@@ -92,19 +128,56 @@ async function handleCommand(command: string) {
   gap: 20px;
 }
 
+.notif-trigger {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  outline: none;
+}
+
 .header-icon {
   cursor: pointer;
   color: var(--lims-text-secondary);
   transition: color 0.2s;
 }
 
-.header-icon:hover {
+.notif-trigger:hover .header-icon {
   color: var(--lims-primary);
 }
 
 .notification-badge {
   display: flex;
   align-items: center;
+}
+
+.notif-panel-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.notif-item {
+  padding: 10px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.notif-item:hover {
+  background: var(--el-fill-color-light);
+}
+
+.notif-item-title {
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+}
+
+.notif-item-desc {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-top: 4px;
 }
 
 .user-info {

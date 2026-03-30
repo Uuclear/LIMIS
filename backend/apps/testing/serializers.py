@@ -118,15 +118,34 @@ class RecordTemplateSerializer(BaseModelSerializer):
     method_name = serializers.CharField(
         source='test_method.name', read_only=True,
     )
+    parameter_name = serializers.CharField(
+        source='test_parameter.name', read_only=True, default='',
+    )
 
     class Meta:
         model = RecordTemplate
         fields = [
             'id', 'name', 'code', 'test_method', 'method_name',
+            'test_parameter', 'parameter_name',
             'version', 'schema', 'is_active',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, attrs: dict) -> dict:
+        method = attrs.get('test_method')
+        if method is None and getattr(self, 'instance', None):
+            method = self.instance.test_method
+        param = attrs.get('test_parameter', serializers.empty)
+        if param is serializers.empty and getattr(self, 'instance', None):
+            param = self.instance.test_parameter
+        if 'test_parameter' in attrs and attrs['test_parameter'] is None:
+            param = None
+        if method is not None and param is not None and param.method_id != method.id:
+            raise serializers.ValidationError(
+                {'test_parameter': '检测参数必须属于所选检测方法'},
+            )
+        return attrs
 
 
 class RecordRevisionSerializer(serializers.ModelSerializer):

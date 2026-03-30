@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from django.db.models import QuerySet
+
 from django.utils import timezone
 from django_filters import rest_framework as django_filters
 from rest_framework import permissions, status, viewsets
@@ -62,6 +64,18 @@ class UserViewSet(viewsets.ModelViewSet):
     search_fields = ['username', 'first_name', 'last_name', 'phone', 'department']
     filterset_fields = ['is_active', 'department']
     ordering_fields = ['date_joined', 'username']
+
+    def get_queryset(self) -> QuerySet:
+        from django.db.models import Q
+
+        qs = super().get_queryset()
+        real_name = self.request.query_params.get('real_name')
+        if real_name:
+            qs = qs.filter(
+                Q(first_name__icontains=real_name)
+                | Q(last_name__icontains=real_name),
+            )
+        return qs
 
     def get_serializer_class(self) -> type:
         if self.action == 'create':

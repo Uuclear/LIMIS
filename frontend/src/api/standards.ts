@@ -7,3 +7,7 @@ export function getStandardList(params?: Record<string, unknown>) {
 export function getStandard(id: number) {
   return request.get(`/v1/standards/${id}/`)
 }
+
+export function deleteStandard(id: number) {
+  return request.delete(`/v1/standards/${id}/`)
+}

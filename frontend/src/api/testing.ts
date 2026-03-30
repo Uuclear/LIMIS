@@ -13,6 +13,12 @@ export const getAgeCalendar = (params: any) => request.get(`${T}/tasks/age_calen
 
 export const getRecordTemplates = (params?: any) => request.get(`${T}/templates/`, { params })
 export const getRecordTemplate = (id: number) => request.get(`${T}/templates/${id}/`)
+export const createRecordTemplate = (data: any) => request.post(`${T}/templates/`, data)
+export const updateRecordTemplate = (id: number, data: any) => request.put(`${T}/templates/${id}/`, data)
+export const deleteRecordTemplate = (id: number) => request.delete(`${T}/templates/${id}/`)
+/** 按检测任务合并各检测参数对应的原始记录模板结构 */
+export const getMergedRecordSchema = (taskId: number) =>
+  request.get(`${T}/tasks/${taskId}/merged-record-schema/`)
 export const getOriginalRecordList = (params?: any) => request.get(`${T}/records/`, { params })
 export const getOriginalRecord = (id: number) => request.get(`${T}/records/${id}/`)
 export const createOriginalRecord = (data: any) => request.post(`${T}/records/`, data)

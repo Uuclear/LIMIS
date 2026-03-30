@@ -77,6 +77,7 @@ class TestTaskViewSet(BaseModelViewSet):
         'assign': 'edit',
         'start': 'edit',
         'complete': 'edit',
+        'merged_record_schema': 'view',
     }
     filterset_class = TestTaskFilter
     search_fields = ['task_no']
@@ -93,6 +94,11 @@ class TestTaskViewSet(BaseModelViewSet):
             serializer.save(task_no=task_no, created_by=self.request.user)
         else:
             serializer.save(task_no=task_no)
+
+    @action(detail=True, methods=['get'], url_path='merged-record-schema')
+    def merged_record_schema(self, request: Request, pk: str = None) -> Response:
+        data = services.build_merged_record_schema_for_task(int(pk))
+        return Response({'code': 200, 'data': data})
 
     @action(detail=True, methods=['post'])
     def assign(self, request: Request, pk: str = None) -> Response:
@@ -159,10 +165,12 @@ class TestTaskViewSet(BaseModelViewSet):
 
 
 class RecordTemplateViewSet(BaseModelViewSet):
-    queryset = RecordTemplate.objects.select_related('test_method')
+    queryset = RecordTemplate.objects.select_related(
+        'test_method', 'test_parameter',
+    )
     serializer_class = RecordTemplateSerializer
     lims_module = 'testing'
-    filterset_fields = ['test_method', 'is_active']
+    filterset_fields = ['test_method', 'test_parameter', 'is_active']
     search_fields = ['name', 'code']
 
 

@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from core.models import BaseModel
@@ -14,6 +15,11 @@ class RecordTemplate(BaseModel):
         TestMethod, on_delete=models.CASCADE,
         related_name='templates', verbose_name='检测方法',
     )
+    test_parameter = models.ForeignKey(
+        'testing.TestParameter', null=True, blank=True,
+        on_delete=models.CASCADE,
+        related_name='record_templates', verbose_name='检测参数',
+    )
     version = models.CharField(max_length=20, default='1.0', verbose_name='版本号')
     schema = models.JSONField(verbose_name='表单定义')
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
@@ -22,6 +28,14 @@ class RecordTemplate(BaseModel):
         verbose_name = '记录模板'
         verbose_name_plural = verbose_name
         ordering = ['-created_at']
+
+    def clean(self) -> None:
+        super().clean()
+        if self.test_parameter_id and self.test_method_id:
+            if self.test_parameter.method_id != self.test_method_id:
+                raise ValidationError(
+                    {'test_parameter': '检测参数必须属于所选检测方法'},
+                )
 
     def __str__(self) -> str:
         return f'{self.code} - {self.name} v{self.version}'

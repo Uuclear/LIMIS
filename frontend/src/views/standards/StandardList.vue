@@ -2,7 +2,9 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, Plus } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
+import { deleteStandard } from '@/api/standards'
 
 const loading = ref(false)
 const tableData = ref<any[]>([])
@@ -185,6 +187,17 @@ function categoryLabel(cat: string) {
   return categoryOptions.find(o => o.value === cat)?.label ?? cat
 }
 
+async function handleDelete(row: any) {
+  await ElMessageBox.confirm(
+    `确定删除标准「${row.standard_no}」?`,
+    '删除确认',
+    { type: 'warning' },
+  )
+  await deleteStandard(row.id)
+  ElMessage.success('已删除')
+  fetchList()
+}
+
 onMounted(fetchList)
 </script>
 
@@ -248,9 +261,10 @@ onMounted(fetchList)
             <span v-else>—</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

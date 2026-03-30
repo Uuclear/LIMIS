@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 
 from core.serializers import BaseModelSerializer
 
@@ -196,3 +197,24 @@ class EquipmentCreateUpdateSerializer(BaseModelSerializer):
             'calibration_cycle', 'next_calibration_date', 'remark',
         ]
         read_only_fields = ['id']
+
+    def validate_manage_no(self, value: str) -> str:
+        v = (value or '').strip()
+        if not v:
+            raise ValidationError('管理编号不能为空')
+        return v
+
+    def validate(self, attrs: dict) -> dict:
+        manage_no = attrs.get('manage_no')
+        if manage_no is None and self.instance is not None:
+            return attrs
+        if manage_no is not None:
+            mn = str(manage_no).strip()
+            qs = Equipment.objects.filter(manage_no=mn)
+            if self.instance is not None:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise ValidationError(
+                    {'manage_no': '已存在相同管理编号的设备，请更换编号或编辑该设备。'},
+                )
+        return attrs

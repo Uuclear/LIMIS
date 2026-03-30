@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, WarningFilled } from '@element-plus/icons-vue'
 import {
-  getEquipmentList, createEquipment, updateEquipment, getExpiringEquipment,
+  getEquipmentList, createEquipment, updateEquipment, deleteEquipment, getExpiringEquipment,
 } from '@/api/equipment'
 
 const router = useRouter()
@@ -50,11 +50,33 @@ const formData = reactive({
 
 const dialogTitle = computed(() => formData.id ? '编辑设备' : '新增设备')
 
+/** 后端字段 manage_no/model_no/next_calibration_date/status → 表单字段 */
+function mapStatusToUi(s: string) {
+  const m: Record<string, string> = {
+    in_use: 'in_use',
+    stopped: 'disabled',
+    calibrating: 'calibrating',
+    scrapped: 'scrapped',
+  }
+  return m[s] ?? s
+}
+
+function normalizeEquipmentRow(row: any) {
+  return {
+    ...row,
+    equipment_no: row.manage_no ?? row.equipment_no ?? '',
+    model: row.model_no ?? row.model ?? '',
+    calibration_due: row.next_calibration_date ?? row.calibration_due ?? '',
+    status: mapStatusToUi(row.status ?? ''),
+  }
+}
+
 async function fetchList() {
   loading.value = true
   try {
     const res: any = await getEquipmentList(query)
-    tableData.value = res.results ?? res.list ?? []
+    const rows = res.results ?? res.list ?? []
+    tableData.value = rows.map(normalizeEquipmentRow)
     total.value = res.total ?? res.count ?? 0
   } finally {
     loading.value = false
@@ -88,13 +110,26 @@ function openCreate() {
 }
 
 function openEdit(row: any) {
-  Object.assign(formData, { ...row })
+  const r = normalizeEquipmentRow(row)
+  Object.assign(formData, {
+    id: r.id,
+    equipment_no: r.equipment_no ?? r.manage_no ?? '',
+    name: r.name ?? '',
+    model: r.model ?? r.model_no ?? '',
+    category: r.category ?? 'A',
+    status: mapStatusToUi(r.status ?? 'in_use'),
+    manufacturer: r.manufacturer ?? '',
+    serial_no: r.serial_no ?? '',
+    purchase_date: r.purchase_date ?? '',
+    calibration_due: r.calibration_due ?? r.next_calibration_date ?? '',
+    location: r.location ?? '',
+    custodian: r.custodian ?? '',
+    remark: r.remark ?? '',
+  })
   dialogVisible.value = true
 }
 
 async function handleSubmit() {
-  // 后端 Equipment 字段为 manage_no/model_no/next_calibration_date 等；
-  // 前端表单仍使用 equipment_no/model/calibration_due/custom 字段，这里做 payload 映射
   const statusMap: Record<string, string> = {
     in_use: 'in_use',
     disabled: 'stopped',
@@ -103,8 +138,14 @@ async function handleSubmit() {
     scrapped: 'scrapped',
   }
 
+  const manageNo = (formData.equipment_no || '').trim()
+  if (!manageNo) {
+    ElMessage.warning('请填写管理编号')
+    return
+  }
+
   const payload: Record<string, unknown> = {
-    manage_no: formData.equipment_no,
+    manage_no: manageNo,
     name: formData.name,
     model_no: formData.model,
     serial_no: formData.serial_no,
@@ -125,6 +166,17 @@ async function handleSubmit() {
     ElMessage.success('创建成功')
   }
   dialogVisible.value = false
+  fetchList()
+}
+
+async function handleDelete(row: any) {
+  await ElMessageBox.confirm(
+    `确定删除设备「${row.name || row.manage_no}」?`,
+    '删除确认',
+    { type: 'warning' },
+  )
+  await deleteEquipment(row.id)
+  ElMessage.success('已删除')
   fetchList()
 }
 
@@ -217,10 +269,11 @@ onMounted(() => {
           </template>
         </el-table-column>
         <el-table-column prop="calibration_due" label="校准到期日" width="120" />
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="goDetail(row)">查看</el-button>
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

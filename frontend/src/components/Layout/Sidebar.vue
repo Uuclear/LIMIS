@@ -83,6 +83,7 @@ const menuItems: MenuItem[] = [
       { index: '/quality/nonconformity', title: '不符合项' },
       { index: '/quality/standards', title: '标准规范' },
       { index: '/quality/parameter-library', title: '项目参数库' },
+      { index: '/quality/record-templates', title: '原始记录模板' },
     ],
   },
   {

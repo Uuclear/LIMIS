@@ -1,15 +1,26 @@
 # Limis 实验室信息管理系统 - 项目状态文档（详细分层版）
 
-**更新时间**：2026年3月30日  
+**更新时间**：2026年3月31日  
 **当前环境**：开发模式（Django 5 + Vue 3 + TypeScript + PostgreSQL + Redis）  
 **访问地址**：前端见 `frontend/vite.config.ts`（当前 **3000** 端口，`host: 0.0.0.0`）| 后端 **8000**（局域网示例：`http://<主机IP>:3000` / `:8000`）  
 **管理员账号**：`admin` / `admin123`
 
 ---
 
-## 0. 近期进展摘要（2026-03）
+## 0. 给后续 Agent 的快速导读（30 秒）
 
-以下已在代码中落地，测试时请以当前仓库为准：
+| 维度 | 要点 |
+|------|------|
+| **技术栈** | Django REST + JWT；Vue3 + Vite + TS + Element Plus + Pinia；业务信封：仅当响应 JSON 的 **`code` 为数字** 时解包 `data`（见 `frontend/src/utils/request.ts`）。 |
+| **权限** | 后端 `LimsModulePermission` + 各 `ViewSet.lims_module`；`User.has_lims_permission`；权限表种子 `system/migrations/0002_seed_permissions.py`。 |
+| **易踩坑** | 业务对象上的字段名 **`code`**（如项目编号）勿与统一响应 **`code: 200`** 混淆——已通过「数字型 code」判断规避。 |
+| **待迁库** | 若拉取最新代码：`migrate` **system**（权限种子）、**testing**（`RecordTemplate.test_parameter`，见 `testing/migrations/0002_*.py`）、**standards**（`replaced_case` 等，以仓库为准）。 |
+
+---
+
+## 1. 近期进展摘要（2026-03）
+
+### 1.1 较早批次（RBAC / 质量 / 标准等）
 
 | 方向 | 说明 |
 |------|------|
@@ -20,30 +31,59 @@
 | 质量体系前端 | 内部审核、管理评审、不符合项、投诉等表单与后端字段对齐（含 `lead_auditor` 用户主键等）。 |
 | 其他对齐 | 耗材/环境/人员等 API 路径与序列化器、委托/编号 `core_sequence` 兜底、登出携带 refresh 等。 |
 
+### 1.2 末轮 UI/业务修复（便于 Agent 对需求）
+
+| 方向 | 说明 |
+|------|------|
+| 顶栏铃铛 | `Header.vue`：`el-popover` 点击展开消息列表（当前为示例数据 + 路由跳转）；非静默角标。 |
+| 用户管理 | API 增加 **`real_name`**（读写映射到 `first_name`）；**`role_ids`** 映射 `roles`；列表支持 **`real_name` 查询**；重置密码字段为 **`password`**；前端编辑只提交干净 payload。 |
+| 仪器设备 | 列表行 **`manage_no`/`model_no`/`next_calibration_date`** 与表单字段 **`equipment_no`/`model`** 的映射与规范化，避免编辑时 `manage_no` 空值导致唯一约束 422；列表支持 **删除**；后端加强 **`manage_no`** 校验。 |
+| 标准规范 | 列表 **删除** + `deleteStandard` API。 |
+| 原始记录模板 | `RecordTemplate` 增加可选 **`test_parameter`**（`testing/migrations/0002_*`）；**`GET .../tasks/{id}/merged-record-schema/`** 按参数合并模板 schema；前端 **`/quality/record-templates`**（`RecordTemplateLibrary.vue`）+ 侧栏菜单项。 |
+
+> **原始记录数据模型说明**：`OriginalRecord` 仍为 **单 `template` 外键**；合并接口用于 **预览/对接录入**——若产品要求「保存即合并结果」，需在创建原始记录时写入 `record_data`（可调用 `build_merged_record_schema_for_task` 的合并结果）。
+
 ---
 
-## 1. 系统基础架构（已完成）
+## 2. 关键路径速查（代码位置）
 
-### 1.1 项目初始化
+| 主题 | 路径提示 |
+|------|----------|
+| Axios 与信封 | `frontend/src/utils/request.ts` |
+| 模块权限类 | `backend/core/permissions.py`（`LimsModulePermission`） |
+| 用户序列化（real_name / role_ids） | `backend/apps/system/serializers.py` |
+| 用户列表查询 real_name | `backend/apps/system/views.py` → `UserViewSet.get_queryset` |
+| 顶栏 | `frontend/src/components/Layout/Header.vue` |
+| 设备列表映射与删除 | `frontend/src/views/equipment/EquipmentList.vue`、`frontend/src/api/equipment.ts` |
+| 标准删除 | `frontend/src/views/standards/StandardList.vue`、`frontend/src/api/standards.ts` |
+| 合并原始记录 schema | `backend/apps/testing/services.py`（`build_merged_record_schema_for_task`）、`backend/apps/testing/views.py`（`merged_record_schema`） |
+| 模板库页面与路由 | `frontend/src/views/quality/RecordTemplateLibrary.vue`、`frontend/src/router/modules/quality.ts` |
+| 侧栏菜单 | `frontend/src/components/Layout/Sidebar.vue` |
+
+---
+
+## 3. 系统基础架构（已完成）
+
+### 3.1 项目初始化
 - [x] Django 项目结构创建与 App 拆分（`apps/system`、`apps/projects`、`apps/commissions` 等）
 - [x] Vue 3 + Vite + TypeScript 项目初始化
 - [x] Element Plus + Pinia + Vue Router + Axios 集成
 - [x] 统一的 `core/` 基础模块（BaseModel、权限中间件等）
 - [x] 环境变量与配置文件管理（`DB_PASSWORD`、`DB_HOST` 等）
 
-### 1.2 数据库与缓存
+### 3.2 数据库与缓存
 - [x] PostgreSQL 数据库创建与用户权限配置（用户 `limis`）
 - [x] Redis 安装与基本连接测试
 - [x] Django ORM 模型迁移（`makemigrations` + `migrate` 成功）
 - [x] 数据库初始化脚本（初始管理员与测试用户）
 
-### 1.3 开发与部署配置
+### 3.3 开发与部署配置
 - [x] Docker 与 docker-compose 配置（文件存在但当前使用本地开发）
 - [x] Vite 配置局域网访问（`host: '0.0.0.0'`，端口见 `vite.config.ts`）
 - [x] Django runserver 绑定 `0.0.0.0:8000` 支持局域网访问
 - [x] 前端 API 代理配置（`/api` 代理到后端 8000）
 
-### 1.4 API 与中间件
+### 3.4 API 与中间件
 - [x] DRF 框架集成与全局配置
 - [x] 自定义 `AuditLogMiddleware`（解决 request.body 二次读取问题）
 - [x] 全局异常处理与响应格式统一
@@ -52,16 +92,16 @@
 
 ---
 
-## 2. 用户权限与认证系统（已完成 / 持续演进）
+## 4. 用户权限与认证系统（已完成 / 持续演进）
 
-### 2.1 模型层
+### 4.1 模型层
 - [x] 自定义 `User` 模型（继承 AbstractUser，扩展手机号、部门、职称、头像）
 - [x] `Role` 模型（11种实验室角色：admin、tech_director、quality_director、tester 等）
 - [x] `Permission` 模型（动作级权限：view/create/edit/delete/approve/export）
 - [x] `AuditLog` 操作审计日志模型
 - [x] `BaseModel` 统一基础模型（创建/更新时间、软删除等）
 
-### 2.2 后端认证与权限
+### 4.2 后端认证与权限
 - [x] JWT Token 认证（login / refresh / logout / me 接口）
 - [x] 基于角色的权限控制（RBAC）+ **模块级 `lims_module` 校验**（`core.permissions.LimsModulePermission`）
 - [x] 操作审计日志中间件（记录 POST/PUT/PATCH/DELETE 操作）
@@ -70,132 +110,138 @@
 - [x] 权限数据种子：`system/migrations/0002_seed_permissions.py`（预置权限 + 默认角色分配）
 - [ ] 非超级管理员用户：**需在界面分配角色并重新登录**后，`/me` 返回的 `permissions` 才完整；前端菜单/按钮仍可按需与 `permissions` 对齐
 
-### 2.3 前端认证
+### 4.3 前端认证
 - [x] Pinia 用户状态管理（`stores/user.ts`）
 - [x] Axios 请求拦截器（自动带 Token、统一错误处理；**数字型 `code` 信封**）
 - [x] 登录页面与路由守卫
 - [x] Token 自动刷新机制
 - [ ] 动态菜单与 **按钮级** `v-permission` 与后端 `permissions` 列表全量对齐（部分页面仍依赖「已登录」或角色判断）
 
-### 2.4 用户管理
+### 4.4 用户管理
 - [x] 用户 CRUD 接口与序列化器
+- [x] **列表/展示 `real_name`**；**创建/更新 `real_name`、`role_ids`** 与后端一致
 - [x] 角色管理与权限分配页面（**按模块分组勾选权限**）
 - [x] 初始数据脚本（创建 admin 及测试用户 zhangsan/lisi/wangwu）
 
 ---
 
-## 3. 业务功能模块（已完成）
+## 5. 业务功能模块（已完成）
 
-### 3.1 项目管理
+### 5.1 项目管理
 - [x] `Project` 与 `SubProject` 模型
 - [x] 项目 CRUD 接口
 - [x] 前端项目管理页面（含参建单位、合同、见证人、统计等）
 
-### 3.2 委托管理
+### 5.2 委托管理
 - [x] `Commission` 模型 + 委托编号规则引擎
 - [x] 委托状态流转（draft → pending_review → reviewed 等）
 - [x] 委托管理前端页面（提交/评审与 **`commission:approve`** 权限码）
 
-### 3.3 样品管理
+### 5.3 样品管理
 - [x] `Sample` 模型 + 样品编号生成
 - [x] 二维码生成与展示
 - [x] 样品管理前端页面
 
-### 3.4 检测业务
+### 5.4 检测业务
 - [x] 检测任务管理后端
-- [x] 原始记录模板引擎
+- [x] 原始记录模板（`RecordTemplate`；可关联 **检测方法** + 可选 **检测参数**）
+- [x] **按检测任务合并参数模板 schema**（接口 + 服务层合并逻辑；前端模板库 + 预览）
 - [x] 计算引擎与结果自动判定
 - [x] 测试结果记录模型
 
-### 3.5 报告与设备
+### 5.5 报告与设备
 - [x] 报告管理后端（`Report` 模型）
-- [x] 仪器设备管理（`Equipment` 模型）
+- [x] 仪器设备管理（`Equipment` 模型）；列表与表单字段映射、删除
 - [x] 设备状态与校准记录
 
-### 3.6 其他支持模块
+### 5.6 其他支持模块
 - [x] 人员管理（`staff`）
 - [x] 环境监控（`environment`）
-- [x] 标准规范管理（`standards`）
+- [x] 标准规范管理（`standards`）；列表删除
 - [x] 质量管理体系（`quality`）
 - [x] 耗材管理（`consumables`）
 - [x] 统计分析服务（Dashboard、趋势图、合格率等）
 
 ---
 
-## 4. 待完善与 Bug 修复清单（分层详细版）
+## 6. 待完善与 Bug 修复清单（分层详细版）
 
-### 4.1 高优先级 - 核心稳定性（必须优先解决）
+### 6.1 高优先级 - 核心稳定性
 
-#### 4.1.1 认证与安全
+#### 6.1.1 认证与安全
 - [x] Logout 携带 refresh；后端对缺失 refresh 的容错
 - [ ] 多设备同时登录时的会话管理与踢出机制
 - [x] 前端 Axios 对 401 处理（登出/跳转登录）；**业务信封仅识别数字 `code`**
 - [ ] 密码修改接口的安全性验证（复杂度、频率）
 - [ ] 登录失败次数限制与验证码功能（可选）
 
-#### 4.1.2 权限体系
+#### 6.1.2 权限体系
 - [ ] 所有页面按钮级权限（`v-permission` 指令）与后端 `permission_code` 全量一致
 - [ ] 动态路由与菜单根据权限自动生成（当前侧边栏多为静态）
 - [x] 后端视图集 `LimsModulePermission` + `lims_module`（主要业务已接入）
 - [x] 超级管理员绕过权限（`is_superuser`）
 - [ ] 角色权限缓存优化（可选）
 
-#### 4.1.3 审计日志
+#### 6.1.3 审计日志
 - [ ] AuditLog 中间件异常捕获是否过于宽泛（当前有 try/except）
 - [ ] 日志查看页面与查询过滤功能
 - [ ] 敏感操作（如删除报告、修改结果）的强制记录
 - [ ] 日志导出与审计报表
 
-### 4.2 中优先级 - 业务完整性
+### 6.2 中优先级 - 业务完整性
 
-#### 4.2.1 报告管理
+#### 6.2.1 报告管理
 - [ ] 报告模板引擎（支持 Word/PDF 导出）
 - [ ] 报告审批流（审核 → 技术负责人 → 授权签字人）与 UI 完全一致
 - [ ] 电子签章与数字签名集成
 - [ ] 报告预览页面（含二维码）
 - [ ] 报告批量生成与导出
 
-#### 4.2.2 打印与移动支持
+#### 6.2.2 打印与移动支持
 - [ ] 样品二维码批量打印功能
 - [ ] 报告二维码防伪验证
 - [ ] 移动端扫码查看样品/委托进度
 - [ ] 打印样式优化（CSS @media print）
 
-#### 4.2.3 数据统计与可视化
+#### 6.2.3 数据统计与可视化
 - [ ] Dashboard 主页图表集成（ECharts）
 - [ ] 检测量趋势图、合格率统计、强度曲线
 - [ ] 按时间、项目、检测项维度统计
 - [ ] 数据导出为 Excel
 
-#### 4.2.4 数据导入导出
+#### 6.2.4 数据导入导出
 - [ ] Excel 模板下载与批量导入（委托、样品）
 - [ ] 标准规范数据初始化脚本
 - [ ] 耗材入库/出库记录与库存预警
 - [ ] 历史数据迁移工具
 
-### 4.3 低优先级 - 优化与扩展
+#### 6.2.5 检测原始记录（产品深化）
+- [ ] 原始记录 **创建/保存** 时直接使用 **merged-record-schema** 结果填充 `record_data`（与当前单 `template` FK 策略统一）
+- [ ] 模板库与「检测任务」页面联动（从任务跳转预览/录入）
 
-#### 4.3.1 部署与运维
+### 6.3 低优先级 - 优化与扩展
+
+#### 6.3.1 部署与运维
 - [ ] 生产环境配置（Gunicorn + Nginx + Supervisor / Docker）
 - [ ] 日志轮转与监控告警
 - [ ] 数据库备份策略与恢复流程
 - [ ] HTTPS 配置
 
-#### 4.3.2 代码质量
+#### 6.3.2 代码质量
 - [ ] 单元测试覆盖率提升
 - [x] API 接口文档（Swagger：`/api/docs/` + drf-spectacular）
 - [ ] 代码规范检查与 lint
 - [ ] 类型提示完善（尤其是前端）
 
-#### 4.3.3 高级功能
-- [ ] 通知中心（站内信、邮件、微信）
+#### 6.3.3 高级功能
+- [ ] 通知中心（站内信、邮件、微信）— 顶栏当前为 **占位示例**
 - [ ] 工作流引擎（更复杂的审批流）
 - [ ] 移动端 H5 / 小程序适配
 - [ ] AI 辅助检测结果分析（未来）
 
 ---
 
-## 5. 使用说明与后续工作规范
+## 7. 使用说明与后续工作规范
 
 1. **测试流程建议**
    - 先使用管理员账号完整走一遍委托→样品→检测→报告流程
@@ -208,27 +254,27 @@
    - 重大 Bug 修复后在此文档中增加「已知问题已解决」说明
 
 3. **文档维护**
-   - 本文件为多 Agent 协同开发的「唯一状态源」
+   - 本文件为多 Agent 协同开发的「主要状态源」
    - 建议每周更新一次整体状态
 
 ---
 
-**当前系统可正常启动并局域网访问**，已具备核心业务闭环能力；近期已加强 **权限种子数据、后端模块鉴权、角色权限 UI、Axios 与项目编号冲突修复**。中长期仍建议优先完善 **报告生成与审批体验**、**统计可视化**、**按钮级权限与菜单动态化**。
+**当前系统可正常启动并局域网访问**，已具备核心业务闭环能力；近期已覆盖 **权限与信封修复、用户/设备/标准关键交互、参数级原始记录模板与合并预览**。中长期仍建议优先完善 **报告生成与审批体验**、**统计可视化**、**按钮级权限与菜单动态化**、**原始记录保存与合并策略统一**。
 
 ---
 
-## 下一步建议（精简）
+## 8. 下一步建议（精简）
 
-1. **部署**：`migrate` 应用含 `0002_seed_permissions`，确认非超管用户绑定角色后接口行为符合预期。
-2. **测试**：委托提交/评审、项目详情、标准附件上传、质量模块新增、角色权限保存。
-3. **产品**：报告 PDF/审批链、Dashboard 图表、导入导出。
+1. **数据库**：`python manage.py migrate`（**system**、**testing**、**standards** 等以仓库迁移为准）。
+2. **测试**：用户姓名/角色保存、设备编辑保存、标准/设备删除、模板库 CRUD、`merged-record-schema` 与任务 ID。
+3. **产品**：报告 PDF/审批链、Dashboard 图表、通知后端接口替换顶栏示例数据。
 
 ---
 
 **后续 Agent 使用说明**：
-- 本文档作为项目当前状态的主要记录
-- 新功能开发前请先更新此文档
-- 修复 Bug 后请在此文档对应条目打勾
+- 本文档作为项目当前状态的主要记录；**优先阅读 §0、§1.2、§2**。
+- 新功能开发前请先更新本文件
+- 修复 Bug 后请在本文件对应条目打勾或增补 §1
 
 ---
 

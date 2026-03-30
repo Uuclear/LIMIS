@@ -4,6 +4,7 @@ export function getEquipmentList(params?: any) { return request.get('/v1/equipme
 export function getEquipment(id: number) { return request.get(`/v1/equipment/${id}/`) }
 export function createEquipment(data: any) { return request.post('/v1/equipment/', data) }
 export function updateEquipment(id: number, data: any) { return request.put(`/v1/equipment/${id}/`, data) }
+export function deleteEquipment(id: number) { return request.delete(`/v1/equipment/${id}/`) }
 
 export function getCalibrations(equipmentId: number, params?: any) {
   return request.get(`/v1/equipment/${equipmentId}/calibrations/`, { params })

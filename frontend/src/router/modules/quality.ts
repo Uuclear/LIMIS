@@ -31,6 +31,12 @@ const qualityRoutes: RouteRecordRaw[] = [
     component: () => import('@/views/quality/ParameterLibrary.vue'),
     meta: { title: '项目参数库', permission: 'quality:parameter:list' },
   },
+  {
+    path: '/quality/record-templates',
+    name: 'RecordTemplateLibrary',
+    component: () => import('@/views/quality/RecordTemplateLibrary.vue'),
+    meta: { title: '原始记录模板', permission: 'testing:view' },
+  },
 ]
 
 export default qualityRoutes

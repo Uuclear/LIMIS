@@ -60,33 +60,46 @@ class RoleBriefSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     roles = RoleBriefSerializer(many=True, read_only=True)
+    real_name = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'first_name', 'last_name', 'email',
+            'id', 'username', 'first_name', 'last_name', 'real_name', 'email',
             'phone', 'department', 'title', 'avatar',
             'is_active', 'roles', 'date_joined', 'last_login',
         ]
         read_only_fields = ['id', 'date_joined', 'last_login']
 
+    def get_real_name(self, obj: User) -> str:
+        full = (obj.get_full_name() or '').strip()
+        if full:
+            return full
+        return (obj.first_name or '').strip()
+
 
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
-    roles = serializers.PrimaryKeyRelatedField(
+    role_ids = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Role.objects.all(), required=False,
+        source='roles',
     )
+    real_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'password', 'first_name', 'last_name',
-            'email', 'phone', 'department', 'title', 'is_active', 'roles',
+            'id', 'username', 'password', 'first_name', 'last_name', 'real_name',
+            'email', 'phone', 'department', 'title', 'is_active', 'role_ids',
         ]
 
     def create(self, validated_data: dict) -> User:
         roles = validated_data.pop('roles', [])
+        real_name = validated_data.pop('real_name', None)
         password = validated_data.pop('password')
+        if real_name is not None:
+            validated_data['first_name'] = str(real_name).strip()
+            validated_data['last_name'] = ''
         user = User(**validated_data)
         user.set_password(password)
         user.save()
@@ -96,19 +109,25 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
-    roles = serializers.PrimaryKeyRelatedField(
+    role_ids = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Role.objects.all(), required=False,
+        source='roles',
     )
+    real_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = User
         fields = [
-            'first_name', 'last_name', 'email', 'phone',
-            'department', 'title', 'avatar', 'is_active', 'roles',
+            'first_name', 'last_name', 'real_name', 'email', 'phone',
+            'department', 'title', 'avatar', 'is_active', 'role_ids',
         ]
 
     def update(self, instance: User, validated_data: dict) -> User:
         roles = validated_data.pop('roles', None)
+        real_name = validated_data.pop('real_name', serializers.empty)
+        if real_name is not serializers.empty:
+            instance.first_name = str(real_name or '').strip()
+            instance.last_name = ''
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()

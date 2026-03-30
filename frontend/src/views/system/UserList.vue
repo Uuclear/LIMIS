@@ -85,8 +85,16 @@ function openCreate() {
 
 function openEdit(row: UserRow) {
   dialogTitle.value = '编辑用户'
+  const r = row as any
   Object.assign(form, {
-    ...row, role_ids: row.roles.map(r => r.id), password: '',
+    id: row.id,
+    username: row.username,
+    real_name: r.real_name || [r.first_name, r.last_name].filter(Boolean).join(' ') || '',
+    phone: row.phone ?? '',
+    email: row.email ?? '',
+    department: row.department ?? '',
+    role_ids: (row.roles ?? []).map(r => r.id),
+    password: '',
   })
   dialogVisible.value = true
 }
@@ -94,10 +102,24 @@ function openEdit(row: UserRow) {
 async function handleSubmit() {
   await formRef.value?.validate()
   if (form.id) {
-    await updateUser(form.id, form)
+    await updateUser(form.id, {
+      real_name: form.real_name,
+      phone: form.phone,
+      email: form.email,
+      department: form.department,
+      role_ids: form.role_ids,
+    })
     ElMessage.success('更新成功')
   } else {
-    await createUser(form)
+    await createUser({
+      username: form.username,
+      password: form.password,
+      real_name: form.real_name,
+      phone: form.phone,
+      email: form.email,
+      department: form.department,
+      role_ids: form.role_ids,
+    })
     ElMessage.success('创建成功')
   }
   dialogVisible.value = false
@@ -127,7 +149,7 @@ function openResetPwd(row: UserRow) {
 
 async function handleResetPwd() {
   if (!pwdForm.new_password) return ElMessage.warning('请输入新密码')
-  await resetPassword(pwdForm.id, { new_password: pwdForm.new_password })
+  await resetPassword(pwdForm.id, { password: pwdForm.new_password })
   ElMessage.success('密码重置成功')
   pwdDialogVisible.value = false
 }
