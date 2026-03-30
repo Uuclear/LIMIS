@@ -46,16 +46,16 @@ const menuItems: MenuItem[] = [
     title: '检测管理',
     icon: DataAnalysis,
     children: [
-      { index: '/task', title: '检测任务' },
-      { index: '/record', title: '原始记录' },
-      { index: '/result', title: '检测结果' },
+      { index: '/testing/tasks', title: '检测任务' },
+      { index: '/testing/records', title: '原始记录' },
+      { index: '/testing/results', title: '检测结果' },
     ],
   },
   {
     index: 'report',
     title: '报告管理',
     icon: Notebook,
-    children: [{ index: '/report', title: '报告列表' }],
+    children: [{ index: '/reports', title: '报告列表' }],
   },
   {
     index: 'resource',
@@ -78,9 +78,11 @@ const menuItems: MenuItem[] = [
     title: '质量体系',
     icon: SetUp,
     children: [
-      { index: '/internal-audit', title: '内部审核' },
-      { index: '/management-review', title: '管理评审' },
-      { index: '/nonconformity', title: '不符合项' },
+      { index: '/quality/audit', title: '内部审核' },
+      { index: '/quality/review', title: '管理评审' },
+      { index: '/quality/nonconformity', title: '不符合项' },
+      { index: '/quality/standards', title: '标准规范' },
+      { index: '/quality/parameter-library', title: '项目参数库' },
     ],
   },
   {
@@ -91,7 +93,6 @@ const menuItems: MenuItem[] = [
       { index: '/system/users', title: '用户管理' },
       { index: '/system/roles', title: '角色管理' },
       { index: '/system/audit-logs', title: '操作日志' },
-      { index: '/standard', title: '标准规范' },
     ],
   },
 ]

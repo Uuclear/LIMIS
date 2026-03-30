@@ -14,7 +14,6 @@ const statusOptions = [
   { label: '现行', value: 'active' },
   { label: '即将实施', value: 'upcoming' },
   { label: '已废止', value: 'abolished' },
-  { label: '被替代', value: 'replaced' },
 ]
 
 const categoryOptions = [
@@ -27,9 +26,15 @@ const categoryOptions = [
 
 const dialogVisible = ref(false)
 const formData = reactive({
-  id: 0, standard_no: '', name: '', category: 'GB',
-  implementation_date: '', status: 'active',
-  replaced_by: '', remark: '',
+  id: 0,
+  standard_no: '',
+  name: '',
+  category: 'GB',
+  publish_date: '',
+  implement_date: '',
+  status: 'active',
+  replaced_by: null as number | null,
+  remark: '',
 })
 const dialogTitle = computed(() => formData.id ? '编辑标准' : '新增标准')
 
@@ -56,23 +61,60 @@ function handleReset() {
 
 function openCreate() {
   Object.assign(formData, {
-    id: 0, standard_no: '', name: '', category: 'GB',
-    implementation_date: '', status: 'active', replaced_by: '', remark: '',
+    id: 0,
+    standard_no: '',
+    name: '',
+    category: 'GB',
+    publish_date: '',
+    implement_date: '',
+    status: 'active',
+    replaced_by: null,
+    remark: '',
   })
   dialogVisible.value = true
 }
 
 function openEdit(row: any) {
-  Object.assign(formData, { ...row })
+  Object.assign(formData, {
+    id: row.id,
+    standard_no: row.standard_no,
+    name: row.name,
+    category: row.category,
+    publish_date: row.publish_date ?? '',
+    implement_date: row.implement_date ?? row.implementation_date ?? '',
+    status: row.status,
+    replaced_by: row.replaced_by ?? null,
+    remark: row.remark ?? '',
+  })
   dialogVisible.value = true
 }
 
+function buildStandardPayload() {
+  const p: Record<string, unknown> = {
+    standard_no: formData.standard_no,
+    name: formData.name,
+    category: formData.category,
+    status: formData.status,
+    remark: formData.remark || '',
+    publish_date: formData.publish_date || null,
+    implement_date: formData.implement_date || null,
+    abolish_date: null,
+  }
+  if (formData.replaced_by != null && formData.replaced_by !== ('' as unknown)) {
+    p.replaced_by = formData.replaced_by
+  } else {
+    p.replaced_by = null
+  }
+  return p
+}
+
 async function handleSubmit() {
+  const payload = buildStandardPayload()
   if (formData.id) {
-    await request.put(`/v1/standards/${formData.id}/`, formData)
+    await request.put(`/v1/standards/${formData.id}/`, payload)
     ElMessage.success('更新成功')
   } else {
-    await request.post('/v1/standards/', formData)
+    await request.post('/v1/standards/', payload)
     ElMessage.success('创建成功')
   }
   dialogVisible.value = false
@@ -81,7 +123,7 @@ async function handleSubmit() {
 
 function statusTagType(status: string) {
   const map: Record<string, string> = {
-    active: 'success', upcoming: 'warning', abolished: 'danger', replaced: 'info',
+    active: 'success', upcoming: 'warning', abolished: 'danger',
   }
   return map[status] ?? 'info'
 }
@@ -135,7 +177,9 @@ onMounted(fetchList)
         <el-table-column label="分类" width="110">
           <template #default="{ row }">{{ categoryLabel(row.category) }}</template>
         </el-table-column>
-        <el-table-column prop="implementation_date" label="实施日期" width="120" />
+        <el-table-column label="实施日期" width="120">
+          <template #default="{ row }">{{ row.implement_date ?? row.implementation_date }}</template>
+        </el-table-column>
         <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
@@ -179,10 +223,17 @@ onMounted(fetchList)
         <el-form-item label="标准名称"><el-input v-model="formData.name" /></el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="实施日期">
-              <el-date-picker v-model="formData.implementation_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+            <el-form-item label="发布日期">
+              <el-date-picker v-model="formData.publish_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
             </el-form-item>
           </el-col>
+          <el-col :span="12">
+            <el-form-item label="实施日期">
+              <el-date-picker v-model="formData.implement_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="状态">
               <el-select v-model="formData.status" style="width: 100%">
@@ -191,7 +242,14 @@ onMounted(fetchList)
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="替代标准"><el-input v-model="formData.replaced_by" placeholder="被替代时填写新标准号" /></el-form-item>
+        <el-form-item label="替代标准 ID">
+          <el-input
+            :model-value="formData.replaced_by === null || formData.replaced_by === undefined ? '' : String(formData.replaced_by)"
+            placeholder="填写被替代标准的记录 ID，无则留空"
+            clearable
+            @update:model-value="(v: string) => { formData.replaced_by = v === '' ? null : Number(v) }"
+          />
+        </el-form-item>
         <el-form-item label="备注"><el-input v-model="formData.remark" type="textarea" /></el-form-item>
       </el-form>
       <template #footer>

@@ -6,7 +6,8 @@ export function login(username: string, password: string) {
 }
 
 export function logout() {
-  return request.post('/v1/system/logout/')
+  const refresh = localStorage.getItem('lims_refresh_token')
+  return request.post('/v1/system/logout/', { refresh })
 }
 
 export function getCurrentUser() {

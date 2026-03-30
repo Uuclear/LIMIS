@@ -14,7 +14,8 @@ export const useUserStore = defineStore('user', () => {
   const userName = computed(() => {
     if (!userInfo.value) return ''
     const u = userInfo.value
-    return `${u.last_name || ''}${u.first_name || ''}` || u.username
+    // 后端 UserSerializer 使用 realName 字段（或保证接口返回一致）
+    return u.realName || u.username
   })
   const userRoles = computed(() => roles.value.map((r) => r.code))
 

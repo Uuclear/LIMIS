@@ -25,7 +25,7 @@ service.interceptors.response.use(
     const resData = response.data
 
     if (resData && typeof resData === 'object' && 'code' in resData) {
-      if (resData.code === 200) {
+      if (resData.code === 200 || resData.code === 201) {
         return resData.data as unknown as AxiosResponse
       }
       if (resData.code === 401) {

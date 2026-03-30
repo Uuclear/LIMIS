@@ -8,7 +8,12 @@ from rest_framework.response import Response
 from core.views import BaseModelViewSet
 
 from . import judgment, services
-from .filters import OriginalRecordFilter, TestResultFilter, TestTaskFilter
+from .filters import (
+    OriginalRecordFilter,
+    TestMethodFilter,
+    TestResultFilter,
+    TestTaskFilter,
+)
 from .models import (
     JudgmentRule,
     OriginalRecord,
@@ -46,7 +51,7 @@ class TestCategoryViewSet(BaseModelViewSet):
 class TestMethodViewSet(BaseModelViewSet):
     queryset = TestMethod.objects.select_related('category')
     permission_classes = [permissions.IsAuthenticated]
-    filterset_fields = ['category', 'is_active']
+    filterset_class = TestMethodFilter
     search_fields = ['name', 'standard_no', 'standard_name']
 
     def get_serializer_class(self) -> type:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.db.models import Count
+from django.utils import timezone
 from rest_framework import serializers
 
 from core.serializers import BaseModelSerializer
@@ -141,3 +142,22 @@ class ProjectCreateUpdateSerializer(BaseModelSerializer):
             'status', 'start_date', 'end_date', 'description',
         ]
         read_only_fields = ('id', 'created_at', 'updated_at', 'created_by')
+        extra_kwargs = {
+            'code': {'required': False, 'allow_blank': True},
+        }
+
+    def create(self, validated_data: dict) -> Project:
+        code = (validated_data.get('code') or '').strip()
+        if not code:
+            validated_data['code'] = (
+                f"PRJ-{timezone.now().strftime('%Y%m%d%H%M%S')}"
+            )
+        else:
+            validated_data['code'] = code
+        return super().create(validated_data)
+
+    def update(self, instance: Project, validated_data: dict) -> Project:
+        if 'code' in validated_data:
+            c = (validated_data.get('code') or '').strip()
+            validated_data['code'] = c or instance.code
+        return super().update(instance, validated_data)

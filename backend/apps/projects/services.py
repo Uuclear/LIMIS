@@ -45,9 +45,18 @@ def get_project_stats(project_id: int) -> dict[str, Any]:
     try:
         Report = apps.get_model('reports', 'Report')
         stats['report_count'] = Report.objects.filter(
-            project_id=project_id,
+            commission__project_id=project_id,
         ).count()
     except LookupError:
         pass
+
+    try:
+        TestTask = apps.get_model('testing', 'TestTask')
+        stats['completed_count'] = TestTask.objects.filter(
+            commission__project_id=project_id,
+            status='completed',
+        ).count()
+    except LookupError:
+        stats['completed_count'] = 0
 
     return stats

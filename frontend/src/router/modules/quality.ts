@@ -19,6 +19,18 @@ const qualityRoutes: RouteRecordRaw[] = [
     component: () => import('@/views/quality/NonConformityList.vue'),
     meta: { title: '不符合项', permission: 'quality:nonconformity:list' },
   },
+  {
+    path: '/quality/standards',
+    name: 'QualityStandardList',
+    component: () => import('@/views/standards/StandardList.vue'),
+    meta: { title: '标准规范', permission: 'system:standard:list' },
+  },
+  {
+    path: '/quality/parameter-library',
+    name: 'ParameterLibrary',
+    component: () => import('@/views/quality/ParameterLibrary.vue'),
+    meta: { title: '项目参数库', permission: 'quality:parameter:list' },
+  },
 ]
 
 export default qualityRoutes

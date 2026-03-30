@@ -10,6 +10,7 @@ from .serializers import (
     MethodValidationSerializer,
     StandardDetailSerializer,
     StandardListSerializer,
+    StandardWriteSerializer,
 )
 
 
@@ -22,6 +23,8 @@ class StandardViewSet(BaseModelViewSet):
     def get_serializer_class(self):
         if self.action == 'retrieve':
             return StandardDetailSerializer
+        if self.action in ('create', 'update', 'partial_update'):
+            return StandardWriteSerializer
         return StandardListSerializer
 
 

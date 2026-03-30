@@ -18,7 +18,11 @@ const project = ref<Project>({} as Project)
 
 // --- Basic Info ---
 async function fetchProject() {
-  project.value = await getProject(projectId.value) as any
+  try {
+    project.value = (await getProject(projectId.value)) as any
+  } catch {
+    ElMessage.error('加载项目失败')
+  }
 }
 
 // --- Organizations ---
@@ -26,14 +30,14 @@ const orgLoading = ref(false)
 const orgList = ref<Organization[]>([])
 const orgDialogVisible = ref(false)
 const orgForm = reactive({
-  id: 0, name: '', type: '', contact_person: '', contact_phone: '', qualification: '',
+  id: 0, name: '', role: '', contact_person: '', contact_phone: '',
 })
-const orgTypeOptions = [
-  { label: '建设单位', value: 'owner' },
+const orgRoleOptions = [
+  { label: '建设单位', value: 'builder' },
   { label: '施工单位', value: 'contractor' },
   { label: '监理单位', value: 'supervisor' },
   { label: '设计单位', value: 'designer' },
-  { label: '勘察单位', value: 'surveyor' },
+  { label: '检测单位', value: 'inspector' },
 ]
 
 async function fetchOrgs() {
@@ -47,21 +51,37 @@ async function fetchOrgs() {
 }
 
 function openOrgCreate() {
-  Object.assign(orgForm, { id: 0, name: '', type: '', contact_person: '', contact_phone: '', qualification: '' })
+  Object.assign(orgForm, { id: 0, name: '', role: '', contact_person: '', contact_phone: '' })
   orgDialogVisible.value = true
 }
 
 function openOrgEdit(row: Organization) {
-  Object.assign(orgForm, { ...row })
+  Object.assign(orgForm, {
+    id: row.id,
+    name: row.name,
+    role: (row as any).role ?? (row as any).type ?? '',
+    contact_person: row.contact_person ?? '',
+    contact_phone: row.contact_phone ?? '',
+  })
   orgDialogVisible.value = true
 }
 
+function buildOrgPayload() {
+  return {
+    name: orgForm.name,
+    role: orgForm.role,
+    contact_person: orgForm.contact_person,
+    contact_phone: orgForm.contact_phone,
+  }
+}
+
 async function handleOrgSubmit() {
+  const payload = buildOrgPayload()
   if (orgForm.id) {
-    await updateOrganization(projectId.value, orgForm.id, orgForm)
+    await updateOrganization(projectId.value, orgForm.id, payload)
     ElMessage.success('更新成功')
   } else {
-    await createOrganization(projectId.value, orgForm)
+    await createOrganization(projectId.value, payload)
     ElMessage.success('创建成功')
   }
   orgDialogVisible.value = false
@@ -79,7 +99,12 @@ async function handleOrgDelete(row: Organization) {
 const subLoading = ref(false)
 const subList = ref<SubProject[]>([])
 const subDialogVisible = ref(false)
-const subForm = reactive({ name: '', code: '', parent_id: null as number | null, description: '' })
+const subForm = reactive({
+  name: '',
+  code: '',
+  parent: null as number | null,
+  description: '',
+})
 
 async function fetchSubs() {
   subLoading.value = true
@@ -92,12 +117,17 @@ async function fetchSubs() {
 }
 
 function openSubCreate() {
-  Object.assign(subForm, { name: '', code: '', parent_id: null, description: '' })
+  Object.assign(subForm, { name: '', code: '', parent: null, description: '' })
   subDialogVisible.value = true
 }
 
 async function handleSubSubmit() {
-  await createSubProject(projectId.value, subForm)
+  await createSubProject(projectId.value, {
+    name: subForm.name,
+    code: subForm.code || '',
+    parent: subForm.parent,
+    description: subForm.description || '',
+  })
   ElMessage.success('创建成功')
   subDialogVisible.value = false
   fetchSubs()
@@ -108,7 +138,13 @@ const contractLoading = ref(false)
 const contractList = ref<Contract[]>([])
 const contractDialogVisible = ref(false)
 const contractForm = reactive({
-  contract_no: '', name: '', amount: 0, sign_date: '', start_date: '', end_date: '',
+  contract_no: '',
+  title: '',
+  amount: 0 as number | null,
+  sign_date: '',
+  start_date: '',
+  end_date: '',
+  scope: '',
 })
 
 async function fetchContracts() {
@@ -122,12 +158,28 @@ async function fetchContracts() {
 }
 
 function openContractCreate() {
-  Object.assign(contractForm, { contract_no: '', name: '', amount: 0, sign_date: '', start_date: '', end_date: '' })
+  Object.assign(contractForm, {
+    contract_no: '',
+    title: '',
+    amount: null,
+    sign_date: '',
+    start_date: '',
+    end_date: '',
+    scope: '',
+  })
   contractDialogVisible.value = true
 }
 
 async function handleContractSubmit() {
-  await createContract(projectId.value, contractForm)
+  await createContract(projectId.value, {
+    contract_no: contractForm.contract_no,
+    title: contractForm.title,
+    amount: contractForm.amount,
+    sign_date: contractForm.sign_date || null,
+    start_date: contractForm.start_date || null,
+    end_date: contractForm.end_date || null,
+    scope: contractForm.scope || '',
+  })
   ElMessage.success('创建成功')
   contractDialogVisible.value = false
   fetchContracts()
@@ -137,7 +189,13 @@ async function handleContractSubmit() {
 const witnessLoading = ref(false)
 const witnessList = ref<Witness[]>([])
 const witnessDialogVisible = ref(false)
-const witnessForm = reactive({ name: '', phone: '', id_card: '', organization: '', certificate_no: '' })
+const witnessForm = reactive({
+  name: '',
+  phone: '',
+  id_number: '',
+  organization: null as number | null,
+  certificate_no: '',
+})
 
 async function fetchWitnesses() {
   witnessLoading.value = true
@@ -149,13 +207,26 @@ async function fetchWitnesses() {
   }
 }
 
-function openWitnessCreate() {
-  Object.assign(witnessForm, { name: '', phone: '', id_card: '', organization: '', certificate_no: '' })
+async function openWitnessCreate() {
+  if (!orgList.value.length) await fetchOrgs()
+  Object.assign(witnessForm, {
+    name: '',
+    phone: '',
+    id_number: '',
+    organization: null,
+    certificate_no: '',
+  })
   witnessDialogVisible.value = true
 }
 
 async function handleWitnessSubmit() {
-  await createWitness(projectId.value, witnessForm)
+  await createWitness(projectId.value, {
+    name: witnessForm.name,
+    phone: witnessForm.phone || '',
+    id_number: witnessForm.id_number || '',
+    organization: witnessForm.organization,
+    certificate_no: witnessForm.certificate_no || '',
+  })
   ElMessage.success('创建成功')
   witnessDialogVisible.value = false
   fetchWitnesses()
@@ -164,18 +235,38 @@ async function handleWitnessSubmit() {
 // --- Stats ---
 const stats = ref<any>({})
 async function fetchStats() {
-  stats.value = await getProjectStats(projectId.value) as any
+  try {
+    stats.value = (await getProjectStats(projectId.value)) as any
+  } catch {
+    stats.value = {}
+  }
 }
 
 function handleTabChange(tab: string) {
   const loaders: Record<string, () => void> = {
-    orgs: fetchOrgs, subs: fetchSubs, contracts: fetchContracts, witnesses: fetchWitnesses, stats: fetchStats,
+    orgs: fetchOrgs,
+    subs: fetchSubs,
+    contracts: fetchContracts,
+    witnesses: async () => {
+      await fetchOrgs()
+      await fetchWitnesses()
+    },
+    stats: fetchStats,
   }
   loaders[tab]?.()
 }
 
-function orgTypeLabel(val: string) {
-  return orgTypeOptions.find(o => o.value === val)?.label ?? val
+function orgRoleLabel(val: string) {
+  return orgRoleOptions.find(o => o.value === val)?.label ?? val
+}
+
+const typeLabels: Record<string, string> = {
+  building: '房建工程',
+  municipal: '市政工程',
+  transport: '交通工程',
+  water: '水利工程',
+  airport: '机场工程',
+  other: '其他',
 }
 
 onMounted(fetchProject)
@@ -194,9 +285,11 @@ onMounted(fetchProject)
       <el-tab-pane label="基本信息" name="basic">
         <el-card shadow="never">
           <el-descriptions :column="2" border>
-            <el-descriptions-item label="项目编号">{{ project.project_no }}</el-descriptions-item>
+            <el-descriptions-item label="项目编号">{{ (project as any).code || project.project_no }}</el-descriptions-item>
             <el-descriptions-item label="工程名称">{{ project.name }}</el-descriptions-item>
-            <el-descriptions-item label="工程类型">{{ project.type }}</el-descriptions-item>
+            <el-descriptions-item label="工程类型">
+              {{ (project as any).project_type_display || typeLabels[(project as any).project_type] || (project as any).project_type }}
+            </el-descriptions-item>
             <el-descriptions-item label="状态">{{ project.status }}</el-descriptions-item>
             <el-descriptions-item label="工程地址" :span="2">{{ project.address }}</el-descriptions-item>
             <el-descriptions-item label="开工日期">{{ project.start_date }}</el-descriptions-item>
@@ -217,12 +310,11 @@ onMounted(fetchProject)
           </template>
           <el-table v-loading="orgLoading" :data="orgList" stripe border>
             <el-table-column prop="name" label="单位名称" min-width="180" />
-            <el-table-column label="单位类型" width="120">
-              <template #default="{ row }">{{ orgTypeLabel(row.type) }}</template>
+            <el-table-column label="单位角色" width="120">
+              <template #default="{ row }">{{ orgRoleLabel((row as any).role || (row as any).type) }}</template>
             </el-table-column>
             <el-table-column prop="contact_person" label="联系人" width="120" />
             <el-table-column prop="contact_phone" label="联系电话" width="140" />
-            <el-table-column prop="qualification" label="资质" min-width="160" show-overflow-tooltip />
             <el-table-column label="操作" width="140">
               <template #default="{ row }">
                 <el-button link type="primary" @click="openOrgEdit(row)">编辑</el-button>
@@ -261,12 +353,13 @@ onMounted(fetchProject)
           </template>
           <el-table v-loading="contractLoading" :data="contractList" stripe border>
             <el-table-column prop="contract_no" label="合同编号" width="160" />
-            <el-table-column prop="name" label="合同名称" min-width="200" />
+            <el-table-column label="合同名称" min-width="200">
+              <template #default="{ row }">{{ (row as any).title || (row as any).name }}</template>
+            </el-table-column>
             <el-table-column prop="amount" label="金额(元)" width="120" align="right" />
             <el-table-column prop="sign_date" label="签订日期" width="120" />
             <el-table-column prop="start_date" label="开始日期" width="120" />
             <el-table-column prop="end_date" label="结束日期" width="120" />
-            <el-table-column prop="status" label="状态" width="100" align="center" />
           </el-table>
         </el-card>
       </el-tab-pane>
@@ -283,8 +376,10 @@ onMounted(fetchProject)
           <el-table v-loading="witnessLoading" :data="witnessList" stripe border>
             <el-table-column prop="name" label="姓名" width="120" />
             <el-table-column prop="phone" label="电话" width="140" />
-            <el-table-column prop="id_card" label="身份证号" width="200" />
-            <el-table-column prop="organization" label="所属单位" min-width="180" />
+            <el-table-column prop="id_number" label="证件号" width="200" />
+            <el-table-column label="所属单位" min-width="180">
+              <template #default="{ row }">{{ (row as any).organization_name || '—' }}</template>
+            </el-table-column>
             <el-table-column prop="certificate_no" label="证书编号" width="160" />
           </el-table>
         </el-card>
@@ -315,14 +410,13 @@ onMounted(fetchProject)
     <el-dialog v-model="orgDialogVisible" :title="orgForm.id ? '编辑参建单位' : '新增参建单位'" width="520px" destroy-on-close>
       <el-form :model="orgForm" label-width="80px">
         <el-form-item label="单位名称"><el-input v-model="orgForm.name" /></el-form-item>
-        <el-form-item label="单位类型">
-          <el-select v-model="orgForm.type" style="width: 100%">
-            <el-option v-for="o in orgTypeOptions" :key="o.value" :label="o.label" :value="o.value" />
+        <el-form-item label="单位角色">
+          <el-select v-model="orgForm.role" style="width: 100%">
+            <el-option v-for="o in orgRoleOptions" :key="o.value" :label="o.label" :value="o.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="联系人"><el-input v-model="orgForm.contact_person" /></el-form-item>
         <el-form-item label="联系电话"><el-input v-model="orgForm.contact_phone" /></el-form-item>
-        <el-form-item label="资质"><el-input v-model="orgForm.qualification" type="textarea" /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="orgDialogVisible = false">取消</el-button>
@@ -336,7 +430,7 @@ onMounted(fetchProject)
         <el-form-item label="编码"><el-input v-model="subForm.code" /></el-form-item>
         <el-form-item label="名称"><el-input v-model="subForm.name" /></el-form-item>
         <el-form-item label="上级">
-          <el-select v-model="subForm.parent_id" placeholder="无（顶级）" clearable style="width: 100%">
+          <el-select v-model="subForm.parent" placeholder="无（顶级）" clearable style="width: 100%">
             <el-option v-for="s in subList" :key="s.id" :label="s.name" :value="s.id" />
           </el-select>
         </el-form-item>
@@ -352,7 +446,7 @@ onMounted(fetchProject)
     <el-dialog v-model="contractDialogVisible" title="新增检测合同" width="520px" destroy-on-close>
       <el-form :model="contractForm" label-width="80px">
         <el-form-item label="合同编号"><el-input v-model="contractForm.contract_no" /></el-form-item>
-        <el-form-item label="合同名称"><el-input v-model="contractForm.name" /></el-form-item>
+        <el-form-item label="合同名称"><el-input v-model="contractForm.title" /></el-form-item>
         <el-form-item label="金额"><el-input-number v-model="contractForm.amount" :min="0" style="width: 100%" /></el-form-item>
         <el-form-item label="签订日期">
           <el-date-picker v-model="contractForm.sign_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
@@ -369,6 +463,7 @@ onMounted(fetchProject)
             </el-form-item>
           </el-col>
         </el-row>
+        <el-form-item label="检测范围"><el-input v-model="contractForm.scope" type="textarea" :rows="2" /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="contractDialogVisible = false">取消</el-button>
@@ -381,8 +476,12 @@ onMounted(fetchProject)
       <el-form :model="witnessForm" label-width="80px">
         <el-form-item label="姓名"><el-input v-model="witnessForm.name" /></el-form-item>
         <el-form-item label="电话"><el-input v-model="witnessForm.phone" /></el-form-item>
-        <el-form-item label="身份证号"><el-input v-model="witnessForm.id_card" /></el-form-item>
-        <el-form-item label="所属单位"><el-input v-model="witnessForm.organization" /></el-form-item>
+        <el-form-item label="证件号"><el-input v-model="witnessForm.id_number" /></el-form-item>
+        <el-form-item label="所属参建单位">
+          <el-select v-model="witnessForm.organization" placeholder="可选" clearable filterable style="width: 100%">
+            <el-option v-for="o in orgList" :key="o.id" :label="o.name" :value="o.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="证书编号"><el-input v-model="witnessForm.certificate_no" /></el-form-item>
       </el-form>
       <template #footer>

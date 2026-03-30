@@ -47,6 +47,19 @@ class StandardListSerializer(BaseModelSerializer):
         read_only_fields = ['id', 'created_at']
 
 
+class StandardWriteSerializer(BaseModelSerializer):
+    """创建/更新：可写字段与模型一致，避免 list 序列化器缺少字段导致写入失败。"""
+
+    class Meta:
+        model = Standard
+        fields = [
+            'id', 'standard_no', 'name', 'category',
+            'publish_date', 'implement_date', 'abolish_date',
+            'status', 'replaced_by', 'attachment', 'remark',
+        ]
+        read_only_fields = ['id']
+
+
 class StandardDetailSerializer(BaseModelSerializer):
     status_display = serializers.CharField(
         source='get_status_display', read_only=True,

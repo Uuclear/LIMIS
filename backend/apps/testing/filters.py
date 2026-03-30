@@ -3,7 +3,17 @@ from __future__ import annotations
 import django_filters
 from django.db import models
 
-from .models import OriginalRecord, TestResult, TestTask
+from .models import OriginalRecord, TestMethod, TestResult, TestTask
+
+
+class TestMethodFilter(django_filters.FilterSet):
+    standard_no = django_filters.CharFilter(
+        field_name='standard_no', lookup_expr='iexact',
+    )
+
+    class Meta:
+        model = TestMethod
+        fields = ['category', 'is_active', 'standard_no']
 
 
 class TestTaskFilter(django_filters.FilterSet):

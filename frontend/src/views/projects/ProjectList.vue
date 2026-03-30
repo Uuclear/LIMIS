@@ -12,7 +12,7 @@ const tableData = ref<Project[]>([])
 const total = ref(0)
 
 const query = reactive({
-  page: 1, page_size: 20, keyword: '', status: '', type: '',
+  page: 1, page_size: 20, search: '', status: '', project_type: '',
 })
 
 const dialogVisible = ref(false)
@@ -20,20 +20,28 @@ const dialogTitle = ref('')
 const formRef = ref()
 
 const form = reactive({
-  id: 0, project_no: '', name: '', type: '', status: '',
-  address: '', start_date: '', end_date: '', description: '',
+  id: 0,
+  code: '',
+  name: '',
+  project_type: '',
+  status: '',
+  address: '',
+  start_date: '',
+  end_date: '',
+  description: '',
 })
 
 const rules = {
   name: [{ required: true, message: '请输入工程名称', trigger: 'blur' }],
-  type: [{ required: true, message: '请选择工程类型', trigger: 'change' }],
+  project_type: [{ required: true, message: '请选择工程类型', trigger: 'change' }],
 }
 
 const typeOptions = [
   { label: '房建工程', value: 'building' },
   { label: '市政工程', value: 'municipal' },
-  { label: '公路工程', value: 'highway' },
+  { label: '交通工程', value: 'transport' },
   { label: '水利工程', value: 'water' },
+  { label: '机场工程', value: 'airport' },
   { label: '其他', value: 'other' },
 ]
 
@@ -60,32 +68,67 @@ function handleSearch() {
 }
 
 function handleReset() {
-  Object.assign(query, { page: 1, keyword: '', status: '', type: '' })
+  Object.assign(query, { page: 1, search: '', status: '', project_type: '' })
   fetchList()
 }
 
 function openCreate() {
   dialogTitle.value = '新增工程项目'
   Object.assign(form, {
-    id: 0, project_no: '', name: '', type: '', status: 'active',
-    address: '', start_date: '', end_date: '', description: '',
+    id: 0,
+    code: '',
+    name: '',
+    project_type: '',
+    status: 'active',
+    address: '',
+    start_date: '',
+    end_date: '',
+    description: '',
   })
   dialogVisible.value = true
 }
 
 function openEdit(row: Project) {
   dialogTitle.value = '编辑工程项目'
-  Object.assign(form, { ...row })
+  Object.assign(form, {
+    id: row.id,
+    code: (row as any).code ?? row.project_no ?? '',
+    name: row.name,
+    project_type: (row as any).project_type ?? row.type ?? '',
+    status: row.status,
+    address: row.address ?? '',
+    start_date: row.start_date ?? '',
+    end_date: row.end_date ?? '',
+    description: row.description ?? '',
+  })
   dialogVisible.value = true
+}
+
+function buildProjectPayload() {
+  const payload: Record<string, unknown> = {
+    name: form.name,
+    address: form.address || '',
+    project_type: form.project_type,
+    status: form.status || 'active',
+    start_date: form.start_date || null,
+    end_date: form.end_date || null,
+    description: form.description || '',
+  }
+  const code = (form.code || '').trim()
+  if (code) {
+    payload.code = code
+  }
+  return payload
 }
 
 async function handleSubmit() {
   await formRef.value?.validate()
+  const payload = buildProjectPayload()
   if (form.id) {
-    await updateProject(form.id, form)
+    await updateProject(form.id, payload)
     ElMessage.success('更新成功')
   } else {
-    await createProject(form)
+    await createProject(payload)
     ElMessage.success('创建成功')
   }
   dialogVisible.value = false
@@ -107,6 +150,14 @@ function typeLabel(val: string) {
   return typeOptions.find(o => o.value === val)?.label ?? val
 }
 
+function rowCode(row: Project) {
+  return (row as any).code ?? row.project_no ?? ''
+}
+
+function rowProjectType(row: Project) {
+  return (row as any).project_type ?? row.type ?? ''
+}
+
 function statusTagType(status: string) {
   const map: Record<string, string> = {
     active: 'success', completed: 'info', suspended: 'warning',
@@ -126,10 +177,10 @@ onMounted(fetchList)
     <el-card shadow="never">
       <el-form inline @submit.prevent="handleSearch">
         <el-form-item label="关键词">
-          <el-input v-model="query.keyword" placeholder="项目编号/名称" clearable style="width: 200px" />
+          <el-input v-model="query.search" placeholder="项目编号/名称" clearable style="width: 200px" />
         </el-form-item>
         <el-form-item label="工程类型">
-          <el-select v-model="query.type" placeholder="全部" clearable style="width: 140px">
+          <el-select v-model="query.project_type" placeholder="全部" clearable style="width: 140px">
             <el-option v-for="t in typeOptions" :key="t.value" :label="t.label" :value="t.value" />
           </el-select>
         </el-form-item>
@@ -154,11 +205,13 @@ onMounted(fetchList)
       </template>
 
       <el-table v-loading="loading" :data="tableData" stripe border>
-        <el-table-column prop="project_no" label="项目编号" width="160" />
+        <el-table-column label="项目编号" width="160">
+          <template #default="{ row }">{{ rowCode(row) }}</template>
+        </el-table-column>
         <el-table-column prop="name" label="工程名称" min-width="200" show-overflow-tooltip />
         <el-table-column label="工程类型" width="120" align="center">
           <template #default="{ row }">
-            <el-tag size="small">{{ typeLabel(row.type) }}</el-tag>
+            <el-tag size="small">{{ typeLabel(rowProjectType(row)) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="100" align="center">
@@ -195,14 +248,28 @@ onMounted(fetchList)
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
         <el-row :gutter="16">
           <el-col :span="12">
+            <el-form-item label="项目编号">
+              <el-input v-model="form.code" placeholder="留空则自动生成" clearable />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
             <el-form-item label="工程名称" prop="name">
               <el-input v-model="form.name" />
             </el-form-item>
           </el-col>
+        </el-row>
+        <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="工程类型" prop="type">
-              <el-select v-model="form.type" placeholder="请选择" style="width: 100%">
+            <el-form-item label="工程类型" prop="project_type">
+              <el-select v-model="form.project_type" placeholder="请选择" style="width: 100%">
                 <el-option v-for="t in typeOptions" :key="t.value" :label="t.label" :value="t.value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="状态">
+              <el-select v-model="form.status" placeholder="请选择" style="width: 100%">
+                <el-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
               </el-select>
             </el-form-item>
           </el-col>

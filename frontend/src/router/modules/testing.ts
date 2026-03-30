@@ -8,6 +8,12 @@ const testingRoutes: RouteRecordRaw[] = [
     meta: { title: '检测任务', permission: 'task:list' },
   },
   {
+    path: '/testing/results',
+    name: 'TestResultList',
+    component: () => import('@/views/testing/tasks/TaskList.vue'),
+    meta: { title: '检测结果', permission: 'task:list' },
+  },
+  {
     path: '/testing/tasks/:id',
     name: 'TestTaskDetail',
     component: () => import('@/views/testing/tasks/TaskDetail.vue'),

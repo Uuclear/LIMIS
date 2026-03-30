@@ -12,11 +12,16 @@ import staffRoutes from './modules/staff'
 import environmentRoutes from './modules/environment'
 import qualityRoutes from './modules/quality'
 import consumableRoutes from './modules/consumables'
-import standardRoutes from './modules/standards'
+import testingRoutes from './modules/testing'
+import reportRoutes from './modules/reports'
 
 NProgress.configure({ showSpinner: false })
 
 const routes: RouteRecordRaw[] = [
+  {
+    path: '/standard',
+    redirect: '/quality/standards',
+  },
   {
     path: '/login',
     name: 'Login',
@@ -43,31 +48,8 @@ const routes: RouteRecordRaw[] = [
       ...environmentRoutes,
       ...qualityRoutes,
       ...consumableRoutes,
-      ...standardRoutes,
-      {
-        path: 'task',
-        name: 'TestTask',
-        component: () => import('@/views/placeholder/PlaceholderPage.vue'),
-        meta: { title: '检测任务', permission: 'task:list' },
-      },
-      {
-        path: 'record',
-        name: 'OriginalRecord',
-        component: () => import('@/views/placeholder/PlaceholderPage.vue'),
-        meta: { title: '原始记录', permission: 'record:list' },
-      },
-      {
-        path: 'result',
-        name: 'TestResult',
-        component: () => import('@/views/placeholder/PlaceholderPage.vue'),
-        meta: { title: '检测结果', permission: 'result:list' },
-      },
-      {
-        path: 'report',
-        name: 'ReportList',
-        component: () => import('@/views/placeholder/PlaceholderPage.vue'),
-        meta: { title: '报告列表', permission: 'report:list' },
-      },
+      ...testingRoutes,
+      ...reportRoutes,
     ],
   },
   {

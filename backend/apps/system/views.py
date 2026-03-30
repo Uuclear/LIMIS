@@ -156,18 +156,13 @@ class LogoutView(APIView):
     def post(self, request: Request) -> Response:
         refresh_token = request.data.get('refresh')
         if not refresh_token:
-            return Response(
-                {'detail': '缺少refresh token'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            # 前端未带 refresh 时仍允许登出（本地会话已清），避免首次退出报错
+            return Response({'detail': '已退出登录'})
         try:
             token = RefreshToken(refresh_token)
             token.blacklist()
         except TokenError:
-            return Response(
-                {'detail': '无效的token'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({'detail': '已退出登录'})
         return Response({'detail': '已退出登录'})
 
 
