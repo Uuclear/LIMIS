@@ -17,7 +17,9 @@
 
 ## 2. 全流程演示数据（避免各模块「空列表」）
 
-项目提供管理命令 **`seed_full_workflow`**，用于在**本地/演示库**生成从标准、项目、委托、样品、任务、原始记录、结果、报告到质量与通知的连贯数据。
+管理命令 **`seed_full_workflow`** 的实现类为 **`apps.system.management.lims_demo_seeder.LimsDemoSeeder`**（与命令文件分离，便于维护与单测）。
+
+数据约定：**编号前缀 `LIMIS-DEMO-`**；演示用户 **`demo_<角色编码>`**，密码 **`Limis@demo123`**。`--clear` 会删除上述前缀及 `demo_*` 用户，并尝试清理历史旧版演示前缀（如 `TT-2024-`、`PDJC-2024-001` 等），避免外键残留阻塞重建。
 
 ```bash
 cd backend
@@ -27,8 +29,8 @@ python manage.py migrate
 python manage.py seed_full_workflow
 ```
 
-- 若需清空本命令曾写入的演示键值后重建：`python manage.py seed_full_workflow --clear`（会按脚本内前缀删除演示数据，**勿在生产未经评估使用**）。
-- 另有 **`seed_role_test_users`**：为每个角色生成 `test_<角色编码>` 测试账号，便于权限回归。
+- 干净重建：`python manage.py seed_full_workflow --clear`（**勿在生产未经评估使用**）。
+- 另有 **`seed_role_test_users`**：为每个角色生成 `test_<角色编码>` 测试账号（与 `demo_*` 不同），便于权限回归。
 
 ---
 
