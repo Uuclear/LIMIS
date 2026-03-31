@@ -114,6 +114,12 @@ PASSWORD_CHANGE_THROTTLE_RATE = os.environ.get(
     'PASSWORD_CHANGE_THROTTLE_RATE', '5/hour',
 )
 
+# 登录失败限次（按 username + 客户端 IP，缓存计数；成功登录清零）
+# LOGIN_FAILURE_MAX_ATTEMPTS=0 表示关闭该功能
+LOGIN_FAILURE_MAX_ATTEMPTS = int(os.environ.get('LOGIN_FAILURE_MAX_ATTEMPTS', '5'))
+LOGIN_FAILURE_LOCKOUT_SECONDS = int(os.environ.get('LOGIN_FAILURE_LOCKOUT_SECONDS', '300'))
+LOGIN_FAILURE_WINDOW_SECONDS = int(os.environ.get('LOGIN_FAILURE_WINDOW_SECONDS', '900'))
+
 # Cache
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
 

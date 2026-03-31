@@ -39,11 +39,12 @@ from .serializers import (
 
 
 class AuditLogFilter(django_filters.FilterSet):
-    start_date = django_filters.DateTimeFilter(
-        field_name='timestamp', lookup_expr='gte',
+    # 与前端 value-format=YYYY-MM-DD 对齐：按「日期」含首尾全天，避免 end 被解析为当日 00:00 导致漏数据
+    start_date = django_filters.DateFilter(
+        field_name='timestamp', lookup_expr='date__gte',
     )
-    end_date = django_filters.DateTimeFilter(
-        field_name='timestamp', lookup_expr='lte',
+    end_date = django_filters.DateFilter(
+        field_name='timestamp', lookup_expr='date__lte',
     )
     user = django_filters.NumberFilter(field_name='user_id')
     method = django_filters.CharFilter(lookup_expr='iexact')
@@ -185,6 +186,7 @@ class LoginView(APIView):
         result = services.authenticate_user(
             serializer.validated_data['username'],
             serializer.validated_data['password'],
+            services.get_client_ip(request),
         )
         user = result['user']
         user.last_login = timezone.now()

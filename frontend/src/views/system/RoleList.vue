@@ -133,7 +133,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header">
           <span>角色管理</span>
-          <el-button type="primary" :icon="Plus" @click="openCreate">新增角色</el-button>
+          <el-button v-permission="'system:create'" type="primary" :icon="Plus" @click="openCreate">新增角色</el-button>
         </div>
       </template>
 
@@ -144,8 +144,8 @@ onMounted(() => {
         <el-table-column prop="user_count" label="用户数" width="100" align="center" />
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button v-permission="'system:edit'" link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button v-permission="'system:delete'" link type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -199,7 +199,7 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <el-button v-permission="form.id ? 'system:edit' : 'system:create'" type="primary" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>

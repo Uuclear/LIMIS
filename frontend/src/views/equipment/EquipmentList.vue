@@ -256,7 +256,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header">
           <span>仪器设备管理</span>
-          <el-button type="primary" :icon="Plus" @click="openCreate">新增设备</el-button>
+          <el-button v-permission="'equipment:create'" type="primary" :icon="Plus" @click="openCreate">新增设备</el-button>
         </div>
       </template>
 
@@ -277,9 +277,10 @@ onMounted(() => {
         <el-table-column prop="calibration_due" label="校准到期日" width="120" />
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="goDetail(row)">查看</el-button>
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button v-permission="'equipment:view'" link type="primary" @click="goDetail(row)">查看</el-button>
+            <el-button v-permission="'equipment:edit'" link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button
+              v-permission="'equipment:delete'"
               link
               type="danger"
               :loading="isLocked(`equipment_delete_${row.id}`)"
@@ -380,7 +381,7 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="isLocked('equipment_submit')" @click="handleSubmit">确定</el-button>
+        <el-button v-permission="formData.id ? 'equipment:edit' : 'equipment:create'" type="primary" :loading="isLocked('equipment_submit')" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>

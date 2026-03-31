@@ -181,7 +181,7 @@ onMounted(() => { fetchList(); fetchRoles() })
       <template #header>
         <div class="card-header">
           <span>用户列表</span>
-          <el-button type="primary" :icon="Plus" @click="openCreate">新增用户</el-button>
+          <el-button v-permission="'system:create'" type="primary" :icon="Plus" @click="openCreate">新增用户</el-button>
         </div>
       </template>
 
@@ -214,12 +214,12 @@ onMounted(() => { fetchList(); fetchRoles() })
         </el-table-column>
         <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="primary" @click="openResetPwd(row)">重置密码</el-button>
-            <el-button link :type="row.is_active ? 'warning' : 'success'" @click="handleToggleActive(row)">
+            <el-button v-permission="'system:edit'" link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button v-permission="'system:edit'" link type="primary" @click="openResetPwd(row)">重置密码</el-button>
+            <el-button v-permission="'system:edit'" link :type="row.is_active ? 'warning' : 'success'" @click="handleToggleActive(row)">
               {{ row.is_active ? '禁用' : '启用' }}
             </el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button v-permission="'system:delete'" link type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -267,7 +267,7 @@ onMounted(() => { fetchList(); fetchRoles() })
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <el-button v-permission="form.id ? 'system:edit' : 'system:create'" type="primary" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -280,7 +280,7 @@ onMounted(() => { fetchList(); fetchRoles() })
       </el-form>
       <template #footer>
         <el-button @click="pwdDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleResetPwd">确定</el-button>
+        <el-button v-permission="'system:edit'" type="primary" @click="handleResetPwd">确定</el-button>
       </template>
     </el-dialog>
   </div>

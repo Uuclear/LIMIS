@@ -239,7 +239,7 @@ onMounted(fetchEquipment)
           <template #header>
             <div class="card-header">
               <span>检定/校准记录</span>
-              <el-button type="primary" :icon="Plus" size="small" @click="openCalCreate">新增</el-button>
+              <el-button v-permission="'equipment:create'" type="primary" :icon="Plus" size="small" @click="openCalCreate">新增</el-button>
             </div>
           </template>
           <el-table v-loading="calLoading" :data="calList" stripe border>
@@ -269,7 +269,7 @@ onMounted(fetchEquipment)
           <template #header>
             <div class="card-header">
               <span>期间核查记录</span>
-              <el-button type="primary" :icon="Plus" size="small" @click="openCheckCreate">新增</el-button>
+              <el-button v-permission="'equipment:create'" type="primary" :icon="Plus" size="small" @click="openCheckCreate">新增</el-button>
             </div>
           </template>
           <el-table v-loading="checkLoading" :data="checkList" stripe border>
@@ -294,7 +294,7 @@ onMounted(fetchEquipment)
           <template #header>
             <div class="card-header">
               <span>维护保养记录</span>
-              <el-button type="primary" :icon="Plus" size="small" @click="openMtCreate">新增</el-button>
+              <el-button v-permission="'equipment:create'" type="primary" :icon="Plus" size="small" @click="openMtCreate">新增</el-button>
             </div>
           </template>
           <el-table v-loading="mtLoading" :data="mtList" stripe border>
@@ -356,7 +356,7 @@ onMounted(fetchEquipment)
       </el-form>
       <template #footer>
         <el-button @click="calDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="isLocked('equipment_cal_submit')" @click="handleCalSubmit">确定</el-button>
+        <el-button v-permission="'equipment:create'" type="primary" :loading="isLocked('equipment_cal_submit')" @click="handleCalSubmit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -385,7 +385,7 @@ onMounted(fetchEquipment)
       </el-form>
       <template #footer>
         <el-button @click="checkDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="isLocked('equipment_check_submit')" @click="handleCheckSubmit">确定</el-button>
+        <el-button v-permission="'equipment:create'" type="primary" :loading="isLocked('equipment_check_submit')" @click="handleCheckSubmit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -406,7 +406,7 @@ onMounted(fetchEquipment)
       </el-form>
       <template #footer>
         <el-button @click="mtDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="isLocked('equipment_mt_submit')" @click="handleMtSubmit">确定</el-button>
+        <el-button v-permission="'equipment:create'" type="primary" :loading="isLocked('equipment_mt_submit')" @click="handleMtSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>
