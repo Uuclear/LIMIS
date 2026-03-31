@@ -1,21 +1,87 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ArrowDown, Bell, User, Lock, SwitchButton } from '@element-plus/icons-vue'
+import { getDashboardData } from '@/api/statistics'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
-/** 站内提醒（示例数据，后续可对接通知接口） */
-const notifications = ref([
-  { id: 1, title: '待办：委托评审', desc: '有委托单待您评审', path: '/entrustment' },
-  { id: 2, title: '设备校准提醒', desc: '部分设备即将到检', path: '/equipment' },
-  { id: 3, title: '质量体系', desc: '内部审核计划请关注', path: '/quality/audit' },
-])
+/** 与仪表盘 /statistics/dashboard 一致的待办类提醒（非站内信系统） */
+type NotifItem = { id: string; title: string; desc: string; path: string; count: number }
+const notifications = ref<NotifItem[]>([])
 
-const unreadCount = computed(() => notifications.value.length)
+const unreadCount = computed(() =>
+  notifications.value.reduce((s, n) => s + n.count, 0),
+)
+
+async function loadNotifications() {
+  try {
+    const res: any = await getDashboardData()
+    const items: NotifItem[] = []
+    const n = (v: unknown) => (typeof v === 'number' && !Number.isNaN(v) ? v : 0)
+
+    const pc = n(res?.pending_commission_reviews)
+    if (pc > 0) {
+      items.push({
+        id: 'commission_review',
+        title: '委托待评审',
+        desc: `共 ${pc} 条委托单待评审`,
+        path: '/entrustment',
+        count: pc,
+      })
+    }
+    const pt = n(res?.pending_tasks)
+    if (pt > 0) {
+      items.push({
+        id: 'pending_tasks',
+        title: '检测任务待办',
+        desc: `共 ${pt} 个任务待分配或待检`,
+        path: '/testing/tasks',
+        count: pt,
+      })
+    }
+    const rr = n(res?.records_pending_review)
+    if (rr > 0) {
+      items.push({
+        id: 'record_review',
+        title: '原始记录待复核',
+        desc: `共 ${rr} 条记录待复核`,
+        path: '/testing/records',
+        count: rr,
+      })
+    }
+    const pr = n(res?.pending_report_reviews)
+    if (pr > 0) {
+      items.push({
+        id: 'report_review',
+        title: '检测报告审批',
+        desc: `共 ${pr} 份报告待审核/批准`,
+        path: '/reports',
+        count: pr,
+      })
+    }
+    const ew = n(res?.equipment_warnings)
+    if (ew > 0) {
+      items.push({
+        id: 'equipment_cal',
+        title: '设备校准提醒',
+        desc: `共 ${ew} 台设备需关注校准/检定`,
+        path: '/equipment',
+        count: ew,
+      })
+    }
+    notifications.value = items
+  } catch {
+    notifications.value = []
+  }
+}
+
+onMounted(() => {
+  loadNotifications()
+})
 
 const breadcrumbs = computed(() => {
   return route.matched
@@ -56,7 +122,7 @@ async function handleCommand(command: string) {
     </div>
 
     <div class="header-right">
-      <el-popover placement="bottom-end" :width="340" trigger="click">
+      <el-popover placement="bottom-end" :width="340" trigger="click" @show="loadNotifications">
         <template #reference>
           <span class="notif-trigger" role="button" tabindex="0">
             <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="notification-badge">
