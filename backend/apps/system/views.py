@@ -20,6 +20,7 @@ from core.permissions import LimsModulePermission
 
 from . import services
 from .models import AuditLog, Notification, Permission, Role, User
+from .throttles import PasswordChangeThrottle
 from .serializers import (
     AuditLogSerializer,
     LoginSerializer,
@@ -225,6 +226,7 @@ class CurrentUserView(APIView):
 
 class PasswordChangeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [PasswordChangeThrottle]
 
     def put(self, request: Request) -> Response:
         serializer = PasswordChangeSerializer(

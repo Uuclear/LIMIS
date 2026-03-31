@@ -2,7 +2,10 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import NProgress from 'nprogress'
 import 'nprogress/nprogress.css'
+import { ElMessage } from 'element-plus'
 import { isAuthenticated } from '@/utils/auth'
+import { useUserStore } from '@/stores/user'
+import { canAccessRoutePermission, getRoutePermission } from '@/utils/permission'
 import systemRoutes from './modules/system'
 import projectRoutes from './modules/projects'
 import commissionRoutes from './modules/commissions'
@@ -65,7 +68,7 @@ const router = createRouter({
 
 const PUBLIC_ROUTES = ['/login']
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   NProgress.start()
 
   if (PUBLIC_ROUTES.includes(to.path)) {
@@ -75,6 +78,16 @@ router.beforeEach((to, _from, next) => {
 
   if (!isAuthenticated()) {
     next({ path: '/login', query: { redirect: to.fullPath } })
+    return
+  }
+
+  const userStore = useUserStore()
+  await userStore.ensureProfile()
+
+  const required = getRoutePermission(to.matched)
+  if (!canAccessRoutePermission(required)) {
+    ElMessage.warning('无权访问该页面')
+    next({ path: '/dashboard' })
     return
   }
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { canAccessRoutePermission, getRoutePermission } from '@/utils/permission'
 import {
   HomeFilled,
   Briefcase,
@@ -29,7 +30,7 @@ const router = useRouter()
 
 const activeMenu = computed(() => route.path)
 
-const menuItems: MenuItem[] = [
+const rawMenuItems: MenuItem[] = [
   { index: '/dashboard', title: '首页', icon: HomeFilled },
   {
     index: 'business',
@@ -100,6 +101,23 @@ const menuItems: MenuItem[] = [
     ],
   },
 ]
+
+function filterMenuItem(item: MenuItem): MenuItem | null {
+  if (!item.children?.length) {
+    const perm = getRoutePermission(router.resolve(item.index).matched)
+    if (!canAccessRoutePermission(perm)) return null
+    return item
+  }
+  const children = item.children
+    .map((c) => filterMenuItem(c))
+    .filter((c): c is MenuItem => c !== null)
+  if (children.length === 0) return null
+  return { ...item, children }
+}
+
+const menuItems = computed(() =>
+  rawMenuItems.map(filterMenuItem).filter((c): c is MenuItem => c !== null),
+)
 
 function handleMenuSelect(index: string) {
   if (index.startsWith('/')) {

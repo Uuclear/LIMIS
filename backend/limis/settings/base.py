@@ -109,6 +109,11 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# 已登录用户自助修改密码接口限流（DRF UserRateThrottle scope，如 "5/hour"）
+PASSWORD_CHANGE_THROTTLE_RATE = os.environ.get(
+    'PASSWORD_CHANGE_THROTTLE_RATE', '5/hour',
+)
+
 # Cache
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
 
@@ -139,6 +144,9 @@ REST_FRAMEWORK = {
     ),
     'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_THROTTLE_RATES': {
+        'password_change': PASSWORD_CHANGE_THROTTLE_RATE,
+    },
 }
 
 SIMPLE_JWT = {

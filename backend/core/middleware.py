@@ -5,7 +5,8 @@ import logging
 import hashlib
 from typing import Any, Callable
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, OperationalError, transaction
+from django.db.utils import DataError, InterfaceError
 from django.http import HttpRequest, HttpResponse, JsonResponse
 
 logger = logging.getLogger('audit')
@@ -238,8 +239,10 @@ class AuditLogMiddleware:
                     getattr(request, '_idempotency_replayed', False),
                 ),
             )
-        except Exception as e:
-            logger.warning('Failed to create audit log: %s', e)
+        except (IntegrityError, OperationalError, DataError, InterfaceError) as exc:
+            logger.warning('Failed to create audit log (%s): %s', type(exc).__name__, exc)
+        except Exception:
+            logger.exception('Failed to create audit log')
 
     def _sanitize_body(self, raw_body: bytes) -> str:
         try:

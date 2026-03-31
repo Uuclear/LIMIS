@@ -1,5 +1,16 @@
 /// <reference types="vite/client" />
 
+import 'vue-router'
+
+declare module 'vue-router' {
+  interface RouteMeta {
+    /** 模块权限码，缺省表示不校验（如首页） */
+    permission?: string
+    public?: boolean
+    title?: string
+  }
+}
+
 declare module '*.vue' {
   import type { DefineComponent } from 'vue'
   const component: DefineComponent<object, object, unknown>

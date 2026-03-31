@@ -9,6 +9,8 @@ export const useUserStore = defineStore('user', () => {
   const token = ref<string | null>(getToken())
   const permissions = ref<string[]>([])
   const roles = ref<Role[]>([])
+  /** 本次会话是否已拉取过 /me（含失败），避免刷新后权限为空却误判无权限 */
+  const profileFetched = ref(false)
 
   const isAuthenticated = computed(() => !!token.value)
   const userName = computed(() => {
@@ -33,6 +35,7 @@ export const useUserStore = defineStore('user', () => {
       roles.value = res.user.roles || []
     }
     await getUserInfo()
+    profileFetched.value = true
   }
 
   async function getUserInfo() {
@@ -43,6 +46,15 @@ export const useUserStore = defineStore('user', () => {
       roles.value = (res as any).roles || []
     } catch {
       // silently fail if not logged in yet
+    }
+  }
+
+  async function ensureProfile() {
+    if (!token.value || profileFetched.value) return
+    try {
+      await getUserInfo()
+    } finally {
+      profileFetched.value = true
     }
   }
 
@@ -77,6 +89,7 @@ export const useUserStore = defineStore('user', () => {
     userInfo.value = null
     permissions.value = []
     roles.value = []
+    profileFetched.value = false
     removeToken()
   }
 
@@ -91,6 +104,7 @@ export const useUserStore = defineStore('user', () => {
     login,
     logout,
     getUserInfo,
+    ensureProfile,
     refreshUserToken,
   }
 })
