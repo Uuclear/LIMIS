@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from apps.commissions.models import Commission, CommissionItem
 from apps.projects.models import Project
+from apps.quality.services import get_active_qualification_profile
 from apps.reports.models import Report, ReportTemplate
 from apps.samples.models import Sample
 from apps.standards.csres_crawl import crawl_standard_metadata
@@ -57,6 +58,39 @@ CSRES_STANDARD_NO_POOL = [
     'JTG 3450-2019',
     'JTG/T 3650-2020',
 ]
+
+STANDARD_METHOD_PARAM_HINTS = {
+    'GB/T 50080-2016': ('混凝土拌合物工作性试验', [('slump', '坍落度', 'mm'), ('air', '含气量', '%')]),
+    'GB/T 50081-2019': ('混凝土力学性能试验', [('fcu', '抗压强度', 'MPa'), ('ft', '劈裂抗拉强度', 'MPa')]),
+    'GB/T 50082-2009': ('混凝土耐久性能试验', [('rcpt', '电通量', 'C'), ('carbonation', '碳化深度', 'mm')]),
+    'GB/T 50107-2010': ('混凝土强度评定', [('fcu_eval', '强度评定值', 'MPa')]),
+    'GB 175-2023': ('水泥性能检测', [('fineness', '细度', '%'), ('fc28', '28d抗压强度', 'MPa')]),
+    'GB/T 1346-2011': ('水泥凝结时间与安定性', [('setting_i', '初凝时间', 'min'), ('setting_f', '终凝时间', 'min')]),
+    'GB/T 17671-2021': ('水泥胶砂强度', [('mortar_fc3', '3d抗压强度', 'MPa'), ('mortar_fc28', '28d抗压强度', 'MPa')]),
+    'GB/T 14684-2022': ('建筑用砂检测', [('sand_mud', '含泥量', '%'), ('sand_fm', '细度模数', '')]),
+    'GB/T 14685-2022': ('建筑用碎石卵石检测', [('stone_crush', '压碎指标', '%'), ('needle', '针片状含量', '%')]),
+    'GB 1499.1-2024': ('热轧光圆钢筋检测', [('Rel', '下屈服强度', 'MPa'), ('A', '断后伸长率', '%')]),
+    'GB 1499.2-2024': ('热轧带肋钢筋检测', [('Reh', '屈服强度', 'MPa'), ('Rm', '抗拉强度', 'MPa')]),
+    'GB/T 232-2010': ('金属材料弯曲试验', [('bend_ok', '弯曲试验结果', ''), ('angle', '弯曲角度', 'deg')]),
+    'JGJ 107-2016': ('钢筋机械连接检测', [('joint_uts', '接头抗拉强度', 'MPa'), ('joint_grade', '接头等级', '')]),
+    'JGJ 18-2012': ('钢筋焊接接头检测', [('weld_uts', '焊接抗拉强度', 'MPa'), ('weld_break', '断裂位置', '')]),
+    'JGJ/T 70-2009': ('建筑砂浆性能试验', [('consistency_m', '稠度', 'mm'), ('m28', '28d抗压强度', 'MPa')]),
+    'JGJ/T 23-2011': ('回弹法测强', [('rebound', '回弹值', ''), ('fcu_rb', '推定抗压强度', 'MPa')]),
+    'JGJ/T 152-2019': ('钢筋保护层厚度检测', [('cover', '保护层厚度', 'mm'), ('bar_pos', '钢筋间距', 'mm')]),
+    'JGJ 63-2006': ('混凝土用水检测', [('ph', 'pH值', ''), ('cl', '氯离子含量', 'mg/L')]),
+    'GB 8076-2008': ('混凝土外加剂性能检测', [('water_reduce', '减水率', '%'), ('strength_ratio_28', '28d抗压强度比', '%')]),
+    'JTG 3430-2020': ('公路土工试验', [('w', '含水率', '%'), ('cbr', 'CBR值', '%')]),
+    'JTG 3432-2024': ('公路工程集料试验', [('mud', '含泥量', '%'), ('crush', '压碎值', '%')]),
+    'JTG E20-2011': ('沥青及沥青混合料试验', [('penetration', '针入度', '0.1mm'), ('softening', '软化点', '℃')]),
+    'JTG E30-2005': ('公路水泥及混凝土试验', [('fcu_road', '抗压强度', 'MPa'), ('split_road', '劈裂强度', 'MPa')]),
+    'JTG E41-2005': ('公路工程岩石试验', [('ucs', '单轴抗压强度', 'MPa'), ('density_rock', '岩石密度', 'g/cm3')]),
+    'JTG E50-2006': ('土工合成材料试验', [('tensile_ts', '拉伸强度', 'kN/m'), ('elongation', '延伸率', '%')]),
+    'JTG E51-2009': ('无机结合料稳定材料试验', [('qud7', '7d无侧限抗压强度', 'MPa'), ('dry_density', '最大干密度', 'g/cm3')]),
+    'JTG 3450-2019': ('路基路面现场测试', [('ev2', '回弹模量', 'MPa'), ('compactness', '压实度', '%')]),
+    'JGJ 79-2012': ('建筑地基处理检测', [('bearing', '地基承载力', 'kPa')]),
+    'JGJ 106-2014': ('基桩检测', [('pile_integrity', '桩身完整性', ''), ('pile_capacity', '单桩承载力', 'kN')]),
+    'JGJ 94-2008': ('建筑桩基检测', [('pile_integrity', '桩身完整性', ''), ('rebound_wave', '反射波速度', 'm/s')]),
+}
 
 
 PACK_METHODS = [
@@ -479,6 +513,8 @@ class Command(BaseCommand):
             )
 
         self._sync_standards_from_csres()
+        self._auto_bind_standards_to_active_profile()
+        self._ensure_methods_for_all_standards(owner)
 
         created_params = 0
         for item in PACK_METHODS:
@@ -524,6 +560,7 @@ class Command(BaseCommand):
                 self._ensure_mock_report_chain(owner, project, method, param, record_tpl, report_tpl)
 
         self._ensure_reports_for_all_parameters(owner, project)
+        self._rebalance_mock_task_statuses(owner)
         coverage = self._coverage_stats()
         if options.get('strict'):
             if coverage['missing_record_template'] > 0:
@@ -582,6 +619,114 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f'工标网标准同步完成：成功 {success}，失败 {failed}',
+            ),
+        )
+
+    def _auto_bind_standards_to_active_profile(self) -> None:
+        profile = get_active_qualification_profile()
+        if not profile:
+            self.stdout.write('未发现生效资质，不执行标准范围自动挂载')
+            return
+        ids = list(Standard.objects.filter(is_deleted=False).values_list('id', flat=True))
+        profile.allowed_standards.set(ids)
+        self.stdout.write(
+            self.style.SUCCESS(
+                f'已将 {len(ids)} 条标准自动挂载到生效资质：{profile.name}',
+            ),
+        )
+
+    def _ensure_methods_for_all_standards(self, owner) -> None:
+        fallback_cat, _ = TestCategory.objects.get_or_create(
+            code='SITE-GENERAL',
+            defaults={'name': '综合检测', 'sort_order': 999, 'created_by': owner},
+        )
+        created_methods = 0
+        created_params = 0
+        for std in Standard.objects.filter(is_deleted=False).order_by('id'):
+            hint = STANDARD_METHOD_PARAM_HINTS.get(std.standard_no)
+            method_name = (
+                hint[0]
+                if hint
+                else (f"{std.name[:30]}检测" if std.name else f"{std.standard_no}检测")
+            )
+            method, method_created = TestMethod.objects.get_or_create(
+                standard_no=std.standard_no,
+                name=method_name,
+                defaults={
+                    'standard_name': std.name or std.standard_no,
+                    'category': fallback_cat,
+                    'description': f'标准自动适配：{std.standard_no}',
+                    'is_active': True,
+                    'created_by': owner,
+                },
+            )
+            if method_created:
+                created_methods += 1
+
+            params = hint[1] if hint else [
+                ('index_value', '指标值', ''),
+                ('limit_value', '限值', ''),
+                ('deviation', '偏差', '%'),
+            ]
+            for idx, (code, name, unit) in enumerate(params, start=1):
+                _, p_created = TestParameter.objects.get_or_create(
+                    method=method,
+                    code=code,
+                    defaults={
+                        'name': name,
+                        'unit': unit,
+                        'precision': 2 if idx == 1 else 1,
+                        'is_required': True,
+                        'created_by': owner,
+                    },
+                )
+                if p_created:
+                    created_params += 1
+        self.stdout.write(
+            self.style.SUCCESS(
+                f'标准方法参数适配完成：新增方法 {created_methods}，新增参数 {created_params}',
+            ),
+        )
+
+    def _rebalance_mock_task_statuses(self, owner) -> None:
+        statuses = ['unassigned', 'assigned', 'in_progress', 'completed']
+        mock_tasks = list(
+            TestTask.objects.filter(task_no__startswith='MOCK-TSK-')
+            .select_related('sample')
+            .order_by('id')
+        )
+        if not mock_tasks:
+            return
+        today = timezone.now().date()
+        for i, task in enumerate(mock_tasks):
+            target = statuses[i % len(statuses)]
+            updates = {'status': target}
+            if target == 'unassigned':
+                updates['assigned_tester'] = None
+                updates['actual_date'] = None
+            elif target == 'assigned':
+                updates['assigned_tester'] = task.assigned_tester or owner
+                updates['actual_date'] = None
+            else:
+                updates['assigned_tester'] = task.assigned_tester or owner
+                updates['actual_date'] = today
+            for k, v in updates.items():
+                setattr(task, k, v)
+            task.save(update_fields=['status', 'assigned_tester', 'actual_date', 'updated_at'])
+
+        touched_sample_ids = set(t.sample_id for t in mock_tasks)
+        for sample in Sample.objects.filter(id__in=touched_sample_ids):
+            statuses_now = list(sample.tasks.values_list('status', flat=True))
+            if statuses_now and all(s == 'completed' for s in statuses_now):
+                sample.status = 'tested'
+            elif any(s == 'in_progress' for s in statuses_now):
+                sample.status = 'testing'
+            else:
+                sample.status = 'pending'
+            sample.save(update_fields=['status', 'updated_at'])
+        self.stdout.write(
+            self.style.SUCCESS(
+                f'模拟任务状态均分完成：总任务 {len(mock_tasks)}，已按4状态重排',
             ),
         )
 
