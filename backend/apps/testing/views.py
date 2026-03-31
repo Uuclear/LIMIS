@@ -41,6 +41,8 @@ from .serializers import (
     TestTaskListSerializer,
 )
 
+from apps.quality.services import get_active_qualification_profile
+
 
 class TestCategoryViewSet(BaseModelViewSet):
     queryset = TestCategory.objects.filter(parent__isnull=True)
@@ -60,12 +62,30 @@ class TestMethodViewSet(BaseModelViewSet):
             return TestMethodDetailSerializer
         return TestMethodSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.action in ('list', 'retrieve'):
+            profile = get_active_qualification_profile()
+            if profile:
+                allowed_ids = profile.allowed_test_methods.values_list('id', flat=True)
+                qs = qs.filter(id__in=allowed_ids)
+        return qs
+
 
 class TestParameterViewSet(BaseModelViewSet):
     queryset = TestParameter.objects.select_related('method')
     serializer_class = TestParameterSerializer
     lims_module = 'testing'
     filterset_fields = ['method']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.action in ('list', 'retrieve'):
+            profile = get_active_qualification_profile()
+            if profile:
+                allowed_method_ids = profile.allowed_test_methods.values_list('id', flat=True)
+                qs = qs.filter(method_id__in=allowed_method_ids)
+        return qs
 
 
 class TestTaskViewSet(BaseModelViewSet):
@@ -173,6 +193,15 @@ class RecordTemplateViewSet(BaseModelViewSet):
     lims_module = 'testing'
     filterset_class = RecordTemplateFilter
     search_fields = ['name', 'code']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.action in ('list', 'retrieve'):
+            profile = get_active_qualification_profile()
+            if profile:
+                allowed_ids = profile.allowed_record_templates.values_list('id', flat=True)
+                qs = qs.filter(id__in=allowed_ids)
+        return qs
 
 
 class OriginalRecordViewSet(BaseModelViewSet):

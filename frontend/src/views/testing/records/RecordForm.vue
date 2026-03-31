@@ -58,7 +58,8 @@ const calculatedResults = ref<Array<{
 
 const isReadonly = computed(() => {
   if (!record.value) return false
-  return record.value.status === 'submitted' || record.value.status === 'reviewed'
+  // 仅草稿可编辑；提交后进入待复核/已复核/已退回，前端锁定编辑。
+  return record.value.status !== 'draft'
 })
 
 async function fetchRecord() {
@@ -211,7 +212,17 @@ onMounted(() => {
         <template v-else-if="schemaTemplateName"> - {{ schemaTemplateName }}</template>
       </span>
       <el-tag v-if="record" :type="record.status === 'draft' ? 'info' : 'success'" effect="dark">
-        {{ record.status === 'draft' ? '草稿' : record.status === 'submitted' ? '已提交' : record.status === 'reviewed' ? '已审核' : '已驳回' }}
+        {{
+          record.status === 'draft'
+            ? '草稿'
+            : record.status === 'pending_review'
+              ? '待复核'
+              : record.status === 'reviewed'
+                ? '已复核'
+                : record.status === 'returned'
+                  ? '已退回'
+                  : record.status
+        }}
       </el-tag>
     </div>
 

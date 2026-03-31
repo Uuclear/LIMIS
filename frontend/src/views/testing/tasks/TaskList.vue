@@ -25,7 +25,6 @@ const statusColumns = [
   { key: 'assigned', label: '待检', type: 'warning' as const },
   { key: 'in_progress', label: '检测中', type: '' as const },
   { key: 'completed', label: '已完成', type: 'success' as const },
-  { key: 'abnormal', label: '异常', type: 'danger' as const },
 ]
 
 const statusMap: Record<string, string> = {
@@ -33,7 +32,6 @@ const statusMap: Record<string, string> = {
   assigned: '待检',
   in_progress: '检测中',
   completed: '已完成',
-  abnormal: '异常',
 }
 
 const statusTagType: Record<string, string> = {
@@ -41,12 +39,11 @@ const statusTagType: Record<string, string> = {
   assigned: 'warning',
   in_progress: '',
   completed: 'success',
-  abnormal: 'danger',
 }
 
 const kanbanData = computed(() => {
   const grouped: Record<string, TestTask[]> = {
-    unassigned: [], assigned: [], in_progress: [], completed: [], abnormal: [],
+    unassigned: [], assigned: [], in_progress: [], completed: [],
   }
   for (const task of tableData.value) {
     if (grouped[task.status]) {
@@ -104,7 +101,7 @@ async function handleAssign() {
   if (!currentTask.value || !assignForm.tester_id) return
   try {
     await assignTask(currentTask.value.id, {
-      tester_id: assignForm.tester_id,
+      tester: assignForm.tester_id,
     })
     ElMessage.success('分配成功')
     assignDialogVisible.value = false
@@ -223,7 +220,6 @@ onMounted(fetchList)
                 <el-button
                   v-if="task.status === 'unassigned'"
                   size="small"
-                  v-permission="'testing:edit'"
                   type="primary"
                   @click="openAssignDialog(task)"
                 >
@@ -276,7 +272,6 @@ onMounted(fetchList)
               <el-button link type="primary" @click="goDetail(row)">查看</el-button>
               <el-button
                 v-if="row.status === 'unassigned'"
-                v-permission="'testing:edit'"
                 link type="primary"
                 @click="openAssignDialog(row)"
               >

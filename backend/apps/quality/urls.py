@@ -13,6 +13,7 @@ router.register('nonconformities', views.NonConformityViewSet, basename='nonconf
 router.register('complaints', views.ComplaintViewSet, basename='complaint')
 router.register('proficiency-tests', views.ProficiencyTestViewSet, basename='proficiency-test')
 router.register('supervisions', views.QualitySupervisionViewSet, basename='quality-supervision')
+router.register('qualification-profiles', views.QualificationProfileViewSet, basename='qualification-profile')
 
 urlpatterns = [
     path('', include(router.urls)),

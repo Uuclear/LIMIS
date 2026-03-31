@@ -52,7 +52,7 @@ const assignTester = ref<number | null>(null)
 async function handleAssign() {
   if (!task.value || !assignTester.value) return
   try {
-    await assignTask(task.value.id, { tester_id: assignTester.value })
+    await assignTask(task.value.id, { tester: assignTester.value })
     ElMessage.success('分配成功')
     assignDialogVisible.value = false
     fetchTask()

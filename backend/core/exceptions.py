@@ -38,11 +38,12 @@ class PermissionDeniedException(BusinessException):
 def _first_validation_message(detail: Any) -> str | None:
     """取 DRF ValidationError 中第一条可读说明，便于前端直接展示。"""
     if isinstance(detail, dict):
-        for v in detail.values():
+        for k, v in detail.items():
             if isinstance(v, list) and v:
-                return str(v[0])
+                # 让前端能明确“哪个字段”缺失/不合法
+                return f'{k}: {v[0]}'
             if isinstance(v, str):
-                return v
+                return f'{k}: {v}'
     elif isinstance(detail, list) and detail:
         return str(detail[0])
     elif isinstance(detail, str):

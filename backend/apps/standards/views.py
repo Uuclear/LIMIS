@@ -15,6 +15,7 @@ from .serializers import (
     StandardListSerializer,
     StandardWriteSerializer,
 )
+from apps.quality.services import get_active_qualification_profile
 
 
 class StandardViewSet(BaseModelViewSet):
@@ -31,6 +32,16 @@ class StandardViewSet(BaseModelViewSet):
         if self.action in ('create', 'update', 'partial_update'):
             return StandardWriteSerializer
         return StandardListSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # 能力范围限制：只在“拉取可选项”时过滤（list/retrieve）。
+        if self.action in ('list', 'retrieve'):
+            profile = get_active_qualification_profile()
+            if profile:
+                allowed_ids = profile.allowed_standards.values_list('id', flat=True)
+                qs = qs.filter(id__in=allowed_ids)
+        return qs
 
     @action(detail=False, methods=['post'], url_path='crawl')
     def crawl(self, request: Request) -> Response:

@@ -34,7 +34,7 @@ export interface TestParameter {
 export interface TestTask {
   id: number
   task_no: string
-  status: 'pending' | 'assigned' | 'testing' | 'completed'
+  status: 'unassigned' | 'assigned' | 'in_progress' | 'completed' | 'abnormal'
   sample_id: number
   sample_no: string
   sample_name: string
@@ -77,7 +77,7 @@ export interface OriginalRecord {
   template_name: string
   recorder_id: number
   recorder_name: string
-  status: 'draft' | 'submitted' | 'reviewed' | 'rejected'
+  status: 'draft' | 'pending_review' | 'reviewed' | 'returned'
   data: Record<string, any>
   environment_temp: number | null
   environment_humidity: number | null
