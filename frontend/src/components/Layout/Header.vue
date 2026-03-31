@@ -21,17 +21,32 @@ interface NotificationItem {
 const notifications = ref<NotificationItem[]>([])
 const unreadCount = ref(0)
 
+function mapNotification(raw: Record<string, unknown>): NotificationItem {
+  return {
+    id: raw.id as number,
+    notificationType: (raw.notification_type ?? raw.notificationType) as string,
+    title: (raw.title ?? '') as string,
+    content: (raw.content ?? '') as string,
+    linkPath: (raw.link_path ?? raw.linkPath ?? '') as string,
+    isRead: Boolean(raw.is_read ?? raw.isRead),
+    createdAt: (raw.created_at ?? raw.createdAt ?? '') as string,
+  }
+}
+
 async function fetchUnreadCount() {
   try {
-    const res = await getUnreadCount() as any
+    const res = await getUnreadCount() as { count?: number }
     unreadCount.value = res?.count ?? 0
   } catch {}
 }
 
 async function fetchNotifications() {
   try {
-    const res = await getNotifications({ page_size: 10 }) as any
-    notifications.value = Array.isArray(res) ? res : (res?.results ?? [])
+    const res = await getNotifications({ page_size: 10 }) as {
+      results?: Record<string, unknown>[]
+    }
+    const raw = Array.isArray(res) ? res : (res?.results ?? [])
+    notifications.value = raw.map(mapNotification)
   } catch {}
 }
 
