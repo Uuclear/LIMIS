@@ -10,9 +10,8 @@ from django.utils import timezone
 
 def get_dashboard_summary() -> dict[str, Any]:
     from apps.commissions.models import Commission
-    from apps.testing.models import TestTask
+    from apps.testing.models import OriginalRecord, TestTask
     from apps.reports.models import Report
-    from apps.equipment.models import Equipment
 
     today = timezone.now().date()
     month_start = today.replace(day=1)
@@ -28,6 +27,16 @@ def get_dashboard_summary() -> dict[str, Any]:
             created_at__date__gte=month_start, is_deleted=False,
         ).count(),
         'equipment_warnings': _get_equipment_warning_count(),
+        # 与 Header 消息提醒、待办统计对齐
+        'pending_commission_reviews': Commission.objects.filter(
+            status='pending_review', is_deleted=False,
+        ).count(),
+        'pending_report_reviews': Report.objects.filter(
+            status__in=['pending_audit', 'pending_approve'], is_deleted=False,
+        ).count(),
+        'records_pending_review': OriginalRecord.objects.filter(
+            status='pending_review',
+        ).count(),
     }
 
 
