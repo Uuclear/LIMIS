@@ -7,11 +7,17 @@ from django.conf import settings
 from django.contrib.auth import authenticate
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import F
 from rest_framework.exceptions import AuthenticationFailed, Throttled, ValidationError
 from rest_framework.request import Request
-from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Permission, User
+from .tokens import SessionVersionRefreshToken
+
+
+def bump_session_version(user: User) -> None:
+    """递增会话版本，使该用户已签发的 JWT 全部失效。"""
+    User.objects.filter(pk=user.pk).update(session_version=F('session_version') + 1)
 
 
 def get_client_ip(request: Request) -> str:
@@ -88,7 +94,9 @@ def authenticate_user(username: str, password: str, client_ip: str = '') -> dict
         record_login_failure(username, client_ip)
         raise AuthenticationFailed('该账号已被禁用')
     clear_login_attempts(username, client_ip)
-    refresh = RefreshToken.for_user(user)
+    bump_session_version(user)
+    user.refresh_from_db(fields=['session_version'])
+    refresh = SessionVersionRefreshToken.for_user(user)
     return {
         'user': user,
         'access': str(refresh.access_token),

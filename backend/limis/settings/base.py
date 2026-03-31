@@ -141,7 +141,7 @@ CELERY_TIMEZONE = TIME_ZONE
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'apps.system.authentication.SessionVersionJWTAuthentication',
     ),
     'DEFAULT_PAGINATION_CLASS': 'core.pagination.StandardPagination',
     'PAGE_SIZE': 20,
@@ -160,6 +160,8 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_TOKEN_CLASSES': ('apps.system.tokens.SessionVersionAccessToken',),
+    'TOKEN_REFRESH_SERIALIZER': 'apps.system.jwt_serializers.SessionVersionTokenRefreshSerializer',
 }
 
 SPECTACULAR_SETTINGS = {

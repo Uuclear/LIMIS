@@ -6,6 +6,7 @@ export function updateUser(id: number, data: any) { return request.put(`/v1/syst
 export function deleteUser(id: number) { return request.delete(`/v1/system/users/${id}/`) }
 export function resetPassword(id: number, data: any) { return request.post(`/v1/system/users/${id}/reset_password/`, data) }
 export function toggleUserActive(id: number) { return request.post(`/v1/system/users/${id}/toggle_active/`) }
+export function kickoutUserSessions(id: number) { return request.post(`/v1/system/users/${id}/kickout-sessions/`) }
 export function getRoleList(params?: any) { return request.get('/v1/system/roles/', { params }) }
 export function createRole(data: any) { return request.post('/v1/system/roles/', data) }
 export function updateRole(id: number, data: any) { return request.put(`/v1/system/roles/${id}/`, data) }

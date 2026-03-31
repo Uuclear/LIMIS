@@ -6,6 +6,8 @@ from core.models import BaseModel
 
 
 class User(AbstractUser):
+    # 与 JWT claim `sv` 对齐；登录或管理员踢出时 +1，使旧 access/refresh 失效
+    session_version = models.PositiveIntegerField(default=0, verbose_name='会话版本')
     phone = models.CharField(max_length=20, blank=True, verbose_name='手机号')
     department = models.CharField(max_length=100, blank=True, verbose_name='部门')
     title = models.CharField(max_length=100, blank=True, verbose_name='职称')

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from django.db.models import QuerySet
+from django.db.models import F, QuerySet
 
 from django.utils import timezone
 from django_filters import rest_framework as django_filters
@@ -14,7 +14,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.tokens import RefreshToken
+from .tokens import SessionVersionRefreshToken
 
 from core.permissions import LimsModulePermission
 
@@ -81,6 +81,7 @@ class UserViewSet(viewsets.ModelViewSet):
     lims_action_map = {
         'reset_password': 'edit',
         'toggle_active': 'edit',
+        'kickout_sessions': 'edit',
     }
     search_fields = ['username', 'first_name', 'last_name', 'phone', 'department']
     filterset_fields = ['is_active', 'department']
@@ -125,6 +126,12 @@ class UserViewSet(viewsets.ModelViewSet):
         user.save(update_fields=['is_active'])
         state = '启用' if user.is_active else '禁用'
         return Response({'detail': f'用户已{state}'})
+
+    @action(detail=True, methods=['post'], url_path='kickout-sessions')
+    def kickout_sessions(self, request: Request, pk: str = None) -> Response:
+        user = self.get_object()
+        User.objects.filter(pk=user.pk).update(session_version=F('session_version') + 1)
+        return Response({'detail': '已使该用户全部会话失效'})
 
 
 class RoleViewSet(viewsets.ModelViewSet):
@@ -206,7 +213,7 @@ class LogoutView(APIView):
         if not refresh_token:
             return Response({'detail': '已退出登录'})
         try:
-            token = RefreshToken(refresh_token)
+            token = SessionVersionRefreshToken(refresh_token)
             token.blacklist()
         except TokenError:
             pass

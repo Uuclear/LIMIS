@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
 import {
   getUserList, createUser, updateUser, deleteUser,
-  resetPassword, toggleUserActive, getRoleList,
+  resetPassword, toggleUserActive, kickoutUserSessions, getRoleList,
 } from '@/api/system'
 
 interface UserRow {
@@ -47,6 +48,26 @@ const rules = {
 
 const pwdDialogVisible = ref(false)
 const pwdForm = reactive({ id: 0, new_password: '' })
+
+const userStore = useUserStore()
+const currentUserId = computed(() => {
+  const u = userStore.userInfo as Record<string, unknown> | null
+  if (!u) return undefined
+  return (u.id as number | undefined) ?? (u.userId as number | undefined)
+})
+function isSelf(row: UserRow) {
+  return currentUserId.value !== undefined && row.id === currentUserId.value
+}
+
+async function handleKickoutSessions(row: UserRow) {
+  if (isSelf(row)) {
+    ElMessage.warning('不能踢出当前登录账号')
+    return
+  }
+  await ElMessageBox.confirm('确认将该用户所有会话踢下线？', '提示', { type: 'warning' })
+  await kickoutUserSessions(row.id)
+  ElMessage.success('已踢下线')
+}
 
 async function fetchList() {
   loading.value = true
@@ -212,10 +233,21 @@ onMounted(() => { fetchList(); fetchRoles() })
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column label="操作" width="340" fixed="right">
           <template #default="{ row }">
             <el-button v-permission="'system:edit'" link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button v-permission="'system:edit'" link type="primary" @click="openResetPwd(row)">重置密码</el-button>
+            <el-tooltip :disabled="!isSelf(row)" content="不能踢出当前登录账号" placement="top">
+              <span style="display: inline-block; vertical-align: middle">
+                <el-button
+                  v-permission="'system:edit'"
+                  link
+                  type="warning"
+                  :disabled="isSelf(row)"
+                  @click="handleKickoutSessions(row)"
+                >踢下线</el-button>
+              </span>
+            </el-tooltip>
             <el-button v-permission="'system:edit'" link :type="row.is_active ? 'warning' : 'success'" @click="handleToggleActive(row)">
               {{ row.is_active ? '禁用' : '启用' }}
             </el-button>
