@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -11,6 +12,8 @@ from apps.commissions.models import Commission, CommissionItem
 from apps.projects.models import Project
 from apps.reports.models import Report, ReportTemplate
 from apps.samples.models import Sample
+from apps.standards.csres_crawl import crawl_standard_metadata
+from apps.standards.models import Standard
 from apps.testing.models import (
     OriginalRecord,
     RecordTemplate,
@@ -20,6 +23,40 @@ from apps.testing.models import (
     TestResult,
     TestTask,
 )
+
+
+CSRES_STANDARD_NO_POOL = [
+    'GB/T 50080-2016',
+    'GB/T 50081-2019',
+    'GB/T 50082-2009',
+    'GB/T 50107-2010',
+    'GB 50204-2015',
+    'GB 175-2023',
+    'GB/T 1346-2011',
+    'GB/T 17671-2021',
+    'GB/T 14684-2022',
+    'GB/T 14685-2022',
+    'JGJ/T 52-2006',
+    'GB 1499.1-2024',
+    'GB 1499.2-2024',
+    'GB/T 232-2010',
+    'JGJ 107-2016',
+    'JGJ 18-2012',
+    'JGJ/T 70-2009',
+    'JGJ/T 23-2011',
+    'JGJ/T 152-2019',
+    'JGJ 63-2006',
+    'GB 8076-2008',
+    'JTG 3430-2020',
+    'JTG 3432-2024',
+    'JTG E20-2011',
+    'JTG E30-2005',
+    'JTG E41-2005',
+    'JTG E50-2006',
+    'JTG E51-2009',
+    'JTG 3450-2019',
+    'JTG/T 3650-2020',
+]
 
 
 PACK_METHODS = [
@@ -441,6 +478,8 @@ class Command(BaseCommand):
                 created_by=owner,
             )
 
+        self._sync_standards_from_csres()
+
         created_params = 0
         for item in PACK_METHODS:
             category, _ = TestCategory.objects.get_or_create(
@@ -510,6 +549,39 @@ class Command(BaseCommand):
                 f"缺原始记录模板={coverage['missing_record_template']}，"
                 f"缺报告模板={coverage['missing_report_template']}，"
                 f"缺模拟报告={coverage['missing_mock_report']}",
+            ),
+        )
+
+    def _sync_standards_from_csres(self) -> None:
+        success = 0
+        failed = 0
+        for std_no in CSRES_STANDARD_NO_POOL:
+            try:
+                meta = crawl_standard_metadata(std_no)
+                pub = meta.get('publish_date')
+                imp = meta.get('implement_date')
+                if isinstance(pub, str):
+                    pub = datetime.date.fromisoformat(pub)
+                if isinstance(imp, str):
+                    imp = datetime.date.fromisoformat(imp)
+                Standard.objects.update_or_create(
+                    standard_no=meta['standard_no'],
+                    defaults={
+                        'name': meta.get('name') or std_no,
+                        'category': meta.get('category') or 'national',
+                        'status': meta.get('status') or 'active',
+                        'publish_date': pub,
+                        'implement_date': imp,
+                        'remark': meta.get('remark') or '',
+                        'replaced_case': meta.get('replaced_case') or '',
+                    },
+                )
+                success += 1
+            except Exception:
+                failed += 1
+        self.stdout.write(
+            self.style.SUCCESS(
+                f'工标网标准同步完成：成功 {success}，失败 {failed}',
             ),
         )
 
