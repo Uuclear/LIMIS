@@ -7,7 +7,7 @@ import {
   getEquipment, getCalibrations, createCalibration,
   getPeriodChecks, createPeriodCheck,
   getMaintenances, createMaintenance,
-  getTraceability,
+  getUsageLogs,
 } from '@/api/equipment'
 
 const route = useRoute()
@@ -48,7 +48,14 @@ function openCalCreate() {
 }
 
 async function handleCalSubmit() {
-  await createCalibration(equipmentId.value, calForm)
+  await createCalibration(equipmentId.value, {
+    certificate_no: calForm.certificate_no,
+    calibration_date: calForm.calibration_date,
+    valid_until: calForm.valid_until,
+    calibration_org: calForm.institution,
+    conclusion: calForm.result,
+    remark: calForm.remark,
+  })
   ElMessage.success('创建成功')
   calDialogVisible.value = false
   fetchCalibrations()
@@ -100,7 +107,12 @@ function openCheckCreate() {
 }
 
 async function handleCheckSubmit() {
-  await createPeriodCheck(equipmentId.value, checkForm)
+  await createPeriodCheck(equipmentId.value, {
+    check_date: checkForm.check_date,
+    check_method: checkForm.standard_value || '-',
+    check_result: checkForm.measured_value || '-',
+    conclusion: checkForm.result,
+  })
   ElMessage.success('创建成功')
   checkDialogVisible.value = false
   fetchChecks()
@@ -132,7 +144,12 @@ function openMtCreate() {
 }
 
 async function handleMtSubmit() {
-  await createMaintenance(equipmentId.value, mtForm)
+  await createMaintenance(equipmentId.value, {
+    maintenance_date: mtForm.maintenance_date,
+    maintenance_type: mtForm.type,
+    description: mtForm.content,
+    result: mtForm.remark,
+  })
   ElMessage.success('创建成功')
   mtDialogVisible.value = false
   fetchMaintenances()
@@ -145,7 +162,7 @@ const usageList = ref<any[]>([])
 async function fetchUsage() {
   usageLoading.value = true
   try {
-    const res: any = await getTraceability(equipmentId.value)
+    const res: any = await getUsageLogs(equipmentId.value, { page_size: 100 })
     usageList.value = res.results ?? res.list ?? res ?? []
   } finally {
     usageLoading.value = false
@@ -286,11 +303,12 @@ onMounted(fetchEquipment)
             <div class="card-header"><span>使用记录（溯源）</span></div>
           </template>
           <el-table v-loading="usageLoading" :data="usageList" stripe border>
-            <el-table-column prop="use_date" label="使用日期" width="120" />
-            <el-table-column prop="operator" label="使用人" width="100" />
-            <el-table-column prop="sample_no" label="样品编号" width="160" />
-            <el-table-column prop="test_item" label="检测项目" min-width="160" />
-            <el-table-column prop="duration" label="使用时长" width="100" />
+            <el-table-column prop="start_time" label="开始时间" width="180" />
+            <el-table-column prop="end_time" label="结束时间" width="180" />
+            <el-table-column prop="user_name" label="使用人" width="120" />
+            <el-table-column prop="task" label="关联任务" width="120" />
+            <el-table-column prop="condition_before" label="使用前状态" min-width="140" />
+            <el-table-column prop="condition_after" label="使用后状态" min-width="140" />
             <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
           </el-table>
         </el-card>

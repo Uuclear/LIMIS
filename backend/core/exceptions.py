@@ -35,6 +35,21 @@ class PermissionDeniedException(BusinessException):
         super().__init__(code=403, message=message)
 
 
+def _first_validation_message(detail: Any) -> str | None:
+    """取 DRF ValidationError 中第一条可读说明，便于前端直接展示。"""
+    if isinstance(detail, dict):
+        for v in detail.values():
+            if isinstance(v, list) and v:
+                return str(v[0])
+            if isinstance(v, str):
+                return v
+    elif isinstance(detail, list) and detail:
+        return str(detail[0])
+    elif isinstance(detail, str):
+        return detail
+    return None
+
+
 def custom_exception_handler(
     exc: Exception,
     context: dict,
@@ -45,7 +60,8 @@ def custom_exception_handler(
         return _build_error_response(exc.code, exc.message, getattr(exc, 'errors', None))
 
     if isinstance(exc, ValidationError):
-        return _build_error_response(422, '数据验证失败', exc.detail)
+        msg = _first_validation_message(exc.detail) or '数据验证失败'
+        return _build_error_response(422, msg, exc.detail)
 
     if response is not None:
         return _build_error_response(

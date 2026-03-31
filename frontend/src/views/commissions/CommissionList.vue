@@ -19,8 +19,8 @@ const query = reactive({
 const statusTabs = [
   { label: '全部', value: '' },
   { label: '草稿', value: 'draft' },
-  { label: '待评审', value: 'pending_review' },
-  { label: '已评审', value: 'reviewed' },
+  { label: '待提交', value: 'pending_review' },
+  { label: '已提交', value: 'reviewed' },
   { label: '已退回', value: 'rejected' },
 ]
 
@@ -86,7 +86,7 @@ function statusTagType(status: string) {
 
 function statusLabel(status: string) {
   const map: Record<string, string> = {
-    draft: '草稿', pending_review: '待评审', reviewed: '已评审', rejected: '已退回',
+    draft: '草稿', pending_review: '待提交', reviewed: '已提交', rejected: '已退回',
   }
   return map[status] ?? status
 }
