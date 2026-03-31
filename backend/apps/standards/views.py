@@ -35,6 +35,10 @@ class StandardViewSet(BaseModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        scope = (self.request.query_params.get('scope') or '').strip().lower()
+        # 管理页可显式请求全量标准，避免被资质范围过滤后“看不到已入库标准”
+        if scope == 'all':
+            return qs
         # 能力范围限制：只在“拉取可选项”时过滤（list/retrieve）。
         if self.action in ('list', 'retrieve'):
             profile = get_active_qualification_profile()

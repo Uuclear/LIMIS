@@ -46,7 +46,9 @@ const dialogTitle = computed(() => formData.id ? '编辑标准' : '新增标准'
 async function fetchList() {
   loading.value = true
   try {
-    const res: any = await request.get('/v1/standards/', { params: query })
+    const res: any = await request.get('/v1/standards/', {
+      params: { ...query, scope: 'all' },
+    })
     tableData.value = res.results ?? res.list ?? []
     total.value = res.total ?? res.count ?? 0
   } finally {
