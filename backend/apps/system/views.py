@@ -184,13 +184,15 @@ class LogoutView(APIView):
     def post(self, request: Request) -> Response:
         refresh_token = request.data.get('refresh')
         if not refresh_token:
-            # 前端未带 refresh 时仍允许登出（本地会话已清），避免首次退出报错
             return Response({'detail': '已退出登录'})
         try:
             token = RefreshToken(refresh_token)
             token.blacklist()
         except TokenError:
-            return Response({'detail': '已退出登录'})
+            pass
+        except Exception:
+            # 黑名单表未迁移、已列入等仍视为登出成功，避免 500
+            pass
         return Response({'detail': '已退出登录'})
 
 

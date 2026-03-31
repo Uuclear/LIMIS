@@ -187,9 +187,17 @@ onMounted(() => { fetchList(); fetchRoles() })
 
       <el-table v-loading="loading" :data="tableData" stripe border>
         <el-table-column prop="username" label="用户名" min-width="120" />
-        <el-table-column prop="real_name" label="姓名" min-width="100" />
-        <el-table-column prop="phone" label="手机号" min-width="130" />
-        <el-table-column prop="department" label="部门" min-width="120" />
+        <el-table-column label="姓名" min-width="100">
+          <template #default="{ row }">
+            {{ (row as any).realName || (row as any).real_name || (row as any).firstName || (row as any).first_name || '—' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="手机号" min-width="130">
+          <template #default="{ row }">{{ (row as any).phone || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="部门" min-width="120">
+          <template #default="{ row }">{{ (row as any).department || '—' }}</template>
+        </el-table-column>
         <el-table-column label="角色" min-width="160">
           <template #default="{ row }">
             <el-tag v-for="role in row.roles" :key="role.id" size="small" style="margin: 2px">

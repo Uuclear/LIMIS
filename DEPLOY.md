@@ -71,6 +71,9 @@ python manage.py migrate
 # 最小演示数据（设备、耗材等占位）
 python manage.py seed_demo_data
 
+# 机场试验室演示：用户姓名/手机/部门、工标网标准入库、检测方法/参数/原始记录模板
+python manage.py seed_airport_lab_demo
+
 # 全流程演示数据（编号前缀 LIMIS-DEMO- 等，见 docs/QUALITY_AND_ROADMAP.md）
 python manage.py seed_full_workflow
 # 或先清空再写入：

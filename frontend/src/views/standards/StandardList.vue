@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { Search, Refresh, Plus } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
+import { apiField, unwrapCrawlPayload } from '@/utils/apiField'
 import { deleteStandard } from '@/api/standards'
 
 const loading = ref(false)
@@ -149,19 +150,22 @@ async function handleCrawl() {
     ElMessage.warning('请先填写标准编号')
     return
   }
-  const crawled: any = await request.post('/v1/standards/crawl/', { standard_no: formData.standard_no })
-  // request.ts 会把 {code,data} 解包为 data
-  formData.standard_no = crawled.standard_no ?? formData.standard_no
-  formData.category = crawled.category ?? formData.category
-  formData.status = crawled.status ?? formData.status
-  formData.name = crawled.name ?? formData.name
-  formData.publish_date = crawled.publish_date ?? ''
-  formData.implement_date = crawled.implement_date ?? ''
-  formData.replaced_by = crawled.replaced_by ?? null
-  formData.replaced_case = crawled.replaced_case ?? ''
-  formData.remark = (crawled.remark ?? '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\\n/g, '\n')
+  const raw: unknown = await request.post('/v1/standards/crawl/', { standard_no: formData.standard_no })
+  const c = unwrapCrawlPayload(raw)
+  const v = (k: string) => apiField(c, k)
+  Object.assign(formData, {
+    standard_no: (v('standard_no') as string) || formData.standard_no,
+    category: (v('category') as string) || formData.category,
+    status: (v('status') as string) || formData.status,
+    name: (v('name') as string) || formData.name,
+    publish_date: (v('publish_date') as string) ?? '',
+    implement_date: (v('implement_date') as string) ?? '',
+    replaced_by: (v('replaced_by') as number | null | undefined) ?? null,
+    replaced_case: (v('replaced_case') as string) ?? '',
+    remark: ((v('remark') as string) ?? '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\\n/g, '\n'),
+  })
   attachmentFile.value = null
   ElMessage.success('爬取成功，已填充表单')
 }

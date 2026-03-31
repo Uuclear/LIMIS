@@ -120,11 +120,23 @@ class Contract(BaseModel):
 
 
 class Witness(BaseModel):
+    ID_TYPE_CHOICES = [
+        ('id_card', '居民身份证'),
+        ('passport', '护照'),
+        ('hk_macao', '港澳居民来往内地通行证'),
+        ('taiwan', '台湾居民来往大陆通行证'),
+        ('other', '其他'),
+    ]
+
     project = models.ForeignKey(
         Project, on_delete=models.CASCADE,
         related_name='witnesses', verbose_name='所属项目',
     )
     name = models.CharField(max_length=50, verbose_name='见证人姓名')
+    id_type = models.CharField(
+        max_length=20, choices=ID_TYPE_CHOICES,
+        default='id_card', verbose_name='证件类型',
+    )
     id_number = models.CharField(max_length=50, blank=True, verbose_name='证件号')
     organization = models.ForeignKey(
         Organization, null=True, blank=True,
