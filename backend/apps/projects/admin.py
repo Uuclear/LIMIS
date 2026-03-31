@@ -45,6 +45,6 @@ class ContractAdmin(admin.ModelAdmin):
 
 @admin.register(Witness)
 class WitnessAdmin(admin.ModelAdmin):
-    list_display = ['name', 'project', 'organization', 'phone', 'is_active']
-    list_filter = ['is_active', 'project']
-    search_fields = ['name', 'certificate_no']
+    list_display = ['name', 'id_type', 'project', 'organization', 'phone', 'is_active']
+    list_filter = ['is_active', 'id_type', 'project']
+    search_fields = ['name', 'certificate_no', 'id_number']

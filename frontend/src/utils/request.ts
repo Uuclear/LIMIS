@@ -4,20 +4,6 @@ import { ElMessage } from 'element-plus'
 import { getToken, removeToken } from './auth'
 import router from '@/router'
 
-function toCamel(s: string): string {
-  return s.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
-}
-
-function camelizeKeys(obj: unknown): unknown {
-  if (Array.isArray(obj)) return obj.map(camelizeKeys)
-  if (obj !== null && typeof obj === 'object') {
-    return Object.fromEntries(
-      Object.entries(obj as Record<string, unknown>).map(([k, v]) => [toCamel(k), camelizeKeys(v)])
-    )
-  }
-  return obj
-}
-
 const service = axios.create({
   baseURL: '/api',
   timeout: 30000,
@@ -36,32 +22,39 @@ service.interceptors.request.use(
 
 service.interceptors.response.use(
   (response: AxiosResponse) => {
-    // blob 等非 JSON 响应直接返回
+    // blob/arraybuffer 等：直接返回 data，避免被当作 JSON 信封处理
     if (response.config.responseType && response.config.responseType !== 'json') {
-      return response as unknown as AxiosResponse
+      return response.data as unknown as AxiosResponse
     }
 
     const resData = response.data
 
-    // 仅把「数值型 code + 业务信封」当作统一响应；避免与业务字段 code（如项目编号）冲突
-    if (
-      resData &&
-      typeof resData === 'object' &&
-      typeof (resData as { code?: unknown }).code === 'number'
-    ) {
-      const code = (resData as { code: number; message?: string; data?: unknown }).code
+    // 业务信封 { code, message, data }：code 需为数字 200/201/401/4xx（兼容字符串 "200"，避免网关改类型导致不解包）
+    if (resData && typeof resData === 'object' && 'code' in (resData as object)) {
+      const o = resData as { code?: unknown; message?: string; data?: unknown }
+      const raw = o.code
+      let code: number | null = null
+      if (typeof raw === 'number' && Number.isFinite(raw)) {
+        code = raw
+      } else if (typeof raw === 'string' && /^\d+$/.test(raw.trim())) {
+        const n = parseInt(raw.trim(), 10)
+        if (Number.isFinite(n)) code = n
+      }
+      if (code == null) {
+        return resData as unknown as AxiosResponse
+      }
       if (code === 200 || code === 201) {
-        return camelizeKeys((resData as { data: unknown }).data) as unknown as AxiosResponse
+        return (o.data !== undefined ? o.data : resData) as unknown as AxiosResponse
       }
       if (code === 401) {
         handleUnauthorized()
-        return Promise.reject(new Error((resData as { message?: string }).message))
+        return Promise.reject(new Error(o.message))
       }
-      ElMessage.error((resData as { message?: string }).message || '请求失败')
-      return Promise.reject(new Error((resData as { message?: string }).message))
+      ElMessage.error(o.message || '请求失败')
+      return Promise.reject(new Error(o.message || '请求失败'))
     }
 
-    return camelizeKeys(resData) as unknown as AxiosResponse
+    return resData as unknown as AxiosResponse
   },
   (error) => {
     if (error.response?.status === 401) {

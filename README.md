@@ -119,6 +119,7 @@ limis/
 | [docs/PLAN.md](./docs/PLAN.md) | 机场工地试验室业务规划 |
 | [docs/TODO.md](./docs/TODO.md) | 历史任务拆分（对照现状见文内说明） |
 | [docs/QUALITY_AND_ROADMAP.md](./docs/QUALITY_AND_ROADMAP.md) | 质量改进、种子数据、回归建议 |
+| [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) | **本地 dev 调试**（少打 Docker 镜像：runserver + Vite） |
 | API | 后端运行后访问 `/api/docs/`（drf-spectacular） |
 
 ## 🤝 贡献

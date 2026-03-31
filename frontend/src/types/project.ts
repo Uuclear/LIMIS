@@ -49,7 +49,10 @@ export interface Witness {
   project_id: number
   name: string
   phone: string
-  id_card: string
-  organization: string
+  /** 证件号（后端字段 id_number） */
+  id_number?: string
+  id_type?: string
+  id_type_display?: string
+  organization?: number | null
   certificate_no: string
 }

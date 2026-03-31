@@ -1,0 +1,45 @@
+---
+description: 工标网爬取回填标准表单不完整/不准的历史原因与规避
+alwaysApply: true
+---
+
+# 工标网爬取：表单只填了名称或字段错位
+
+## 现象（已修复方向）
+
+- 点「从工标网爬取」后，**只有 `name` 等少数字段**有值，**标准号、日期、状态、替代关系**等为空或不对。
+- 与 `scripts/csres_fetch_demo.py` / 后端 `fetch_csres_metadata` 单独跑的结果不一致。
+
+## 原因（多因素叠加）
+
+### 1. 前端未真正拿到业务 `data`（信封与类型）
+
+- 接口统一返回 **`{ code, message, data }`**。
+- 若 **`code` 被网关/中间件改成字符串 `"200"`**，旧逻辑只认 **数字** `200`，就不会解包 **`data`**，后续拿到的不是爬虫字段对象 → 回填时大量 `undefined`，只剩偶然能对上的字段（如部分路径下仍有 `name`）。
+
+**规避**：`frontend/src/utils/request.ts` 对 `code` **兼容纯数字字符串**；成功时返回解包后的 `data`。
+
+### 2. 多层 `data` 嵌套
+
+- 有时响应仍是 **`{ data: { data: { ...实际字段 } } }`** 形态。
+- 直接 `Object.assign(formData, res)` 会写到错误层级。
+
+**规避**：`frontend/src/utils/apiField.ts` 的 **`unwrapCrawlPayload`**：按层剥开，直到出现 `standard_no` / `name` 等，再 **`JSON` 克隆**成普通对象。
+
+### 3. 字段命名 snake_case vs camelCase
+
+- 后端 DRF 多为 **snake_case**；若某处序列化成 **camelCase**，只按一种名字读会丢字段。
+
+**规避**：`apiField(obj, 'standard_no')` **同时读** `standard_no` 与 `standardNo`。
+
+### 4. 爬虫侧（后端）
+
+- 搜索结果要选 **现行、较新年号**；详情页解析要覆盖 **发布/实施日期、替代说明、英文名称** 等；无结构化行时用 **链接锚文本 + 最大年号** 等兜底（见 `backend/apps/standards/csres_parse.py`、`csres_crawl.py`）。
+- 单独调试时应 **`PYTHONPATH=backend`** 调 `fetch_csres_metadata`，与线上一致。
+
+## 修改标准表单回填时的检查清单
+
+- 信封：`code` 数字与字符串是否都能解包出 **`data`**。
+- 结构：`unwrapCrawlPayload` 是否仍能剥到 **含 `standard_no`/`name` 的平面**。
+- 字段：是否 **snake + camel** 双读。
+- 后端：演示脚本与 **`crawl_standard_metadata`** 是否同源逻辑。

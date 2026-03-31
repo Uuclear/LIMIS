@@ -263,10 +263,19 @@ async function handleContractDelete(row: Contract) {
 const witnessLoading = ref(false)
 const witnessList = ref<Witness[]>([])
 const witnessDialogVisible = ref(false)
+const witnessIdTypeOptions = [
+  { label: '居民身份证', value: 'id_card' },
+  { label: '护照', value: 'passport' },
+  { label: '港澳居民来往内地通行证', value: 'hk_macao' },
+  { label: '台湾居民来往大陆通行证', value: 'taiwan' },
+  { label: '其他', value: 'other' },
+]
+
 const witnessForm = reactive({
   id: 0,
   name: '',
   phone: '',
+  id_type: 'id_card',
   id_number: '',
   organization: null as number | null,
   certificate_no: '',
@@ -288,6 +297,7 @@ async function openWitnessCreate() {
     id: 0,
     name: '',
     phone: '',
+    id_type: 'id_card',
     id_number: '',
     organization: null,
     certificate_no: '',
@@ -301,6 +311,7 @@ function openWitnessEdit(row: Witness) {
     id: r.id,
     name: r.name,
     phone: r.phone || '',
+    id_type: r.id_type || 'id_card',
     id_number: r.id_number || '',
     organization: r.organization ?? null,
     certificate_no: r.certificate_no || '',
@@ -312,6 +323,7 @@ async function handleWitnessSubmit() {
   const payload = {
     name: witnessForm.name,
     phone: witnessForm.phone || '',
+    id_type: witnessForm.id_type || 'id_card',
     id_number: witnessForm.id_number || '',
     organization: witnessForm.organization,
     certificate_no: witnessForm.certificate_no || '',
@@ -424,6 +436,14 @@ const typeLabels: Record<string, string> = {
   other: '其他',
 }
 
+/** axios 对非信封 JSON 会 camelCase，项目详情需同时读 snake / camel */
+function projField(snake: string): unknown {
+  const x = project.value as Record<string, unknown> | null
+  if (!x) return undefined
+  const camel = snake.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+  return x[camel] ?? x[snake]
+}
+
 onMounted(fetchProject)
 </script>
 
@@ -431,7 +451,7 @@ onMounted(fetchProject)
   <div class="page-container">
     <el-page-header @back="router.push('/project')">
       <template #content>
-        <span style="font-size: 18px; font-weight: 600">{{ project.name || '项目详情' }}</span>
+        <span style="font-size: 18px; font-weight: 600">{{ (projField('name') as string) || project.name || '项目详情' }}</span>
       </template>
     </el-page-header>
 
@@ -440,18 +460,18 @@ onMounted(fetchProject)
       <el-tab-pane label="基本信息" name="basic">
         <el-card shadow="never">
           <el-descriptions :column="2" border>
-            <el-descriptions-item label="项目编号">{{ (project as any).code || project.project_no }}</el-descriptions-item>
-            <el-descriptions-item label="工程名称">{{ project.name }}</el-descriptions-item>
+            <el-descriptions-item label="项目编号">{{ projField('code') || project.project_no }}</el-descriptions-item>
+            <el-descriptions-item label="工程名称">{{ projField('name') }}</el-descriptions-item>
             <el-descriptions-item label="工程类型">
-              {{ (project as any).project_type_display || typeLabels[(project as any).project_type] || (project as any).project_type }}
+              {{ projField('project_type_display') || typeLabels[String(projField('project_type') ?? '')] || projField('project_type') }}
             </el-descriptions-item>
             <el-descriptions-item label="项目状态">
-              {{ (project as any).status_display || project.status }}
+              {{ projField('status_display') || project.status }}
             </el-descriptions-item>
-            <el-descriptions-item label="工程地址" :span="2">{{ project.address }}</el-descriptions-item>
-            <el-descriptions-item label="开工日期">{{ project.start_date }}</el-descriptions-item>
-            <el-descriptions-item label="竣工日期">{{ project.end_date }}</el-descriptions-item>
-            <el-descriptions-item label="描述" :span="2">{{ project.description }}</el-descriptions-item>
+            <el-descriptions-item label="工程地址" :span="2">{{ projField('address') }}</el-descriptions-item>
+            <el-descriptions-item label="开工日期">{{ projField('start_date') }}</el-descriptions-item>
+            <el-descriptions-item label="竣工日期">{{ projField('end_date') }}</el-descriptions-item>
+            <el-descriptions-item label="描述" :span="2">{{ projField('description') }}</el-descriptions-item>
           </el-descriptions>
         </el-card>
       </el-tab-pane>
@@ -544,6 +564,9 @@ onMounted(fetchProject)
           </template>
           <el-table v-loading="witnessLoading" :data="witnessList" stripe border>
             <el-table-column prop="name" label="姓名" width="120" />
+            <el-table-column label="证件类型" width="120">
+              <template #default="{ row }">{{ (row as any).id_type_display || '—' }}</template>
+            </el-table-column>
             <el-table-column prop="phone" label="电话" width="140" />
             <el-table-column prop="id_number" label="证件号" width="200" />
             <el-table-column label="所属单位" min-width="180">
@@ -718,6 +741,11 @@ onMounted(fetchProject)
       <el-form :model="witnessForm" label-width="80px">
         <el-form-item label="姓名"><el-input v-model="witnessForm.name" /></el-form-item>
         <el-form-item label="电话"><el-input v-model="witnessForm.phone" /></el-form-item>
+        <el-form-item label="证件类型">
+          <el-select v-model="witnessForm.id_type" placeholder="请选择" style="width: 100%">
+            <el-option v-for="o in witnessIdTypeOptions" :key="o.value" :label="o.label" :value="o.value" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="证件号"><el-input v-model="witnessForm.id_number" /></el-form-item>
         <el-form-item label="所属参建单位">
           <el-select v-model="witnessForm.organization" placeholder="可选" clearable filterable style="width: 100%">

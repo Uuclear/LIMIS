@@ -13,9 +13,14 @@ export const useUserStore = defineStore('user', () => {
   const isAuthenticated = computed(() => !!token.value)
   const userName = computed(() => {
     if (!userInfo.value) return ''
-    const u = userInfo.value
-    // 后端 UserSerializer 使用 realName 字段（或保证接口返回一致）
-    return u.realName || u.username
+    const u = userInfo.value as Record<string, unknown>
+    return (
+      (u.realName as string)
+      || (u.real_name as string)
+      || (u.firstName as string)
+      || (u.first_name as string)
+      || (u.username as string)
+    )
   })
   const userRoles = computed(() => roles.value.map((r) => r.code))
 

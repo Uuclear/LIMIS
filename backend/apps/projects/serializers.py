@@ -78,10 +78,14 @@ class WitnessSerializer(BaseModelSerializer):
         source='organization.name', read_only=True, default='',
     )
 
+    id_type_display = serializers.CharField(
+        source='get_id_type_display', read_only=True,
+    )
+
     class Meta:
         model = Witness
         fields = [
-            'id', 'project', 'name', 'id_number', 'organization',
+            'id', 'project', 'name', 'id_type', 'id_type_display', 'id_number', 'organization',
             'organization_name', 'phone', 'certificate_no', 'is_active',
             'created_at', 'updated_at', 'created_by', 'created_by_name',
         ]
