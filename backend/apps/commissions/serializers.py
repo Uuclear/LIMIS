@@ -71,6 +71,8 @@ class CommissionDetailSerializer(BaseModelSerializer):
     project_name = serializers.CharField(
         source='project.name', read_only=True,
     )
+    sub_project_name = serializers.SerializerMethodField()
+    witness_name = serializers.SerializerMethodField()
     status_display = serializers.CharField(
         source='get_status_display', read_only=True,
     )
@@ -80,9 +82,9 @@ class CommissionDetailSerializer(BaseModelSerializer):
         model = Commission
         fields = [
             'id', 'commission_no', 'project', 'project_name',
-            'sub_project', 'construction_part', 'commission_date',
+            'sub_project', 'sub_project_name', 'construction_part', 'commission_date',
             'client_unit', 'client_contact', 'client_phone',
-            'witness', 'is_witnessed', 'status', 'status_display',
+            'witness', 'witness_name', 'is_witnessed', 'status', 'status_display',
             'reviewer', 'reviewer_name', 'review_date', 'review_comment',
             'remark', 'items', 'contract_review',
             'created_at', 'updated_at', 'created_by', 'created_by_name',
@@ -96,6 +98,16 @@ class CommissionDetailSerializer(BaseModelSerializer):
     def get_reviewer_name(self, obj: Commission) -> str:
         if obj.reviewer:
             return obj.reviewer.get_full_name() or str(obj.reviewer)
+        return ''
+
+    def get_sub_project_name(self, obj: Commission) -> str:
+        if obj.sub_project_id and obj.sub_project:
+            return obj.sub_project.name
+        return ''
+
+    def get_witness_name(self, obj: Commission) -> str:
+        if obj.witness_id and obj.witness:
+            return obj.witness.name
         return ''
 
 

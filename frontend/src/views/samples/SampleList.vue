@@ -18,19 +18,23 @@ const statusOptions = [
   { label: '待检', value: 'pending' },
   { label: '检测中', value: 'testing' },
   { label: '已检', value: 'tested' },
-  { label: '留样', value: 'retention' },
+  { label: '留样', value: 'retained' },
   { label: '已处置', value: 'disposed' },
 ]
 
 async function fetchList() {
   loading.value = true
   try {
-    const params: any = { ...query }
-    if (query.date_range?.length === 2) {
-      params.start_date = query.date_range[0]
-      params.end_date = query.date_range[1]
+    const params: any = {
+      page: query.page,
+      page_size: query.page_size,
+      keyword: query.keyword || undefined,
+      status: query.status || undefined,
     }
-    delete params.date_range
+    if (query.date_range?.length === 2) {
+      params.sampling_date_start = query.date_range[0]
+      params.sampling_date_end = query.date_range[1]
+    }
     const res: any = await getSampleList(params)
     tableData.value = res.results ?? res.list ?? []
     total.value = res.total ?? res.count ?? 0
@@ -69,7 +73,7 @@ async function handleExport() {
 
 function statusTagType(status: string) {
   const map: Record<string, string> = {
-    pending: 'info', testing: 'warning', tested: 'success', retention: '', disposed: 'danger',
+    pending: 'info', testing: 'warning', tested: 'success', retained: 'warning', disposed: 'danger',
   }
   return map[status] ?? 'info'
 }

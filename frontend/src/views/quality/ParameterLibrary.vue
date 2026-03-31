@@ -24,6 +24,7 @@ const paramLoading = ref(false)
 const parameters = ref<any[]>([])
 
 const categoryId = ref<number | null>(null)
+const categories = ref<{ id: number; name: string; code: string }[]>([])
 
 const methodDialog = ref(false)
 const methodForm = ref({
@@ -60,7 +61,8 @@ async function fetchStandards() {
 async function fetchCategories() {
   const res: any = await getTestCategories()
   const list = res.results ?? res.list ?? res ?? []
-  if (list.length && !categoryId.value) {
+  categories.value = list
+  if (list.length && categoryId.value == null) {
     categoryId.value = list[0].id
   }
 }
@@ -196,6 +198,28 @@ onMounted(async () => {
       </p>
     </div>
 
+    <el-alert type="info" :closable="false" show-icon class="param-alert">
+      <template #title>与委托的衔接</template>
+      左侧选中标准后维护「检测方法」与「检测参数」。新建方法时需指定<strong>检测类别</strong>（与系统「检测类别」主数据一致）。
+    </el-alert>
+
+    <el-card v-if="categories.length" shadow="never" class="category-bar">
+      <span class="category-bar-label">新建检测方法时归属类别</span>
+      <el-select
+        v-model="categoryId"
+        placeholder="选择类别"
+        filterable
+        style="width: min(100%, 320px)"
+      >
+        <el-option
+          v-for="c in categories"
+          :key="c.id"
+          :label="`${c.name}（${c.code}）`"
+          :value="c.id"
+        />
+      </el-select>
+    </el-card>
+
     <div class="layout">
       <el-card shadow="never" class="panel">
         <template #header>
@@ -206,6 +230,7 @@ onMounted(async () => {
           :data="standards"
           highlight-current-row
           height="420"
+          empty-text="暂无标准，请先在「标准规范」中录入"
           @row-click="selectStandard"
         >
           <el-table-column prop="standard_no" label="标准号" width="140" />
@@ -302,6 +327,29 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.param-lib .param-alert {
+  margin-bottom: 16px;
+  border-radius: 10px;
+}
+
+.param-lib .category-bar {
+  margin-bottom: 16px;
+  border-radius: 10px;
+}
+
+.param-lib .category-bar :deep(.el-card__body) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
+
+.param-lib .category-bar-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+
 .param-lib .page-header {
   margin-bottom: 16px;
 }

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import django_filters
+from django.db.models import Q
 
 from .models import Sample
 
 
 class SampleFilter(django_filters.FilterSet):
     status = django_filters.CharFilter(field_name='status', lookup_expr='exact')
+    keyword = django_filters.CharFilter(method='filter_keyword', label='关键词')
     commission = django_filters.NumberFilter(field_name='commission_id')
     project = django_filters.NumberFilter(
         field_name='commission__project_id', label='项目',
@@ -33,8 +35,17 @@ class SampleFilter(django_filters.FilterSet):
     class Meta:
         model = Sample
         fields = [
-            'status', 'commission', 'project',
+            'status', 'commission', 'project', 'keyword',
             'sampling_date_start', 'sampling_date_end',
             'received_date_start', 'received_date_end',
             'name', 'sample_no',
         ]
+
+    def filter_keyword(self, queryset, name, value):
+        if not value:
+            return queryset
+        return queryset.filter(
+            Q(sample_no__icontains=value)
+            | Q(name__icontains=value)
+            | Q(blind_no__icontains=value),
+        )

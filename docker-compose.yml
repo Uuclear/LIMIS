@@ -9,8 +9,9 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-limis123}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # 避免与宿主机已占用 5432 的 PostgreSQL 冲突，映射到宿主机 5434
     ports:
-      - "5432:5432"
+      - "5434:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-limis}"]
       interval: 10s

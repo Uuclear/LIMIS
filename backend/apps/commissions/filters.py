@@ -19,6 +19,7 @@ class CommissionFilter(django_filters.FilterSet):
         field_name='commission_date', lookup_expr='lte', label='委托日期止',
     )
     search = django_filters.CharFilter(method='filter_search', label='搜索')
+    keyword = django_filters.CharFilter(method='filter_search', label='关键词')
 
     class Meta:
         model = Commission
@@ -27,5 +28,6 @@ class CommissionFilter(django_filters.FilterSet):
     def filter_search(self, queryset, name, value):
         return queryset.filter(
             models.Q(commission_no__icontains=value)
-            | models.Q(construction_part__icontains=value),
+            | models.Q(construction_part__icontains=value)
+            | models.Q(project__name__icontains=value),
         )

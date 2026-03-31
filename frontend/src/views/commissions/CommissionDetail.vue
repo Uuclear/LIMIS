@@ -89,11 +89,12 @@ onMounted(fetchDetail)
         <el-descriptions-item label="分部工程">{{ detail.sub_project_name }}</el-descriptions-item>
         <el-descriptions-item label="施工部位">{{ detail.construction_part }}</el-descriptions-item>
         <el-descriptions-item label="见证取样">
-          <el-tag :type="detail.witness_sampling ? 'success' : 'info'" size="small">
-            {{ detail.witness_sampling ? '是' : '否' }}
+          <el-tag :type="detail.is_witnessed ? 'success' : 'info'" size="small">
+            {{ detail.is_witnessed ? '是' : '否' }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="委托人">{{ detail.client_name }}</el-descriptions-item>
+        <el-descriptions-item label="委托单位">{{ detail.client_unit }}</el-descriptions-item>
+        <el-descriptions-item label="联系人">{{ detail.client_contact }}</el-descriptions-item>
         <el-descriptions-item label="联系电话">{{ detail.client_phone }}</el-descriptions-item>
         <el-descriptions-item label="见证人">{{ detail.witness_name }}</el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ detail.created_at }}</el-descriptions-item>
@@ -107,24 +108,28 @@ onMounted(fetchDetail)
         <el-table-column prop="test_object" label="检测对象" min-width="140" />
         <el-table-column prop="test_item" label="检测项目" min-width="140" />
         <el-table-column prop="test_standard" label="检测标准" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="test_method" label="检测方法" min-width="160" show-overflow-tooltip />
         <el-table-column prop="specification" label="规格型号" width="130" />
-        <el-table-column prop="grade" label="设计等级" width="100" />
+        <el-table-column prop="grade" label="设计强度/等级" width="120" />
         <el-table-column prop="quantity" label="数量" width="80" align="center" />
         <el-table-column prop="unit" label="单位" width="80" align="center" />
       </el-table>
     </el-card>
 
-    <el-card v-if="detail.review" shadow="never" style="margin-top: 16px">
+    <el-card v-if="detail.contract_review" shadow="never" style="margin-top: 16px">
       <template #header><span>合同评审信息</span></template>
       <el-descriptions :column="2" border>
-        <el-descriptions-item label="评审结果">
-          <el-tag :type="detail.review.result === 'approved' ? 'success' : 'danger'" size="small">
-            {{ detail.review.result === 'approved' ? '通过' : '退回' }}
+        <el-descriptions-item label="评审结论">
+          <el-tag
+            :type="detail.contract_review.conclusion === 'accept' ? 'success' : 'warning'"
+            size="small"
+          >
+            {{ detail.contract_review.conclusion === 'accept' ? '接受' : (detail.contract_review.conclusion === 'reject' ? '拒绝' : '有条件接受') }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="评审人">{{ detail.review.reviewer_name }}</el-descriptions-item>
-        <el-descriptions-item label="评审时间">{{ detail.review.reviewed_at }}</el-descriptions-item>
-        <el-descriptions-item label="评审意见">{{ detail.review.opinion }}</el-descriptions-item>
+        <el-descriptions-item label="评审人">{{ detail.contract_review.reviewer_name }}</el-descriptions-item>
+        <el-descriptions-item label="评审时间">{{ detail.contract_review.review_date }}</el-descriptions-item>
+        <el-descriptions-item label="评审意见" :span="2">{{ detail.contract_review.comment }}</el-descriptions-item>
       </el-descriptions>
     </el-card>
 

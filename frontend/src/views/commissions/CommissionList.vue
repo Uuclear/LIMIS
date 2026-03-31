@@ -13,7 +13,7 @@ const total = ref(0)
 const activeStatus = ref('')
 
 const query = reactive({
-  page: 1, page_size: 20, keyword: '', status: '',
+  page: 1, page_size: 20, search: '', status: '',
 })
 
 const statusTabs = [
@@ -47,7 +47,7 @@ function handleSearch() {
 }
 
 function handleReset() {
-  query.keyword = ''
+  query.search = ''
   handleSearch()
 }
 
@@ -99,7 +99,7 @@ onMounted(fetchList)
     <el-card shadow="never">
       <el-form inline @submit.prevent="handleSearch">
         <el-form-item label="关键词">
-          <el-input v-model="query.keyword" placeholder="委托编号/工程名称" clearable style="width: 220px" />
+          <el-input v-model="query.search" placeholder="委托编号/工程名称/施工部位" clearable style="width: 220px" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
@@ -127,8 +127,8 @@ onMounted(fetchList)
         <el-table-column prop="commission_date" label="委托日期" width="120" />
         <el-table-column label="见证取样" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.witness_sampling ? 'success' : 'info'" size="small">
-              {{ row.witness_sampling ? '是' : '否' }}
+            <el-tag :type="(row as any).is_witnessed ? 'success' : 'info'" size="small">
+              {{ (row as any).is_witnessed ? '是' : '否' }}
             </el-tag>
           </template>
         </el-table-column>

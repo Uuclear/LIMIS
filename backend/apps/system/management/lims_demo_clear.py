@@ -4,7 +4,12 @@ from __future__ import annotations
 from django.contrib.auth import get_user_model
 
 P = 'LIMIS-DEMO'
-_STD_NOS = ('GB/T 50081-2019', 'GB/T 228.1-2021', 'JGJ 52-2006')
+_STD_NOS = (
+    'GB/T 50081-2019',
+    'GB/T 228.1-2021',
+    'JGJ 52-2006',
+    'GB/T 1499.2-2024',
+)
 
 
 def clear_lims_demo_data() -> None:

@@ -52,11 +52,17 @@ def get_project_stats(project_id: int) -> dict[str, Any]:
 
     try:
         TestTask = apps.get_model('testing', 'TestTask')
-        stats['completed_count'] = TestTask.objects.filter(
-            commission__project_id=project_id,
-            status='completed',
-        ).count()
+        qs = TestTask.objects.filter(commission__project_id=project_id)
+        stats['completed_count'] = qs.filter(status='completed').count()
+        stats['unassigned_count'] = qs.filter(status='unassigned').count()
+        stats['assigned_count'] = qs.filter(status='assigned').count()
+        stats['in_progress_count'] = qs.filter(status='in_progress').count()
+        stats['task_total'] = qs.count()
     except LookupError:
         stats['completed_count'] = 0
+        stats['unassigned_count'] = 0
+        stats['assigned_count'] = 0
+        stats['in_progress_count'] = 0
+        stats['task_total'] = 0
 
     return stats

@@ -27,7 +27,7 @@ const defaultStart = new Date(Date.now() - 30 * 86400000).toISOString().slice(0,
 const dateRange = ref<[string, string]>([defaultStart, defaultEnd])
 
 const stats = ref<StatCard[]>([
-  { title: '今日委托', value: 0, icon: Document, color: '#2563eb', bg: '#eff6ff' },
+  { title: '本月委托', value: 0, icon: Document, color: '#2563eb', bg: '#eff6ff' },
   { title: '待检任务', value: 0, icon: List, color: '#f59e0b', bg: '#fffbeb' },
   { title: '本月报告', value: 0, icon: Notebook, color: '#10b981', bg: '#ecfdf5' },
   { title: '设备预警', value: 0, icon: WarningFilled, color: '#ef4444', bg: '#fef2f2' },
@@ -41,7 +41,7 @@ const recentTasks = ref<any[]>([])
 async function fetchDashboard() {
   try {
     const res: any = await getDashboardData()
-    stats.value[0].value = res?.today_commissions ?? 0
+    stats.value[0].value = res?.month_commissions ?? res?.today_commissions ?? 0
     stats.value[1].value = res?.pending_tasks ?? 0
     stats.value[2].value = res?.month_reports ?? 0
     stats.value[3].value = res?.equipment_warnings ?? 0
@@ -105,11 +105,27 @@ const pieOption = computed(() => ({
   }],
 }))
 
+const taskStatusMap: Record<string, string> = {
+  unassigned: '待分配',
+  assigned: '待检',
+  in_progress: '检测中',
+  completed: '已完成',
+  abnormal: '异常',
+}
+
 function statusType(status: string) {
   const map: Record<string, string> = {
-    '检测中': 'primary', '待检测': 'warning', '已完成': 'success',
+    unassigned: 'info',
+    assigned: 'warning',
+    in_progress: 'primary',
+    completed: 'success',
+    abnormal: 'danger',
   }
   return map[status] || 'info'
+}
+
+function taskStatusLabel(status: string) {
+  return taskStatusMap[status] ?? status
 }
 
 onMounted(() => {
@@ -183,18 +199,19 @@ onMounted(() => {
         </div>
       </template>
       <el-table :data="recentTasks" stripe>
-        <el-table-column prop="id" label="任务编号" width="160" />
-        <el-table-column prop="sample" label="样品名称" />
-        <el-table-column prop="type" label="检测类型" width="140" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="task_no" label="任务编号" width="200" />
+        <el-table-column prop="sample_name" label="样品" min-width="160" show-overflow-tooltip />
+        <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="statusType(row.status)" size="small">
-              {{ row.status }}
+              {{ taskStatusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="operator" label="检测人员" width="120" />
-        <el-table-column prop="date" label="日期" width="120" />
+        <el-table-column prop="tester" label="检测人员" width="120" />
+        <el-table-column label="计划日期" width="120">
+          <template #default="{ row }">{{ row.planned_date ?? '—' }}</template>
+        </el-table-column>
       </el-table>
     </el-card>
   </div>

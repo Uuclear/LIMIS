@@ -10,6 +10,7 @@ from core.views import BaseModelViewSet
 from . import judgment, services
 from .filters import (
     OriginalRecordFilter,
+    RecordTemplateFilter,
     TestMethodFilter,
     TestResultFilter,
     TestTaskFilter,
@@ -170,7 +171,7 @@ class RecordTemplateViewSet(BaseModelViewSet):
     )
     serializer_class = RecordTemplateSerializer
     lims_module = 'testing'
-    filterset_fields = ['test_method', 'test_parameter', 'is_active']
+    filterset_class = RecordTemplateFilter
     search_fields = ['name', 'code']
 
 

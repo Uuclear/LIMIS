@@ -3,7 +3,7 @@ from __future__ import annotations
 import django_filters
 from django.db import models
 
-from .models import OriginalRecord, TestMethod, TestResult, TestTask
+from .models import OriginalRecord, RecordTemplate, TestMethod, TestResult, TestTask
 
 
 class TestMethodFilter(django_filters.FilterSet):
@@ -56,6 +56,27 @@ class OriginalRecordFilter(django_filters.FilterSet):
     class Meta:
         model = OriginalRecord
         fields = ['status', 'recorder', 'review_date_from', 'review_date_to']
+
+
+class RecordTemplateFilter(django_filters.FilterSet):
+    """原始记录模板列表：关键词 + 方法/参数/启用（search_fields 需 SearchFilter，此处用显式过滤）"""
+
+    keyword = django_filters.CharFilter(method='filter_keyword', label='关键词')
+    test_method = django_filters.NumberFilter(field_name='test_method_id')
+    test_parameter = django_filters.NumberFilter(field_name='test_parameter_id')
+    is_active = django_filters.BooleanFilter(field_name='is_active')
+
+    class Meta:
+        model = RecordTemplate
+        fields = ['test_method', 'test_parameter', 'is_active']
+
+    def filter_keyword(self, queryset, name, value):
+        if not value:
+            return queryset
+        return queryset.filter(
+            models.Q(name__icontains=value)
+            | models.Q(code__icontains=value),
+        )
 
 
 class TestResultFilter(django_filters.FilterSet):

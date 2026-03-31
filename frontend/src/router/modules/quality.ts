@@ -2,6 +2,12 @@ import type { RouteRecordRaw } from 'vue-router'
 
 const qualityRoutes: RouteRecordRaw[] = [
   {
+    path: '/quality/foundation',
+    name: 'PrerequisitesHub',
+    component: () => import('@/views/quality/PrerequisitesHub.vue'),
+    meta: { title: '检测基础配置', permission: 'testing:view' },
+  },
+  {
     path: '/quality/audit',
     name: 'AuditList',
     component: () => import('@/views/quality/AuditList.vue'),
@@ -36,6 +42,12 @@ const qualityRoutes: RouteRecordRaw[] = [
     name: 'RecordTemplateLibrary',
     component: () => import('@/views/quality/RecordTemplateLibrary.vue'),
     meta: { title: '原始记录模板', permission: 'testing:view' },
+  },
+  {
+    path: '/quality/report-templates',
+    name: 'ReportTemplateGuide',
+    component: () => import('@/views/quality/ReportTemplateGuide.vue'),
+    meta: { title: '报告模板', permission: 'testing:view' },
   },
 ]
 
