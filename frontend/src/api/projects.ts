@@ -25,6 +25,12 @@ export function getSubProjects(projectId: number, params?: any) {
 export function createSubProject(projectId: number, data: any) {
   return request.post(`/v1/projects/${projectId}/sub-projects/`, data)
 }
+export function updateSubProject(projectId: number, id: number, data: any) {
+  return request.put(`/v1/projects/${projectId}/sub-projects/${id}/`, data)
+}
+export function deleteSubProject(projectId: number, id: number) {
+  return request.delete(`/v1/projects/${projectId}/sub-projects/${id}/`)
+}
 
 export function getContracts(projectId: number, params?: any) {
   return request.get(`/v1/projects/${projectId}/contracts/`, { params })
@@ -32,12 +38,24 @@ export function getContracts(projectId: number, params?: any) {
 export function createContract(projectId: number, data: any) {
   return request.post(`/v1/projects/${projectId}/contracts/`, data)
 }
+export function updateContract(projectId: number, id: number, data: any) {
+  return request.put(`/v1/projects/${projectId}/contracts/${id}/`, data)
+}
+export function deleteContract(projectId: number, id: number) {
+  return request.delete(`/v1/projects/${projectId}/contracts/${id}/`)
+}
 
 export function getWitnesses(projectId: number, params?: any) {
   return request.get(`/v1/projects/${projectId}/witnesses/`, { params })
 }
 export function createWitness(projectId: number, data: any) {
   return request.post(`/v1/projects/${projectId}/witnesses/`, data)
+}
+export function updateWitness(projectId: number, id: number, data: any) {
+  return request.put(`/v1/projects/${projectId}/witnesses/${id}/`, data)
+}
+export function deleteWitness(projectId: number, id: number) {
+  return request.delete(`/v1/projects/${projectId}/witnesses/${id}/`)
 }
 
 export function getProjectStats(projectId: number) {

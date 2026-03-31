@@ -20,6 +20,8 @@ STANDARDS: list[tuple[str, str, str]] = [
     ('GB/T 228.1-2021', '金属材料 拉伸试验 第1部分：室温试验方法', 'steel'),
     ('JGJ 52-2006', '普通混凝土用砂、石质量及检验方法标准', 'aggregate'),
 ]
+# 产品标准（库中单独条目，检测方法仍按 GB/T 228.1-2021）
+STANDARD_REBAR_PRODUCT = ('GB/T 1499.2-2024', '钢筋混凝土用钢 第2部分：热轧带肋钢筋', 'steel')
 
 
 class LimsDemoSeeder:
@@ -32,6 +34,7 @@ class LimsDemoSeeder:
         self.project = None
         self.sub: dict[str, Any] = {}
         self.witness = None
+        self.witness_b = None
         self.methods: dict[str, Any] = {}
         self.params: dict[str, Any] = {}
         self.templates: dict[str, Any] = {}
@@ -86,17 +89,33 @@ class LimsDemoSeeder:
             )
             cats[code] = c
 
+        std_dates: dict[str, tuple[datetime.date, datetime.date]] = {
+            'GB/T 50081-2019': (datetime.date(2019, 12, 1), datetime.date(2020, 7, 1)),
+            'GB/T 228.1-2021': (datetime.date(2021, 8, 20), datetime.date(2022, 7, 1)),
+            'JGJ 52-2006': (datetime.date(2006, 12, 1), datetime.date(2007, 6, 1)),
+        }
         for std_no, std_name, cat_key in STANDARDS:
+            pub, imp = std_dates.get(std_no, (datetime.date(2019, 1, 1), datetime.date(2020, 1, 1)))
             Standard.objects.update_or_create(
                 standard_no=std_no,
                 defaults={
                     'name': std_name,
                     'category': cat_key,
                     'status': 'active',
-                    'publish_date': datetime.date(2019, 1, 1),
-                    'implement_date': datetime.date(2020, 1, 1),
+                    'publish_date': pub,
+                    'implement_date': imp,
                 },
             )
+        Standard.objects.update_or_create(
+            standard_no=STANDARD_REBAR_PRODUCT[0],
+            defaults={
+                'name': STANDARD_REBAR_PRODUCT[1],
+                'category': STANDARD_REBAR_PRODUCT[2],
+                'status': 'active',
+                'publish_date': datetime.date(2024, 6, 25),
+                'implement_date': datetime.date(2024, 9, 25),
+            },
+        )
 
         m_conc, _ = TestMethod.objects.get_or_create(
             standard_no=STANDARDS[0][0],
@@ -170,9 +189,21 @@ class LimsDemoSeeder:
             ],
         }
         pairs = [
-            (f'{P}-TPL-CONC-01', '混凝土抗压原始记录', self.methods['conc'], None, sch_conc),
-            (f'{P}-TPL-STEEL-01', '钢筋拉伸原始记录', self.methods['steel'], self.params['ReL'], sch_steel),
-            (f'{P}-TPL-SAND-01', '砂筛分原始记录', self.methods['sand'], self.params['Mx'], sch_sand),
+            (
+                f'{P}-TPL-CONC-01',
+                f'混凝土立方体抗压原始记录（{STANDARDS[0][0]}）',
+                self.methods['conc'], None, sch_conc,
+            ),
+            (
+                f'{P}-TPL-STEEL-01',
+                f'钢筋拉伸试验原始记录（{STANDARDS[1][0]}；产品 {STANDARD_REBAR_PRODUCT[0]}）',
+                self.methods['steel'], self.params['ReL'], sch_steel,
+            ),
+            (
+                f'{P}-TPL-SAND-01',
+                f'砂筛分与细度模数原始记录（{STANDARDS[2][0]}）',
+                self.methods['sand'], self.params['Mx'], sch_sand,
+            ),
         ]
         for code, name, m, param, schema in pairs:
             t, _ = RecordTemplate.objects.update_or_create(
@@ -280,34 +311,44 @@ class LimsDemoSeeder:
         self.project, _ = Project.objects.update_or_create(
             code=f'{P}-PRJ-001',
             defaults={
-                'name': '演示工程：综合交通枢纽检测项目',
-                'address': '演示市演示区演示路1号',
-                'project_type': 'transport',
+                'name': '演示工程：综合交通枢纽与机场配套检测项目',
+                'address': '演示市演示区机场大道与枢纽一路交叉口东北侧',
+                'project_type': 'airport',
                 'status': 'active',
-                'start_date': datetime.date(2024, 1, 1),
+                'start_date': datetime.date(2024, 3, 18),
                 'end_date': datetime.date(2027, 12, 31),
-                'description': '用于 LIMIS 全流程联调的虚构工程项目。',
+                'description': '用于 LIMIS 全流程联调的虚构机场配套工程；材料检测覆盖混凝土抗压、钢筋拉伸、骨料等。',
             },
         )
         Contract.objects.update_or_create(
             contract_no=f'{P}-CONT-001',
             defaults={
                 'project': self.project,
-                'title': '检测服务合同（演示）',
-                'amount': Decimal('500000.00'),
-                'sign_date': datetime.date(2024, 2, 1),
-                'scope': '土建材料与现场检测',
+                'title': '检测技术服务合同（演示）',
+                'amount': Decimal('586000.00'),
+                'sign_date': datetime.date(2024, 4, 2),
+                'start_date': datetime.date(2024, 4, 15),
+                'end_date': datetime.date(2027, 12, 31),
+                'scope': '土建材料检测：混凝土、钢筋、砂、石等；报告加盖 CMA 章（演示）。',
             },
         )
-        org_sup, _ = Organization.objects.update_or_create(
-            project=self.project,
-            name='演示建设单位',
-            role='builder',
-            defaults={
-                'contact_person': '张工',
-                'contact_phone': '021-60000001',
-            },
-        )
+        org_roles: list[tuple[str, str, str, str]] = [
+            ('演示机场建设投资有限公司', 'builder', '张明', '021-58880101'),
+            ('演示建工集团有限公司', 'contractor', '赵铁军', '13800138001'),
+            ('演示工程监理咨询有限公司', 'supervisor', '李监理', '13900139002'),
+            ('演示建筑设计研究院有限公司', 'designer', '王结构', '021-58880303'),
+            ('演示交通检测中心（本实验室）', 'inspector', '刘主任', '021-58880000'),
+        ]
+        org_by_role: dict[str, Any] = {}
+        for oname, orole, cp, phone in org_roles:
+            o, _ = Organization.objects.update_or_create(
+                project=self.project,
+                name=oname,
+                role=orole,
+                defaults={'contact_person': cp, 'contact_phone': phone},
+            )
+            org_by_role[orole] = o
+        org_sup = org_by_role['builder']
         self.sub['A'], _ = SubProject.objects.update_or_create(
             project=self.project,
             code='FB-A',
@@ -316,7 +357,7 @@ class LimsDemoSeeder:
         self.sub['B'], _ = SubProject.objects.update_or_create(
             project=self.project,
             code='FB-B',
-            defaults={'name': '站房附属', 'description': '砂、石等'},
+            defaults={'name': '站房附属', 'description': '砂、石骨料等'},
         )
         self.witness, _ = Witness.objects.update_or_create(
             project=self.project,
@@ -324,8 +365,19 @@ class LimsDemoSeeder:
             defaults={
                 'id_number': '110101199001011234',
                 'organization': org_sup,
-                'phone': '13900000000',
-                'certificate_no': 'JZ-DEMO-001',
+                'phone': '13900001111',
+                'certificate_no': 'JZ2023-110108-00156',
+                'is_active': True,
+            },
+        )
+        self.witness_b, _ = Witness.objects.update_or_create(
+            project=self.project,
+            name='刘见证',
+            defaults={
+                'id_number': '320102198805152468',
+                'organization': org_by_role['supervisor'],
+                'phone': '13900002222',
+                'certificate_no': 'JZ2022-320102-00888',
                 'is_active': True,
             },
         )
@@ -409,60 +461,106 @@ class LimsDemoSeeder:
         self.log('阶段：委托单（多状态）与合同评审')
         u_rev = self.users.get('reviewer')
         today = timezone.now().date()
-        defs = [
-            (f'{P}-WT-001', 'reviewed', self.sub['A'], '地下室墙柱 C30 混凝土', [
-                ('混凝土试块', '抗压强度', STANDARDS[0][0]),
-            ]),
-            (f'{P}-WT-002', 'reviewed', self.sub['A'], '框架梁 HRB400 钢筋', [
-                ('热轧钢筋', '拉伸试验', STANDARDS[1][0]),
-            ]),
-            (f'{P}-WT-003', 'pending_review', self.sub['B'], '站房用砂', [
-                ('细骨料', '筛分析/细度模数', STANDARDS[2][0]),
-            ]),
-            (f'{P}-WT-004', 'draft', self.sub['B'], '进场碎石（草稿）', [
-                ('粗骨料', '颗粒级配', STANDARDS[2][0]),
-            ]),
+        # 委托日期分布在当月内，便于仪表盘「本月委托」与列表展示一致
+        steel_std = f'{STANDARDS[1][0]}；产品 {STANDARD_REBAR_PRODUCT[0]}'
+        defs: list[tuple[Any, ...]] = [
+            (
+                f'{P}-WT-001', 'reviewed', self.sub['A'],
+                'T2 航站楼地下室墙柱（C30 混凝土）',
+                today - datetime.timedelta(days=5),
+                self.witness,
+                [
+                    (
+                        '混凝土试块', '立方体抗压强度', STANDARDS[0][0],
+                        '按 GB/T 50081-2019 制作与试验', 'C30', '150×150×150mm', 3, '组',
+                    ),
+                ],
+            ),
+            (
+                f'{P}-WT-002', 'reviewed', self.sub['A'],
+                '主梁上部钢筋（HRB400）',
+                today - datetime.timedelta(days=3),
+                self.witness,
+                [
+                    (
+                        '热轧带肋钢筋', '拉伸试验（屈服、抗拉、伸长率）', steel_std,
+                        'GB/T 228.1-2021 方法A', 'HRB400 Φ20mm', 'Φ20', 2, '根',
+                    ),
+                ],
+            ),
+            (
+                f'{P}-WT-003', 'pending_review', self.sub['B'],
+                '站房二层砌筑砂浆用砂',
+                today - datetime.timedelta(days=1),
+                self.witness_b,
+                [
+                    (
+                        '天然砂', '筛分析、细度模数、含泥量', STANDARDS[2][0],
+                        '筛分法、水洗法', '中砂', '', 1, '批',
+                    ),
+                ],
+            ),
+            (
+                f'{P}-WT-004', 'draft', self.sub['B'],
+                '进场粗骨料（碎石，草稿未提交）',
+                today,
+                self.witness_b,
+                [
+                    (
+                        '碎石', '颗粒级配、针片状、含泥量', STANDARDS[2][0],
+                        '筛分法', '5–25mm 连续级配', '', 1, '批',
+                    ),
+                ],
+            ),
         ]
-        for no, st, sub, part, items in defs:
+        for row in defs:
+            no, st, sub, part, comm_date, wit, items = row
             c, _ = Commission.objects.update_or_create(
                 commission_no=no,
                 defaults={
                     'project': self.project,
                     'sub_project': sub,
                     'construction_part': part,
-                    'commission_date': today - datetime.timedelta(days=10),
-                    'client_unit': '演示施工单位',
-                    'client_contact': '赵工',
-                    'client_phone': '13800001111',
-                    'witness': self.witness,
+                    'commission_date': comm_date,
+                    'client_unit': '演示建工集团有限公司',
+                    'client_contact': '赵铁军',
+                    'client_phone': '13800138001',
+                    'witness': wit,
                     'is_witnessed': True,
                     'status': st,
                     'reviewer': u_rev if st == 'reviewed' else None,
-                    'review_date': timezone.now() - datetime.timedelta(days=8) if st == 'reviewed' else None,
+                    'review_date': timezone.now() - datetime.timedelta(days=2) if st == 'reviewed' else None,
                     'review_comment': '同意受理' if st == 'reviewed' else '',
                 },
             )
-            if not c.items.exists():
-                for obj, ti, ts in items:
-                    CommissionItem.objects.create(
-                        commission=c,
-                        test_object=obj,
-                        test_item=ti,
-                        test_standard=ts,
-                        quantity=1,
-                        unit='组',
-                    )
-            if st == 'reviewed' and not hasattr(c, 'contract_review'):
-                ContractReview.objects.create(
+            CommissionItem.objects.filter(commission=c).delete()
+            for (
+                obj, ti, ts, tm, grade, spec, qty, unit,
+            ) in items:
+                CommissionItem.objects.create(
                     commission=c,
-                    has_capability=True,
-                    has_equipment=True,
-                    has_personnel=True,
-                    method_valid=True,
-                    sample_representative=True,
-                    conclusion='accept',
-                    reviewer=u_rev,
-                    comment='合同评审通过（演示）',
+                    test_object=obj,
+                    test_item=ti,
+                    test_standard=ts,
+                    test_method=tm,
+                    grade=grade or '',
+                    specification=spec or '',
+                    quantity=qty,
+                    unit=unit,
+                )
+            if st == 'reviewed':
+                ContractReview.objects.update_or_create(
+                    commission=c,
+                    defaults={
+                        'has_capability': True,
+                        'has_equipment': True,
+                        'has_personnel': True,
+                        'method_valid': True,
+                        'sample_representative': True,
+                        'conclusion': 'accept',
+                        'reviewer': u_rev,
+                        'comment': '合同评审通过（演示）',
+                    },
                 )
             self.commissions[no] = c
         self.log('  委托与合同评审已写入', ok=True)
@@ -481,12 +579,20 @@ class LimsDemoSeeder:
 
         plan = [
             (f'{P}-YP-001', f'{P}-WT-001', '混凝土试块', 'C30', g1, 'tested', self.methods['conc'], e1, 'completed'),
-            (f'{P}-YP-002', f'{P}-WT-002', '钢筋', 'HRB400', None, 'tested', self.methods['steel'], e2, 'completed'),
+            (f'{P}-YP-002', f'{P}-WT-002', '热轧带肋钢筋', 'HRB400 Φ20', None, 'tested', self.methods['steel'], e2, 'completed'),
             (f'{P}-YP-003', f'{P}-WT-003', '河砂', '中砂', None, 'pending', self.methods['sand'], None, 'unassigned'),
             (f'{P}-YP-004', f'{P}-WT-004', '碎石', '5–25mm', None, 'pending', self.methods['sand'], None, 'unassigned'),
+            (f'{P}-YP-005', f'{P}-WT-002', '热轧带肋钢筋', 'HRB400 Φ25', None, 'pending', self.methods['steel'], e2, 'assigned'),
+            (f'{P}-YP-006', f'{P}-WT-001', '混凝土试块', 'C30', g1, 'testing', self.methods['conc'], e1, 'in_progress'),
         ]
-        for sno, cno, name, spec, grp, st, method, eq, tstatus in plan:
+        for sno, cno, name, spec, grp, samp_st, method, eq, tstatus in plan:
             comm = self.commissions[cno]
+            qty = 1
+            unit = '组' if grp else '批'
+            if '钢筋' in name or '热轧' in name:
+                unit = '根'
+                qty = 2 if f'{P}-YP-002' in sno else 1
+            grade = 'C30' if '混凝土' in name else ''
             sa, _ = Sample.objects.update_or_create(
                 sample_no=sno,
                 defaults={
@@ -494,16 +600,24 @@ class LimsDemoSeeder:
                     'group': grp,
                     'name': name,
                     'specification': spec,
-                    'quantity': 1,
-                    'unit': '组' if grp else '批',
+                    'grade': grade,
+                    'quantity': qty,
+                    'unit': unit,
                     'sampling_date': today - datetime.timedelta(days=12),
                     'received_date': today - datetime.timedelta(days=11),
                     'sampling_location': comm.construction_part,
-                    'status': st,
+                    'status': samp_st,
                 },
             )
             tt_no = sno.replace('YP', 'TT')
-            planned = today - datetime.timedelta(days=5) if tstatus != 'unassigned' else today + datetime.timedelta(days=3)
+            if tstatus == 'unassigned':
+                planned = today + datetime.timedelta(days=3)
+            elif tstatus == 'assigned':
+                planned = today
+            elif tstatus == 'in_progress':
+                planned = today - datetime.timedelta(days=1)
+            else:
+                planned = today - datetime.timedelta(days=5)
             TestTask.objects.update_or_create(
                 task_no=tt_no,
                 defaults={

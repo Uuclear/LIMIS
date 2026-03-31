@@ -10,6 +10,7 @@ class StandardFilter(django_filters.FilterSet):
     status = django_filters.CharFilter(lookup_expr='exact')
     category = django_filters.CharFilter(lookup_expr='exact')
     search = django_filters.CharFilter(method='filter_search', label='搜索')
+    keyword = django_filters.CharFilter(method='filter_search', label='关键词')
     implement_after = django_filters.DateFilter(
         field_name='implement_date', lookup_expr='gte',
     )
@@ -19,7 +20,7 @@ class StandardFilter(django_filters.FilterSet):
 
     class Meta:
         model = Standard
-        fields = ['status', 'category']
+        fields = ['status', 'category', 'search', 'keyword']
 
     def filter_search(self, queryset, name, value):
         return queryset.filter(

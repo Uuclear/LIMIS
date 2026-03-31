@@ -20,7 +20,7 @@ NProgress.configure({ showSpinner: false })
 const routes: RouteRecordRaw[] = [
   {
     path: '/standard',
-    redirect: '/quality/standards',
+    redirect: '/quality/foundation',
   },
   {
     path: '/login',

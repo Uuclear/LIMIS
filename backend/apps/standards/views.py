@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html as html_module
 import re
 from urllib.parse import quote
 
@@ -60,6 +61,70 @@ class StandardViewSet(BaseModelViewSet):
             s = re.sub(r'\s+', ' ', s).strip()
             return s
 
+        def _decode_csres(resp: requests.Response) -> str:
+            """工标网页面多为 GB18030/GBK，requests 默认按 HTTP 头易误判为 ISO-8859-1。"""
+            raw = resp.content or b''
+            for enc in ('gb18030', 'gbk', 'utf-8'):
+                try:
+                    return raw.decode(enc)
+                except UnicodeDecodeError:
+                    continue
+            return raw.decode('utf-8', errors='replace')
+
+        def _parse_iso_dates_from_text(text: str) -> tuple[str | None, str | None]:
+            """从正文提取 发布日期 / 实施日期（YYYY-MM-DD）。"""
+            publish_date = None
+            implement_date = None
+            m = re.search(
+                r'发布日期\s*[:：]\s*([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})',
+                text,
+            )
+            if m:
+                publish_date = (
+                    f'{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}'
+                )
+            m = re.search(
+                r'实施日期\s*[:：]\s*([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})',
+                text,
+            )
+            if m:
+                implement_date = (
+                    f'{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}'
+                )
+            if not publish_date:
+                m = re.search(
+                    r'发布日期\s*[:：]\s*([0-9]{4})\s*年\s*([0-9]{1,2})\s*月\s*([0-9]{1,2})\s*日',
+                    text,
+                )
+                if m:
+                    publish_date = (
+                        f'{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}'
+                    )
+            if not implement_date:
+                m = re.search(
+                    r'实施日期\s*[:：]\s*([0-9]{4})\s*年\s*([0-9]{1,2})\s*月\s*([0-9]{1,2})\s*日',
+                    text,
+                )
+                if m:
+                    implement_date = (
+                        f'{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}'
+                    )
+            return publish_date, implement_date
+
+        def _dates_from_search_row_title(search_html_raw: str) -> tuple[str | None, str | None]:
+            """搜索结果行 title 属性内常含：发布日期：2019-06-19&#xA;实施日期：2019-12-01"""
+            pub = imp = None
+            for m in re.finditer(r'title="([^"]+)"', search_html_raw):
+                raw_title = html_module.unescape(m.group(1).replace('&#xA;', '\n'))
+                p, i = _parse_iso_dates_from_text(raw_title)
+                if p:
+                    pub = p
+                if i:
+                    imp = i
+                if pub and imp:
+                    break
+            return pub, imp
+
         headers = {
             'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
             '(KHTML, like Gecko) Chrome/120 Safari/537.36',
@@ -69,7 +134,7 @@ class StandardViewSet(BaseModelViewSet):
         search_url = f'http://www.csres.com/s.jsp?keyword={quote(standard_no)}'
         r = requests.get(search_url, headers=headers, timeout=20)
         r.raise_for_status()
-        search_html = r.text
+        search_html = _decode_csres(r)
 
         # pick best detail link from search page
         detail_id = None
@@ -95,30 +160,24 @@ class StandardViewSet(BaseModelViewSet):
         detail_url = f'http://www.csres.com/detail/{detail_id}.html'
         d = requests.get(detail_url, headers=headers, timeout=20)
         d.raise_for_status()
-        detail_html = d.text
+        detail_html = _decode_csres(d)
         plain = _cleanup_text(detail_html)
+
+        publish_date, implement_date = _parse_iso_dates_from_text(detail_html)
+        if not publish_date or not implement_date:
+            sp, si = _parse_iso_dates_from_text(plain)
+            publish_date = publish_date or sp
+            implement_date = implement_date or si
+        if not publish_date or not implement_date:
+            sp, si = _dates_from_search_row_title(search_html)
+            publish_date = publish_date or sp
+            implement_date = implement_date or si
 
         # 2) parse key fields
         scraped_standard_no = None
         m = re.search(r'标准编号\s*：\s*([^ ]+.*?)(?: 标准状态| 标准价格| 标准简介| 出版社| 英文名称| 替代情况| 发布日期)', plain)
         if m:
             scraped_standard_no = m.group(1).strip()
-
-        publish_date = None
-        m = re.search(
-            r'发布日期\s*[:：]\s*(?:&nbsp;)?\s*([0-9]{4}-[0-9]{2}-[0-9]{2})',
-            plain,
-        )
-        if m:
-            publish_date = m.group(1)
-
-        implement_date = None
-        m = re.search(
-            r'实施日期\s*[:：]\s*(?:&nbsp;)?\s*([0-9]{4}-[0-9]{2}-[0-9]{2})',
-            plain,
-        )
-        if m:
-            implement_date = m.group(1)
 
         english_name = ''
         m = re.search(r'英文名称\s*：\s*(.*?)\s*替代', plain)

@@ -78,12 +78,14 @@ const menuItems: MenuItem[] = [
     title: '质量体系',
     icon: SetUp,
     children: [
-      { index: '/quality/audit', title: '内部审核' },
-      { index: '/quality/review', title: '管理评审' },
-      { index: '/quality/nonconformity', title: '不符合项' },
+      { index: '/quality/foundation', title: '检测基础配置' },
       { index: '/quality/standards', title: '标准规范' },
       { index: '/quality/parameter-library', title: '项目参数库' },
       { index: '/quality/record-templates', title: '原始记录模板' },
+      { index: '/quality/report-templates', title: '报告模板' },
+      { index: '/quality/audit', title: '内部审核' },
+      { index: '/quality/review', title: '管理评审' },
+      { index: '/quality/nonconformity', title: '不符合项' },
     ],
   },
   {

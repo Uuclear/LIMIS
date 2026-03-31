@@ -20,6 +20,12 @@ def get_dashboard_summary() -> dict[str, Any]:
         'today_commissions': Commission.objects.filter(
             commission_date=today, is_deleted=False,
         ).count(),
+        # 与「本月」业务感知一致：委托按委托日期落在当月统计
+        'month_commissions': Commission.objects.filter(
+            commission_date__gte=month_start,
+            commission_date__lte=today,
+            is_deleted=False,
+        ).count(),
         'pending_tasks': TestTask.objects.filter(
             status__in=['unassigned', 'assigned'], is_deleted=False,
         ).count(),
@@ -44,11 +50,11 @@ def _get_equipment_warning_count() -> int:
     from apps.equipment.models import Equipment
 
     threshold = timezone.now().date() + timedelta(days=30)
+    # 仅统计「已录入到期日且 30 日内到期」的设备；未填到期日单独在设备模块处理
     return Equipment.objects.filter(
         status='in_use', is_deleted=False,
-    ).filter(
-        Q(next_calibration_date__lte=threshold)
-        | Q(next_calibration_date__isnull=True),
+        next_calibration_date__isnull=False,
+        next_calibration_date__lte=threshold,
     ).count()
 
 

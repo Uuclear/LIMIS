@@ -202,7 +202,18 @@ onMounted(fetchList)
 </script>
 
 <template>
-  <div class="page-container">
+  <div class="page-container standard-list-page">
+    <div class="std-hero">
+      <div class="std-hero-text">
+        <h2 class="std-hero-title">标准规范</h2>
+        <p class="std-hero-desc">
+          维护检测依据的<strong>标准号、名称、实施日期</strong>及电子版附件。录入后可到「项目参数库」为该标准配置检测方法与参数。
+          支持按标准号从工标网<strong>爬取</strong>辅助填充（保存前请核对）。
+        </p>
+      </div>
+      <router-link to="/quality/foundation" class="std-hero-link">检测基础配置总览 →</router-link>
+    </div>
+
     <el-card shadow="never">
       <el-form inline @submit.prevent="handleSearch">
         <el-form-item label="关键词">
@@ -234,6 +245,9 @@ onMounted(fetchList)
       </template>
 
       <el-table v-loading="loading" :data="tableData" stripe border>
+        <template #empty>
+          <el-empty description="暂无标准数据，请点击「新增标准」或使用工标网爬取" />
+        </template>
         <el-table-column prop="standard_no" label="标准号" width="180" />
         <el-table-column prop="name" label="标准名称" min-width="240" show-overflow-tooltip />
         <el-table-column label="分类" width="110">
@@ -347,3 +361,46 @@ onMounted(fetchList)
     </el-dialog>
   </div>
 </template>
+
+<style scoped>
+.standard-list-page .std-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-bottom: 16px;
+  padding: 18px 20px;
+  border-radius: 12px;
+  background: linear-gradient(120deg, #f0f9ff 0%, #faf5ff 100%);
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.std-hero-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--el-text-color-primary);
+}
+
+.std-hero-desc {
+  margin: 0;
+  max-width: 820px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--el-text-color-regular);
+}
+
+.std-hero-link {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--el-color-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.std-hero-link:hover {
+  text-decoration: underline;
+}
+</style>
