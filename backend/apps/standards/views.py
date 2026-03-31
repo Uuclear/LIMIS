@@ -20,6 +20,8 @@ from .serializers import (
 class StandardViewSet(BaseModelViewSet):
     queryset = Standard.objects.select_related('replaced_by').all()
     lims_module = 'standards'
+    # crawl 为 POST 但仅拉取工标网元数据、不落库；按「查看」鉴权，避免仅有 view/edit 的角色（如技术负责人）无法爬取
+    lims_action_map = {'crawl': 'view'}
     filterset_class = StandardFilter
     search_fields = ['standard_no', 'name']
 
