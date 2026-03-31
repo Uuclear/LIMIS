@@ -64,6 +64,9 @@ class TestMethodViewSet(BaseModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        scope = (self.request.query_params.get('scope') or '').strip().lower()
+        if scope == 'all':
+            return qs
         if self.action in ('list', 'retrieve'):
             profile = get_active_qualification_profile()
             if profile:
@@ -80,6 +83,9 @@ class TestParameterViewSet(BaseModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        scope = (self.request.query_params.get('scope') or '').strip().lower()
+        if scope == 'all':
+            return qs
         if self.action in ('list', 'retrieve'):
             profile = get_active_qualification_profile()
             if profile:

@@ -51,7 +51,7 @@ const standardTitle = computed(() =>
 async function fetchStandards() {
   loading.value = true
   try {
-    const res: any = await getStandardList({ page_size: 500 })
+    const res: any = await getStandardList({ page_size: 500, scope: 'all' })
     standards.value = res.results ?? res.list ?? []
   } finally {
     loading.value = false
@@ -81,6 +81,7 @@ async function loadMethods() {
     const res: any = await getTestMethods({
       standard_no: selectedStandard.value.standard_no,
       page_size: 200,
+      scope: 'all',
     })
     methods.value = res.results ?? res.list ?? []
   } finally {
@@ -100,6 +101,7 @@ async function loadParameters() {
     const res: any = await getTestParameters({
       method: selectedMethod.value.id,
       page_size: 200,
+      scope: 'all',
     })
     parameters.value = res.results ?? res.list ?? []
   } finally {
