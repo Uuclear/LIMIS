@@ -2,8 +2,8 @@
 
 一个现代化、功能完整的**实验室信息管理系统**，基于 Django + Vue3 开发。
 
-![Python](https://img.shields.io/badge/Python-3.11-%233776AB?logo=python&logoColor=white)
-![Django](https://img.shields.io/badge/Django-5.0-%23092E20?logo=django&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-%233776AB?logo=python&logoColor=white)
+![Django](https://img.shields.io/badge/Django-5.x-%23092E20?logo=django&logoColor=white)
 ![Vue.js](https://img.shields.io/badge/Vue.js-3-%2342b883?logo=vue.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-%23007ACC?logo=typescript&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-%23316192?logo=postgresql&logoColor=white)
@@ -22,124 +22,108 @@
 ### 技术亮点
 - **前后端分离架构** - Django REST Framework + Vue3 + TypeScript
 - **JWT 认证** - 安全的 Token 认证机制
-- **操作审计** - 所有敏感操作自动记录
-- **API 文档** - 自动生成的 Swagger/OpenAPI 文档
-- **响应式设计** - 支持 PC 端和移动端访问
-- **容器化部署** - Docker + docker-compose 一键部署
+- **操作审计** - 敏感操作自动记录
+- **API 文档** - drf-spectacular（Swagger/OpenAPI）
+- **响应式设计** - 支持 PC 端访问
+- **容器化部署** - Docker + Docker Compose
 
 ## 🚀 快速开始
 
 ### 环境要求
-- Docker 和 Docker Compose（推荐）
-- 或者本地环境：Python 3.11 + Node.js 18+
+- **Docker + Docker Compose**（推荐一键起全栈）
+- 或本地开发：**Python 3.12+**、**Node.js 20+**、本机 PostgreSQL / Redis（与 `docker-compose` 二选一）
 
-### 使用 Docker 启动（推荐）
+### 方式一：Docker Compose（推荐）
 
 ```bash
-# 克隆项目
 git clone https://github.com/Uuclear/limis.git
 cd limis
-
-# 启动所有服务
-docker-compose up -d
-
-# 查看服务状态
-docker-compose ps
+cp .env.example .env   # 按需修改密钥与密码
+docker compose up -d --build
+docker compose ps
 ```
 
-### 本地开发环境
+默认对外端口（见 `docker-compose.yml`）：
+- **Web 前端（Nginx）**：`http://<主机IP>/`（映射宿主机 **80**）
+- **PostgreSQL**：宿主机 **5434** → 容器 5432（避免与本机 5432 冲突）
+- **Redis**：宿主机 **6379**
+- **MinIO**：**9000**（API）、**9001**（控制台）
+- **后端 API**：由 Nginx 反代到同一域名下的 **`/api/`**（容器内 Gunicorn 监听 8000，不单独映射宿主机端口）
+
+容器内当前使用 **`limis.settings.dev`**（`DEBUG=True`、开发向 CORS/Hosts 策略）。生产上线前请改回 `limis.settings.prod` 并收紧域名与密钥。
+
+### 方式二：本地前后端分离开发（Vite + runserver）
 
 ```bash
 # 后端
 cd backend
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
+cp ../.env.example .env
+# 配置 DB_HOST/DB_PORT 指向你的 PostgreSQL
+export DJANGO_SETTINGS_MODULE=limis.settings.dev
 python manage.py migrate
 python manage.py runserver 0.0.0.0:8000
 
-# 前端（新终端）
+# 前端（新终端，默认端口 3000，见 frontend/vite.config.ts）
 cd frontend
 npm install
 npm run dev
 ```
 
-### 默认账号
+开发时前端通过 Vite 将 `/api` 代理到 `http://127.0.0.1:8000`。
 
-- **管理员账号**：`admin` / `admin123`
-- **测试账号**：`zhangsan` / `123456`（不同角色）
+### 初始化账号与演示数据
+
+全新数据库**不会**自动存在业务文档里写的全部测试用户，请任选其一：
+
+- **管理员**：`python manage.py createsuperuser`（或容器内执行）
+- **轻量演示数据**：`python manage.py seed_demo_data`
+- **全流程演示数据**：`python manage.py seed_full_workflow`（可选 `--clear` 先清演示数据）
+
+演示账号约定见 `docs/QUALITY_AND_ROADMAP.md`。
 
 ## 📁 项目结构
 
 ```
 limis/
 ├── backend/                 # Django 后端
-│   ├── apps/               # 业务应用模块
-│   ├── limis/              # 项目配置
-│   ├── core/               # 核心基础模块
-│   └── requirements.txt
-├── frontend/               # Vue3 前端
-│   ├── src/
-│   ├── components/
-│   └── views/
-├── nginx/                  # Nginx 配置
-├── docs/                   # 文档
-├── .github/workflows/      # CI/CD 工作流
+├── frontend/                # Vue3 + Vite 前端
+├── nginx/                   # 前端镜像内 Nginx 配置（反代 /api）
+├── docs/                    # 规划与质量文档
 ├── docker-compose.yml
-├── PROJECT_STATUS.md       # 项目状态跟踪
+├── DEPLOY.md
+├── PROJECT_STATUS.md
 └── README.md
 ```
 
 ## 🛠 技术栈
 
-**后端：**
-- Django 5.0 + Django REST Framework
-- PostgreSQL + Redis
-- Celery (异步任务)
-- JWT 认证
+**后端：** Django 5.x、DRF、PostgreSQL、Redis、Celery、JWT、MinIO  
 
-**前端：**
-- Vue 3 + TypeScript
-- Pinia 状态管理
-- Element Plus UI 组件库
-- Axios + Vue Router
+**前端：** Vue 3、TypeScript、Pinia、Element Plus、Axios、Vue Router  
 
-**部署：**
-- Docker + Docker Compose
-- Nginx 反向代理
-- Gunicorn (生产环境)
+**部署：** Docker Compose、Nginx、Gunicorn（容器内）
 
-## 📋 功能模块
+## 📋 功能模块（概览）
 
-- [x] 用户管理与权限控制
-- [x] 项目管理
-- [x] 委托管理
-- [x] 样品管理
-- [x] 检测任务管理
-- [x] 报告管理
-- [x] 设备管理
-- [x] 质量管理
-- [x] 标准规范管理
-- [ ] 数据统计可视化（待完善）
-- [ ] 移动端支持（待完善）
+核心业务模块（项目/委托/样品/检测/报告/设备/标准/质量/统计等）已在代码中落地；细节与完成度以 `PROJECT_STATUS.md` 为准。
 
 ## 📖 文档
 
-- **[部署文档](./DEPLOY.md)** - 详细的部署和初始化指南
-- **[项目状态](./PROJECT_STATUS.md)** - 当前功能完成情况
-- **[API 文档](./api-docs)** - Swagger 在线接口文档
-- [开发计划](./docs/PLAN.md)
-- [待办事项](./docs/TODO.md)
+| 文档 | 说明 |
+|------|------|
+| [DEPLOY.md](./DEPLOY.md) | 部署、端口、初始化命令 |
+| [PROJECT_STATUS.md](./PROJECT_STATUS.md) | 功能与开发状态（主状态源） |
+| [docs/PLAN.md](./docs/PLAN.md) | 机场工地试验室业务规划 |
+| [docs/TODO.md](./docs/TODO.md) | 历史任务拆分（对照现状见文内说明） |
+| [docs/QUALITY_AND_ROADMAP.md](./docs/QUALITY_AND_ROADMAP.md) | 质量改进、种子数据、回归建议 |
+| API | 后端运行后访问 `/api/docs/`（drf-spectacular） |
 
 ## 🤝 贡献
 
-欢迎提交 Issue 和 Pull Request！
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送分支 (`git push origin feature/AmazingFeature`)
-5. 提交 Pull Request
+欢迎提交 Issue 与 Pull Request。
 
 ## 📄 许可证
 
@@ -147,6 +131,4 @@ limis/
 
 ---
 
-**Made with ❤️ for Laboratory Information Management**
-
-如有问题或建议，欢迎在 [Issues](https://github.com/Uuclear/limis/issues) 中反馈。
+如有问题，欢迎在 [Issues](https://github.com/Uuclear/limis/issues) 反馈。

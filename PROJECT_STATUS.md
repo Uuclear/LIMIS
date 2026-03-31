@@ -1,9 +1,12 @@
 # Limis 实验室信息管理系统 - 项目状态文档（详细分层版）
 
 **更新时间**：2026年3月31日  
-**当前环境**：开发模式（Django 5 + Vue 3 + TypeScript + PostgreSQL + Redis）  
-**访问地址**：前端见 `frontend/vite.config.ts`（当前 **3000** 端口，`host: 0.0.0.0`）| 后端 **8000**（局域网示例：`http://<主机IP>:3000` / `:8000`）  
-**管理员账号**：`admin` / `admin123`
+**当前环境**：Django 5.x + Vue 3 + TypeScript + PostgreSQL + Redis（**本地开发**与 **Docker Compose** 两种跑法并存）  
+**访问地址**  
+- **Docker（推荐联调）**：`http://<主机IP>/`（Nginx **80**，API 同源 `/api/`；后端容器内 Gunicorn **8000** 仅集群内访问）  
+- **本地 Vite 开发**：`frontend/vite.config.ts` — 前端 **3000**，`/api` 代理到本机 **8000**；后端 `runserver` 需 `DJANGO_SETTINGS_MODULE=limis.settings.dev`  
+**Compose 说明**：`docker-compose.yml` 中 `backend` / `celery` / `celery-beat` 使用 **`limis.settings.dev`**；数据库对外映射 **5434→5432**（避免与本机 PostgreSQL 默认 5432 冲突）  
+**管理员账号**：新库需 `createsuperuser` 或种子命令创建；演示数据与密码约定见 `docs/QUALITY_AND_ROADMAP.md`
 
 ---
 
@@ -78,10 +81,11 @@
 - [x] 数据库初始化脚本（初始管理员与测试用户）
 
 ### 3.3 开发与部署配置
-- [x] Docker 与 docker-compose 配置（文件存在但当前使用本地开发）
+- [x] Docker 与 docker-compose 全栈编排（`db` / `redis` / `minio` / `backend` / `frontend` / `celery` / `celery-beat`）
+- [x] 后端容器：`migrate` + `collectstatic` + Gunicorn；**开发阶段**默认加载 **`limis.settings.dev`**
 - [x] Vite 配置局域网访问（`host: '0.0.0.0'`，端口见 `vite.config.ts`）
-- [x] Django runserver 绑定 `0.0.0.0:8000` 支持局域网访问
-- [x] 前端 API 代理配置（`/api` 代理到后端 8000）
+- [x] Django runserver 绑定 `0.0.0.0:8000` 支持局域网访问（本地开发）
+- [x] 前端 API 代理配置（`/api` 代理到后端 8000）；Docker 下由 **`nginx/nginx.conf`** 反代 `/api` 至 `backend:8000`
 
 ### 3.4 API 与中间件
 - [x] DRF 框架集成与全局配置
