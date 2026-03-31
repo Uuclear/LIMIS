@@ -168,9 +168,10 @@ onMounted(() => { fetchDetail(); fetchTimeline() })
         </div>
       </template>
       <template #extra>
-        <el-button :icon="Printer" @click="handlePrintLabel">打印标签</el-button>
+        <el-button v-permission="'sample:view'" :icon="Printer" @click="handlePrintLabel">打印标签</el-button>
         <el-button
           v-if="detail.status === 'testing'"
+          v-permission="'testing:view'"
           type="primary"
           @click="goTasks"
         >
@@ -178,6 +179,7 @@ onMounted(() => { fetchDetail(); fetchTimeline() })
         </el-button>
         <el-button
           v-if="detail.status === 'testing' && tasksLoaded && !tasks.length"
+          v-permission="'sample:edit'"
           type="warning"
           @click="handleCreateTasks"
           :loading="tasksLoading || isLocked('create_tasks')"
@@ -186,13 +188,19 @@ onMounted(() => { fetchDetail(); fetchTimeline() })
         </el-button>
         <el-button
           v-if="nextStatus && detail.status !== 'retained'"
+          v-permission="'sample:edit'"
           type="primary"
           :loading="nextStatus ? isLocked(`sample_status_${nextStatus.value}`) : false"
           @click="handleStatusChange(nextStatus.value)"
         >
           变更为「{{ nextStatus.label }}」
         </el-button>
-        <el-button v-if="detail.status === 'retained'" type="danger" @click="openDisposeDialog">
+        <el-button
+          v-if="detail.status === 'retained'"
+          v-permission="'sample:create'"
+          type="danger"
+          @click="openDisposeDialog"
+        >
           样品处置
         </el-button>
       </template>
@@ -260,7 +268,7 @@ onMounted(() => { fetchDetail(); fetchTimeline() })
       </el-form>
       <template #footer>
         <el-button @click="disposeDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="isLocked('sample_dispose')" @click="handleDispose">确定</el-button>
+        <el-button v-permission="'sample:create'" type="primary" :loading="isLocked('sample_dispose')" @click="handleDispose">确定</el-button>
       </template>
     </el-dialog>
   </div>

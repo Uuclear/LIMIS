@@ -375,7 +375,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header">
           <span>原始记录模板</span>
-          <el-button type="primary" :icon="Plus" @click="openCreate">新增模板</el-button>
+          <el-button v-permission="'testing:create'" type="primary" :icon="Plus" @click="openCreate">新增模板</el-button>
         </div>
       </template>
 
@@ -394,8 +394,8 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button v-permission="'testing:edit'" link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button v-permission="'testing:delete'" link type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -436,8 +436,8 @@ onMounted(() => {
             :value="t.id"
           />
         </el-select>
-        <el-button type="primary" :loading="previewLoading" @click="handlePreviewMerged">预览合并结构</el-button>
-        <el-button text type="primary" @click="loadRecentTasks">刷新任务列表</el-button>
+        <el-button v-permission="'testing:view'" type="primary" :loading="previewLoading" @click="handlePreviewMerged">预览合并结构</el-button>
+        <el-button v-permission="'testing:view'" text type="primary" @click="loadRecentTasks">刷新任务列表</el-button>
       </el-space>
       <el-input
         v-if="previewJson"
@@ -499,8 +499,15 @@ onMounted(() => {
           <el-tab-pane label="可视化字段表" name="visual">
             <div class="visual-toolbar">
               <el-input v-model="recordTitle" placeholder="原始记录标题（页眉）" style="max-width: 420px" />
-              <el-button type="primary" :icon="Document" @click="applyConcreteTemplate">套用混凝土抗压模板</el-button>
-              <el-button @click="addFieldRow">新增一行</el-button>
+              <el-button
+                v-permission="form.id ? 'testing:edit' : 'testing:create'"
+                type="primary"
+                :icon="Document"
+                @click="applyConcreteTemplate"
+              >
+                套用混凝土抗压模板
+              </el-button>
+              <el-button v-permission="form.id ? 'testing:edit' : 'testing:create'" @click="addFieldRow">新增一行</el-button>
             </div>
             <el-table :data="fieldRows" border size="small" max-height="280" class="field-edit-table">
               <el-table-column label="#" type="index" width="45" align="center" />
@@ -536,7 +543,7 @@ onMounted(() => {
               </el-table-column>
               <el-table-column label="" width="70" fixed="right">
                 <template #default="{ $index }">
-                  <el-button link type="danger" @click="removeFieldRow($index)">删</el-button>
+                  <el-button v-permission="form.id ? 'testing:edit' : 'testing:create'" link type="danger" @click="removeFieldRow($index)">删</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -575,7 +582,7 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">保存</el-button>
+        <el-button v-permission="form.id ? 'testing:edit' : 'testing:create'" type="primary" @click="handleSubmit">保存</el-button>
       </template>
     </el-dialog>
   </div>

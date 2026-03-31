@@ -236,10 +236,11 @@ onMounted(() => {
         <div class="card-header">
           <span>检测数据</span>
           <div v-if="!isReadonly">
-            <el-button type="primary" size="small" :icon="Plus" @click="addRow">
+            <el-button v-permission="'testing:edit'" type="primary" size="small" :icon="Plus" @click="addRow">
               添加行
             </el-button>
             <el-button
+              v-permission="'testing:edit'"
               size="small"
               :loading="isLocked('calculate_result')"
               @click="handleCalculate"
@@ -331,6 +332,7 @@ onMounted(() => {
         <el-table-column v-if="!isReadonly" label="操作" width="70" fixed="right">
           <template #default="{ $index }">
             <el-button
+              v-permission="'testing:edit'"
               :icon="Delete"
               link
               type="danger"
@@ -387,10 +389,20 @@ onMounted(() => {
     <!-- Actions -->
     <div v-if="!isReadonly" class="action-bar">
       <el-button @click="goBack">取消</el-button>
-      <el-button type="primary" :loading="isLocked(saveLockKey)" @click="handleSave">
+      <el-button
+        v-permission="isEdit ? 'testing:edit' : 'testing:create'"
+        type="primary"
+        :loading="isLocked(saveLockKey)"
+        @click="handleSave"
+      >
         保存草稿
       </el-button>
-      <el-button type="success" :loading="isLocked(submitLockKey)" @click="handleSubmit">
+      <el-button
+        v-permission="'testing:edit'"
+        type="success"
+        :loading="isLocked(submitLockKey)"
+        @click="handleSubmit"
+      >
         提交审核
       </el-button>
     </div>

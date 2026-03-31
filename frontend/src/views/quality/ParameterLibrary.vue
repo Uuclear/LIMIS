@@ -244,7 +244,7 @@ onMounted(async () => {
         <template #header>
           <div class="card-header">
             <span>检测方法 — {{ standardTitle }}</span>
-            <el-button type="primary" size="small" :icon="Plus" @click="openMethodDialog">新增方法</el-button>
+            <el-button v-permission="'testing:create'" type="primary" size="small" :icon="Plus" @click="openMethodDialog">新增方法</el-button>
           </div>
         </template>
         <el-table
@@ -267,7 +267,7 @@ onMounted(async () => {
               检测参数
               <template v-if="selectedMethod"> — {{ selectedMethod.name }}</template>
             </span>
-            <el-button type="primary" size="small" :icon="Plus" @click="openParamDialog()">新增参数</el-button>
+            <el-button v-permission="'testing:create'" type="primary" size="small" :icon="Plus" @click="openParamDialog()">新增参数</el-button>
           </div>
         </template>
         <el-table v-loading="paramLoading" :data="parameters" border stripe height="420">
@@ -280,7 +280,7 @@ onMounted(async () => {
           </el-table-column>
           <el-table-column label="操作" width="90" fixed="right">
             <template #default="{ row }">
-              <el-button link type="primary" :icon="Plus" @click="openParamDialog(row)">编辑</el-button>
+              <el-button v-permission="'testing:edit'" link type="primary" :icon="Plus" @click="openParamDialog(row)">编辑</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -298,7 +298,7 @@ onMounted(async () => {
       </el-form>
       <template #footer>
         <el-button @click="methodDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitMethod">确定</el-button>
+        <el-button v-permission="'testing:create'" type="primary" @click="submitMethod">确定</el-button>
       </template>
     </el-dialog>
 
@@ -322,7 +322,7 @@ onMounted(async () => {
       </el-form>
       <template #footer>
         <el-button @click="paramDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitParam">确定</el-button>
+        <el-button v-permission="paramForm.id ? 'testing:edit' : 'testing:create'" type="primary" @click="submitParam">确定</el-button>
       </template>
     </el-dialog>
   </div>

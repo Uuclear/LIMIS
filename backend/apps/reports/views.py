@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from core.audit import log_sensitive_audit
 from core.views import BaseModelViewSet
 
 from . import generator, workflow
@@ -47,6 +48,32 @@ class ReportViewSet(BaseModelViewSet):
         if self.action == 'create':
             return ReportCreateSerializer
         return ReportDetailSerializer
+
+    def destroy(self, request: Request, *args, **kwargs) -> Response:
+        """软删除报告；与 BaseModelViewSet.destroy 一致并强制敏感审计。"""
+        instance = self.get_object()
+        before = {
+            'id': instance.pk,
+            'report_no': instance.report_no,
+            'status': instance.status,
+            'commission_id': instance.commission_id,
+            'is_deleted': instance.is_deleted,
+        }
+        instance.soft_delete()
+        log_sensitive_audit(
+            user=request.user,
+            module='report',
+            action='delete',
+            entity='report',
+            entity_id=instance.pk,
+            path=request.path[:500],
+            before=before,
+            after={**before, 'is_deleted': True},
+        )
+        return Response(
+            {'code': 200, 'message': '删除成功'},
+            status=status.HTTP_200_OK,
+        )
 
     def perform_create(self, serializer) -> None:
         commission = serializer.validated_data['commission']

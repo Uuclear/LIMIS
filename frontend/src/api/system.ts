@@ -15,3 +15,10 @@ export function getPermissionList(params?: any) { return request.get('/v1/system
 /** 按 module 分组的权限列表（用于角色分配） */
 export function getPermissionGrouped() { return request.get('/v1/system/permissions/grouped/') }
 export function getAuditLogs(params?: any) { return request.get('/v1/system/audit-logs/', { params }) }
+/** 审计日志 CSV，与列表相同的 query 筛选（不含分页）；需 system:export */
+export function exportAuditLogs(params?: Record<string, unknown>) {
+  return request.get('/v1/system/audit-logs/export/', {
+    params,
+    responseType: 'blob',
+  } as any)
+}

@@ -120,8 +120,8 @@ onMounted(fetchList)
         <div class="card-header">
           <span>样品管理</span>
           <div>
-            <el-button :icon="Download" @click="handleExport">导出</el-button>
-            <el-button type="primary" :icon="Plus" @click="goRegister">样品登记</el-button>
+            <el-button v-permission="'sample:view'" :icon="Download" @click="handleExport">导出</el-button>
+            <el-button v-permission="'sample:create'" type="primary" :icon="Plus" @click="goRegister">样品登记</el-button>
           </div>
         </div>
       </template>
@@ -139,7 +139,7 @@ onMounted(fetchList)
         <el-table-column prop="commission_no" label="委托编号" width="180" />
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="goDetail(row)">查看</el-button>
+            <el-button v-permission="'sample:view'" link type="primary" @click="goDetail(row)">查看</el-button>
           </template>
         </el-table-column>
       </el-table>

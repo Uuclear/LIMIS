@@ -135,6 +135,7 @@ onMounted(fetchList)
           <template #default="{ row }">
             <el-button
               v-if="row.status === 'draft'"
+              v-permission="'testing:edit'"
               link
               type="primary"
               @click="goEdit(row)"
@@ -143,6 +144,7 @@ onMounted(fetchList)
             </el-button>
             <el-button
               v-else
+              v-permission="'testing:view'"
               link
               type="primary"
               @click="goView(row)"
@@ -151,6 +153,7 @@ onMounted(fetchList)
             </el-button>
             <el-button
               v-if="row.status === 'draft'"
+              v-permission="'testing:edit'"
               link
               type="success"
               :loading="isLocked(`submit_record_${row.id}`)"

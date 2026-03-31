@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from typing import Any
+
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from core.audit import log_sensitive_audit
 from core.views import BaseModelViewSet
 
 from . import judgment, services
@@ -42,6 +45,27 @@ from .serializers import (
 )
 
 from apps.quality.services import get_active_qualification_profile
+
+
+def _test_result_audit_snapshot(obj: TestResult) -> dict[str, Any]:
+    task = getattr(obj, 'task', None)
+    param = getattr(obj, 'parameter', None)
+    return {
+        'id': obj.pk,
+        'task_id': obj.task_id,
+        'task_no': getattr(task, 'task_no', None) if task else None,
+        'parameter_id': obj.parameter_id,
+        'parameter_name': getattr(param, 'name', None) if param else None,
+        'raw_value': str(obj.raw_value) if obj.raw_value is not None else None,
+        'rounded_value': str(obj.rounded_value) if obj.rounded_value is not None else None,
+        'display_value': obj.display_value,
+        'unit': obj.unit,
+        'judgment': obj.judgment,
+        'standard_value': obj.standard_value,
+        'design_value': obj.design_value,
+        'remark': (obj.remark or '')[:500],
+        'is_deleted': getattr(obj, 'is_deleted', False),
+    }
 
 
 class TestCategoryViewSet(BaseModelViewSet):
@@ -270,11 +294,58 @@ class TestResultViewSet(BaseModelViewSet):
             return TestResultCreateSerializer
         return TestResultSerializer
 
+    def perform_update(self, serializer) -> None:
+        before = _test_result_audit_snapshot(serializer.instance)
+        super().perform_update(serializer)
+        after = _test_result_audit_snapshot(serializer.instance)
+        log_sensitive_audit(
+            user=self.request.user,
+            module='testing',
+            action='update',
+            entity='test_result',
+            entity_id=serializer.instance.pk,
+            path=self.request.path[:500],
+            before=before,
+            after=after,
+        )
+
+    def destroy(self, request: Request, *args, **kwargs) -> Response:
+        instance = self.get_object()
+        before = _test_result_audit_snapshot(instance)
+        instance.soft_delete()
+        log_sensitive_audit(
+            user=request.user,
+            module='testing',
+            action='delete',
+            entity='test_result',
+            entity_id=instance.pk,
+            path=request.path[:500],
+            before=before,
+            after={**before, 'is_deleted': True},
+        )
+        return Response(
+            {'code': 200, 'message': '删除成功'},
+            status=status.HTTP_200_OK,
+        )
+
     @action(detail=True, methods=['post'])
     def calculate(self, request: Request, pk: str = None) -> Response:
         result = self.get_object()
+        before = _test_result_audit_snapshot(result)
         result.judgment = judgment.judge_result(result)
         result.save(update_fields=['judgment', 'updated_at'])
+        after = _test_result_audit_snapshot(result)
+        log_sensitive_audit(
+            user=request.user,
+            module='testing',
+            action='recalculate_judgment',
+            entity='test_result',
+            entity_id=result.pk,
+            path=request.path[:500],
+            before=before,
+            after=after,
+            extra={'source': 'calculate_action'},
+        )
         return Response({
             'code': 200,
             'message': '判定完成',

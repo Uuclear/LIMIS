@@ -116,7 +116,7 @@ onMounted(fetchList)
       <template #header>
         <div class="card-header">
           <span>委托管理</span>
-          <el-button type="primary" :icon="Plus" @click="goCreate">新增委托</el-button>
+          <el-button v-permission="'commission:create'" type="primary" :icon="Plus" @click="goCreate">新增委托</el-button>
         </div>
       </template>
 
@@ -143,10 +143,19 @@ onMounted(fetchList)
         </el-table-column>
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="goDetail(row)">查看</el-button>
-            <el-button v-if="row.status === 'draft'" link type="primary" @click="goEdit(row)">编辑</el-button>
+            <el-button v-permission="'commission:view'" link type="primary" @click="goDetail(row)">查看</el-button>
             <el-button
               v-if="row.status === 'draft'"
+              v-permission="'commission:edit'"
+              link
+              type="primary"
+              @click="goEdit(row)"
+            >
+              编辑
+            </el-button>
+            <el-button
+              v-if="row.status === 'draft'"
+              v-permission="'commission:edit'"
               link
               type="success"
               :loading="isLocked(`commission_submit_${row.id}`)"
@@ -154,7 +163,15 @@ onMounted(fetchList)
             >
               提交评审
             </el-button>
-            <el-button v-if="row.status === 'draft'" link type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button
+              v-if="row.status === 'draft'"
+              v-permission="'commission:delete'"
+              link
+              type="danger"
+              @click="handleDelete(row)"
+            >
+              删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>

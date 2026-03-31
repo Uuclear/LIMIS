@@ -4,12 +4,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getCommission, reviewCommission } from '@/api/commissions'
 import type { Commission } from '@/types/commission'
-import { useUserStore } from '@/stores/user'
 import { useActionLock } from '@/composables/useActionLock'
 
 const route = useRoute()
 const router = useRouter()
-const userStore = useUserStore()
 const commissionId = computed(() => Number(route.params.id))
 const { isLocked, runLocked } = useActionLock()
 
@@ -25,12 +23,7 @@ async function fetchDetail() {
   }
 }
 
-const canReview = computed(() => {
-  if (detail.value.status !== 'pending_review') return false
-  // 如果前端权限列表未下发（或还没加载完成），则允许已登录用户先走评审流程
-  if (!userStore.permissions?.length) return true
-  return userStore.permissions.includes('commission:approve')
-})
+const canReview = computed(() => detail.value.status === 'pending_review')
 
 const reviewDialogVisible = ref(false)
 // 后端评审接口字段：approved（bool） + comment（string）
@@ -81,7 +74,14 @@ onMounted(fetchDetail)
         </div>
       </template>
       <template #extra>
-        <el-button v-if="canReview" type="primary" @click="openReviewDialog">合同评审</el-button>
+        <el-button
+          v-if="canReview"
+          v-permission="'commission:approve'"
+          type="primary"
+          @click="openReviewDialog"
+        >
+          合同评审
+        </el-button>
       </template>
     </el-page-header>
 
@@ -152,7 +152,14 @@ onMounted(fetchDetail)
       </el-form>
       <template #footer>
         <el-button @click="reviewDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="isLocked('commission_review')" @click="handleReview">确定</el-button>
+        <el-button
+          v-permission="'commission:approve'"
+          type="primary"
+          :loading="isLocked('commission_review')"
+          @click="handleReview"
+        >
+          确定
+        </el-button>
       </template>
     </el-dialog>
   </div>

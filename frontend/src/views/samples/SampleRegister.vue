@@ -121,7 +121,7 @@ onMounted(() => {
 
         <el-divider content-position="left">样品信息</el-divider>
         <div style="margin-bottom: 12px">
-          <el-button type="primary" :icon="Plus" size="small" @click="addSample">添加样品</el-button>
+          <el-button v-permission="'sample:create'" type="primary" :icon="Plus" size="small" @click="addSample">添加样品</el-button>
         </div>
 
         <el-table :data="form.samples" border>
@@ -162,14 +162,14 @@ onMounted(() => {
           </el-table-column>
           <el-table-column label="操作" width="60" align="center">
             <template #default="{ $index }">
-              <el-button link type="danger" :icon="Delete" @click="removeSample($index)" />
+              <el-button v-permission="'sample:create'" link type="danger" :icon="Delete" @click="removeSample($index)" />
             </template>
           </el-table-column>
         </el-table>
 
         <div style="margin-top: 24px; text-align: right">
           <el-button @click="router.push('/sample')">取消</el-button>
-          <el-button type="primary" :loading="saving" @click="handleSubmit">提交登记</el-button>
+          <el-button v-permission="'sample:create'" type="primary" :loading="saving" @click="handleSubmit">提交登记</el-button>
         </div>
       </el-form>
     </el-card>

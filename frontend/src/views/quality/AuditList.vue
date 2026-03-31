@@ -177,7 +177,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header">
           <span>内部审核</span>
-          <el-button type="primary" :icon="Plus" @click="openCreate">新增审核</el-button>
+          <el-button v-permission="'quality:create'" type="primary" :icon="Plus" @click="openCreate">新增审核</el-button>
         </div>
       </template>
 
@@ -196,7 +196,7 @@ onMounted(() => {
         <el-table-column prop="lead_auditor_name" label="审核组长" width="120" />
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click.stop="showDetail(row)">查看</el-button>
+            <el-button v-permission="'quality:view'" link type="primary" @click.stop="showDetail(row)">查看</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -253,7 +253,7 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="isLocked('quality_audit_create')" @click="handleSubmit">确定</el-button>
+        <el-button v-permission="'quality:create'" type="primary" :loading="isLocked('quality_audit_create')" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
 

@@ -200,7 +200,7 @@ onMounted(fetchList)
       <template #header>
         <div class="card-header">
           <span>工程项目列表</span>
-          <el-button type="primary" :icon="Plus" @click="openCreate">新增项目</el-button>
+          <el-button v-permission="'project:create'" type="primary" :icon="Plus" @click="openCreate">新增项目</el-button>
         </div>
       </template>
 
@@ -223,9 +223,9 @@ onMounted(fetchList)
         <el-table-column prop="end_date" label="竣工日期" width="120" />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="View" @click="goDetail(row)">查看</el-button>
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button v-permission="'project:view'" link type="primary" :icon="View" @click="goDetail(row)">查看</el-button>
+            <el-button v-permission="'project:edit'" link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button v-permission="'project:delete'" link type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -295,7 +295,7 @@ onMounted(fetchList)
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <el-button v-permission="form.id ? 'project:edit' : 'project:create'" type="primary" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>

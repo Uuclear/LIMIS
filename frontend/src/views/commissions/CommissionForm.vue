@@ -316,7 +316,15 @@ onMounted(async () => {
 
         <el-divider content-position="left">检测项目（先选标准，再选方法，再选参数）</el-divider>
         <div style="margin-bottom: 12px">
-          <el-button type="primary" :icon="Plus" size="small" @click="addItem">添加一行</el-button>
+          <el-button
+            v-permission="isEdit ? 'commission:edit' : 'commission:create'"
+            type="primary"
+            :icon="Plus"
+            size="small"
+            @click="addItem"
+          >
+            添加一行
+          </el-button>
         </div>
 
         <el-table :data="form.items" border>
@@ -407,15 +415,35 @@ onMounted(async () => {
           </el-table-column>
           <el-table-column label="操作" width="60" align="center">
             <template #default="{ $index }">
-              <el-button link type="danger" :icon="Delete" @click="removeItem($index)" />
+              <el-button
+                v-permission="isEdit ? 'commission:edit' : 'commission:create'"
+                link
+                type="danger"
+                :icon="Delete"
+                @click="removeItem($index)"
+              />
             </template>
           </el-table-column>
         </el-table>
 
         <div style="margin-top: 24px; text-align: right">
           <el-button @click="router.push('/entrustment')">取消</el-button>
-          <el-button type="info" :loading="isLocked('commission_save')" @click="handleSave">保存草稿</el-button>
-          <el-button type="primary" :loading="isLocked('commission_submit')" @click="handleSaveAndSubmit">提交评审</el-button>
+          <el-button
+            v-permission="isEdit ? 'commission:edit' : 'commission:create'"
+            type="info"
+            :loading="isLocked('commission_save')"
+            @click="handleSave"
+          >
+            保存草稿
+          </el-button>
+          <el-button
+            v-permission="'commission:edit'"
+            type="primary"
+            :loading="isLocked('commission_submit')"
+            @click="handleSaveAndSubmit"
+          >
+            提交评审
+          </el-button>
         </div>
       </el-form>
     </el-card>

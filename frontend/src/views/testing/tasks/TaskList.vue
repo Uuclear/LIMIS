@@ -252,7 +252,7 @@ onMounted(() => {
           当前样品暂无检测任务。请回到样品详情点击“生成检测任务”后再分配人员。
         </template>
         <template #default>
-          <el-button type="primary" link @click="goSampleDetail">返回样品详情</el-button>
+          <el-button v-permission="'sample:view'" type="primary" link @click="goSampleDetail">返回样品详情</el-button>
         </template>
       </el-alert>
 
@@ -283,6 +283,7 @@ onMounted(() => {
               <div class="kanban-card-actions" @click.stop>
                 <el-button
                   v-if="task.status === 'unassigned'"
+                  v-permission="'testing:edit'"
                   size="small"
                   type="primary"
                   @click="openAssignDialog(task)"
@@ -291,6 +292,7 @@ onMounted(() => {
                 </el-button>
                 <el-button
                   v-if="task.status === 'assigned'"
+                  v-permission="'testing:edit'"
                   size="small"
                   type="warning"
                   :loading="isLocked(`start_task_${task.id}`)"
@@ -300,6 +302,7 @@ onMounted(() => {
                 </el-button>
                 <el-button
                   v-if="task.status === 'in_progress'"
+                  v-permission="'testing:edit'"
                   size="small"
                   type="success"
                   :loading="isLocked(`complete_task_${task.id}`)"
@@ -335,16 +338,19 @@ onMounted(() => {
           </el-table-column>
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-button link type="primary" @click="goDetail(row)">查看</el-button>
+              <el-button v-permission="'testing:view'" link type="primary" @click="goDetail(row)">查看</el-button>
               <el-button
                 v-if="row.status === 'unassigned'"
-                link type="primary"
+                v-permission="'testing:edit'"
+                link
+                type="primary"
                 @click="openAssignDialog(row)"
               >
                 分配
               </el-button>
               <el-button
                 v-if="row.status === 'assigned'"
+                v-permission="'testing:edit'"
                 link
                 type="warning"
                 :loading="isLocked(`start_task_${row.id}`)"
@@ -354,6 +360,7 @@ onMounted(() => {
               </el-button>
               <el-button
                 v-if="row.status === 'in_progress'"
+                v-permission="'testing:edit'"
                 link
                 type="success"
                 :loading="isLocked(`complete_task_${row.id}`)"
@@ -404,6 +411,7 @@ onMounted(() => {
       <template #footer>
         <el-button @click="assignDialogVisible = false">取消</el-button>
         <el-button
+          v-permission="'testing:edit'"
           type="primary"
           :loading="currentTask ? isLocked(`assign_task_${currentTask.id}`) : false"
           @click="handleAssign"

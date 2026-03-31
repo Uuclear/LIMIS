@@ -121,7 +121,7 @@ onMounted(async () => {
       <template #header>
         <div class="card-header">
           <span>资质管理（能力范围配置）</span>
-          <el-button type="primary" :icon="Plus" @click="openCreate">
+          <el-button v-permission="'quality:create'" type="primary" :icon="Plus" @click="openCreate">
             新增资质配置
           </el-button>
         </div>
@@ -147,7 +147,7 @@ onMounted(async () => {
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="openEdit(row)">编辑</el-button>
+            <el-button v-permission="'quality:edit'" type="primary" link @click="openEdit(row)">编辑</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -235,7 +235,7 @@ onMounted(async () => {
 
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">
+        <el-button v-permission="form.id ? 'quality:edit' : 'quality:create'" type="primary" @click="handleSubmit">
           {{ dialogMode === 'create' ? '创建' : '保存' }}
         </el-button>
       </template>

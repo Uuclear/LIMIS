@@ -233,7 +233,7 @@ onMounted(() => {
           <template #header>
             <div class="card-header">
               <span>不符合项管理</span>
-              <el-button type="primary" :icon="Plus" @click="openNcCreate">新增</el-button>
+              <el-button v-permission="'quality:create'" type="primary" :icon="Plus" @click="openNcCreate">新增</el-button>
             </div>
           </template>
           <el-table v-loading="ncLoading" :data="ncData" stripe border>
@@ -283,7 +283,7 @@ onMounted(() => {
           <template #header>
             <div class="card-header">
               <span>投诉处理</span>
-              <el-button type="primary" :icon="Plus" @click="openCmpCreate">新增</el-button>
+              <el-button v-permission="'quality:create'" type="primary" :icon="Plus" @click="openCmpCreate">新增</el-button>
             </div>
           </template>
           <el-table v-loading="cmpLoading" :data="cmpData" stripe border>
@@ -346,7 +346,7 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="ncDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleNcSubmit">确定</el-button>
+        <el-button v-permission="'quality:create'" type="primary" @click="handleNcSubmit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -380,7 +380,7 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="cmpDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleCmpSubmit">确定</el-button>
+        <el-button v-permission="'quality:create'" type="primary" @click="handleCmpSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>

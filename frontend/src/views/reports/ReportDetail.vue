@@ -294,28 +294,28 @@ onMounted(fetchReport)
 
       <!-- Actions -->
       <div class="action-bar">
-        <el-button @click="handlePreview">预览</el-button>
+        <el-button v-permission="'report:view'" @click="handlePreview">预览</el-button>
 
         <template v-if="report.status === 'draft'">
-          <el-button type="primary" :loading="isLocked('generate')" @click="handleGenerate">生成PDF</el-button>
-          <el-button type="warning" :loading="isLocked('submit_audit')" @click="handleSubmitAudit">提交审核</el-button>
+          <el-button v-permission="'report:edit'" type="primary" :loading="isLocked('generate')" @click="handleGenerate">生成PDF</el-button>
+          <el-button v-permission="'report:edit'" type="warning" :loading="isLocked('submit_audit')" @click="handleSubmitAudit">提交审核</el-button>
         </template>
 
         <template v-if="report.status === 'pending_audit'">
-          <el-button type="success" @click="openAuditDialog('audit')">审核</el-button>
+          <el-button v-permission="'report:approve'" type="success" @click="openAuditDialog('audit')">审核</el-button>
         </template>
 
         <template v-if="report.status === 'pending_approve'">
-          <el-button type="success" @click="openAuditDialog('approve')">批准</el-button>
+          <el-button v-permission="'report:approve'" type="success" @click="openAuditDialog('approve')">批准</el-button>
         </template>
 
         <template v-if="report.status === 'approved'">
-          <el-button type="success" :loading="isLocked('issue')" @click="handleIssue">发放</el-button>
+          <el-button v-permission="'report:approve'" type="success" :loading="isLocked('issue')" @click="handleIssue">发放</el-button>
         </template>
 
         <template v-if="report.status === 'issued'">
-          <el-button :icon="Download" @click="handleDownload">下载</el-button>
-          <el-button :icon="Printer" @click="handlePrint">打印</el-button>
+          <el-button v-permission="'report:export'" :icon="Download" @click="handleDownload">下载</el-button>
+          <el-button v-permission="'report:view'" :icon="Printer" @click="handlePrint">打印</el-button>
         </template>
       </div>
     </template>
@@ -344,7 +344,7 @@ onMounted(fetchReport)
       </el-form>
       <template #footer>
         <el-button @click="auditDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="isLocked('audit_submit')" @click="handleAuditSubmit">确定</el-button>
+        <el-button v-permission="'report:approve'" type="primary" :loading="isLocked('audit_submit')" @click="handleAuditSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>

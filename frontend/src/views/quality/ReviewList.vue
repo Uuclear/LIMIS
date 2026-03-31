@@ -143,7 +143,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header">
           <span>管理评审</span>
-          <el-button type="primary" :icon="Plus" @click="openCreate">新增评审</el-button>
+          <el-button v-permission="'quality:create'" type="primary" :icon="Plus" @click="openCreate">新增评审</el-button>
         </div>
       </template>
 
@@ -201,7 +201,7 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="isLocked('review_create')" @click="handleSubmit">确定</el-button>
+        <el-button v-permission="'quality:create'" type="primary" :loading="isLocked('review_create')" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>

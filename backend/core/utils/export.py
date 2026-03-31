@@ -70,17 +70,21 @@ def _excel_openpyxl(
     return response
 
 
-def _csv_fallback(
+def export_to_csv(
     queryset: QuerySet,
     fields: Sequence[str],
     headers: Sequence[str],
-    filename: str,
+    filename: str = 'export.csv',
 ) -> HttpResponse:
+    """
+    导出为 UTF-8 CSV（Content-Type 含 utf-8-sig，便于 Excel 打开中文列）。
+    """
     import csv
 
-    csv_filename = filename.rsplit('.', 1)[0] + '.csv'
+    if not filename.lower().endswith('.csv'):
+        filename = f'{filename}.csv'
     response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
-    response['Content-Disposition'] = f'attachment; filename="{csv_filename}"'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
     writer = csv.writer(response)
     writer.writerow(headers)
@@ -89,6 +93,16 @@ def _csv_fallback(
         writer.writerow([_resolve_field(obj, f) for f in fields])
 
     return response
+
+
+def _csv_fallback(
+    queryset: QuerySet,
+    fields: Sequence[str],
+    headers: Sequence[str],
+    filename: str,
+) -> HttpResponse:
+    csv_filename = filename.rsplit('.', 1)[0] + '.csv'
+    return export_to_csv(queryset, fields, headers, filename=csv_filename)
 
 
 def _resolve_field(obj: Any, field: str) -> Any:

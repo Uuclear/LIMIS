@@ -204,7 +204,7 @@ onMounted(fetchStaff)
           <template #header>
             <div class="card-header">
               <span>资质证书</span>
-              <el-button type="primary" :icon="Plus" size="small" @click="openCertCreate">新增</el-button>
+              <el-button v-permission="'staff:create'" type="primary" :icon="Plus" size="small" @click="openCertCreate">新增</el-button>
             </div>
           </template>
           <el-table v-loading="certLoading" :data="certList" stripe border>
@@ -233,7 +233,7 @@ onMounted(fetchStaff)
           <template #header>
             <div class="card-header">
               <span>上岗授权</span>
-              <el-button type="primary" :icon="Plus" size="small" @click="openAuthCreate">新增</el-button>
+              <el-button v-permission="'staff:create'" type="primary" :icon="Plus" size="small" @click="openAuthCreate">新增</el-button>
             </div>
           </template>
           <el-table v-loading="authLoading" :data="authList" stripe border>
@@ -258,7 +258,7 @@ onMounted(fetchStaff)
           <template #header>
             <div class="card-header">
               <span>培训记录</span>
-              <el-button type="primary" :icon="Plus" size="small" @click="openTrainCreate">新增</el-button>
+              <el-button v-permission="'staff:create'" type="primary" :icon="Plus" size="small" @click="openTrainCreate">新增</el-button>
             </div>
           </template>
           <el-table v-loading="trainLoading" :data="trainList" stripe border>
@@ -281,7 +281,7 @@ onMounted(fetchStaff)
           <template #header>
             <div class="card-header">
               <span>能力评价</span>
-              <el-button type="primary" :icon="Plus" size="small" @click="openEvalCreate">新增</el-button>
+              <el-button v-permission="'staff:create'" type="primary" :icon="Plus" size="small" @click="openEvalCreate">新增</el-button>
             </div>
           </template>
           <el-table v-loading="evalLoading" :data="evalList" stripe border>
@@ -318,7 +318,7 @@ onMounted(fetchStaff)
       </el-form>
       <template #footer>
         <el-button @click="certDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleCertSubmit">确定</el-button>
+        <el-button v-permission="'staff:create'" type="primary" @click="handleCertSubmit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -344,7 +344,7 @@ onMounted(fetchStaff)
       </el-form>
       <template #footer>
         <el-button @click="authDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleAuthSubmit">确定</el-button>
+        <el-button v-permission="'staff:create'" type="primary" @click="handleAuthSubmit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -384,7 +384,7 @@ onMounted(fetchStaff)
       </el-form>
       <template #footer>
         <el-button @click="trainDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleTrainSubmit">确定</el-button>
+        <el-button v-permission="'staff:create'" type="primary" @click="handleTrainSubmit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -416,7 +416,7 @@ onMounted(fetchStaff)
       </el-form>
       <template #footer>
         <el-button @click="evalDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleEvalSubmit">确定</el-button>
+        <el-button v-permission="'staff:create'" type="primary" @click="handleEvalSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>

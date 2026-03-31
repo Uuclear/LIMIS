@@ -8,10 +8,10 @@ import {
 const router = useRouter()
 
 const steps = [
-  { order: 1, title: '标准规范', desc: '录入现行标准号、名称、实施日期，可爬取工标网辅助填写', path: '/quality/standards' },
-  { order: 2, title: '项目参数库', desc: '为每本标准建立检测方法（TestMethod）与检测参数（TestParameter）', path: '/quality/parameter-library' },
-  { order: 3, title: '原始记录模板', desc: '按检测方法/参数绑定 JSON 表单结构，供任务录入原始数据', path: '/quality/record-templates' },
-  { order: 4, title: '报告模板', desc: '了解报告类型与模板名称约定，编制报告时选用', path: '/quality/report-templates' },
+  { order: 1, title: '标准规范', desc: '录入现行标准号、名称、实施日期，可爬取工标网辅助填写', path: '/quality/standards', permission: 'standards:view' as const },
+  { order: 2, title: '项目参数库', desc: '为每本标准建立检测方法（TestMethod）与检测参数（TestParameter）', path: '/quality/parameter-library', permission: 'testing:view' as const },
+  { order: 3, title: '原始记录模板', desc: '按检测方法/参数绑定 JSON 表单结构，供任务录入原始数据', path: '/quality/record-templates', permission: 'testing:view' as const },
+  { order: 4, title: '报告模板', desc: '了解报告类型与模板名称约定，编制报告时选用', path: '/quality/report-templates', permission: 'report:view' as const },
 ]
 
 const cards = [
@@ -22,6 +22,7 @@ const cards = [
     color: '#2563eb',
     bg: '#eff6ff',
     path: '/quality/standards',
+    permission: 'standards:view' as const,
   },
   {
     title: '项目参数库',
@@ -30,6 +31,7 @@ const cards = [
     color: '#7c3aed',
     bg: '#f5f3ff',
     path: '/quality/parameter-library',
+    permission: 'testing:view' as const,
   },
   {
     title: '原始记录模板',
@@ -38,6 +40,7 @@ const cards = [
     color: '#059669',
     bg: '#ecfdf5',
     path: '/quality/record-templates',
+    permission: 'testing:view' as const,
   },
   {
     title: '报告模板',
@@ -46,6 +49,7 @@ const cards = [
     color: '#d97706',
     bg: '#fffbeb',
     path: '/quality/report-templates',
+    permission: 'report:view' as const,
   },
 ]
 
@@ -72,7 +76,7 @@ function go(path: string) {
 
     <el-row :gutter="16" class="hub-cards">
       <el-col v-for="c in cards" :key="c.path" :xs="24" :sm="12" :lg="6">
-        <el-card shadow="hover" class="hub-card" @click="go(c.path)">
+        <el-card v-permission="c.permission" shadow="hover" class="hub-card" @click="go(c.path)">
           <div class="hub-card-inner">
             <div class="hub-card-icon" :style="{ background: c.bg }">
               <el-icon :size="28" :color="c.color">
@@ -104,7 +108,7 @@ function go(path: string) {
           <div class="hub-step-body">
             <div class="hub-step-title">{{ s.title }}</div>
             <p class="hub-step-desc">{{ s.desc }}</p>
-            <el-button type="primary" link @click="go(s.path)">
+            <el-button v-permission="s.permission" type="primary" link @click="go(s.path)">
               去配置 <el-icon><Right /></el-icon>
             </el-button>
           </div>

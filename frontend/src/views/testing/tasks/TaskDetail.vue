@@ -205,6 +205,7 @@ onMounted(() => {
             <span>检测结果</span>
             <el-button
               v-if="task.status === 'in_progress'"
+              v-permission="'testing:create'"
               type="primary"
               size="small"
               @click="goRecord"
@@ -246,6 +247,7 @@ onMounted(() => {
       <div class="action-bar">
         <el-button
           v-if="task.status === 'unassigned'"
+          v-permission="'testing:edit'"
           type="primary"
           @click="openAssignDialog"
         >
@@ -253,6 +255,7 @@ onMounted(() => {
         </el-button>
         <el-button
           v-if="task.status === 'assigned'"
+          v-permission="'testing:edit'"
           type="warning"
           :loading="isLocked(`start_task_${task.id}`)"
           @click="handleStart"
@@ -261,6 +264,7 @@ onMounted(() => {
         </el-button>
         <el-button
           v-if="task.status === 'in_progress'"
+          v-permission="'testing:edit'"
           type="success"
           :loading="isLocked(`complete_task_${task.id}`)"
           @click="handleComplete"
@@ -269,6 +273,7 @@ onMounted(() => {
         </el-button>
         <el-button
           v-if="task.status === 'in_progress'"
+          v-permission="'testing:create'"
           @click="goRecord"
         >
           填写原始记录
@@ -300,6 +305,7 @@ onMounted(() => {
       <template #footer>
         <el-button @click="assignDialogVisible = false">取消</el-button>
         <el-button
+          v-permission="'testing:edit'"
           type="primary"
           :loading="task ? isLocked(`assign_task_${task.id}`) : false"
           @click="handleAssign"

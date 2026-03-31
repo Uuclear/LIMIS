@@ -142,6 +142,9 @@ class AuditLog(models.Model):
     def __str__(self) -> str:
         return f'{self.username} {self.method} {self.path}'
 
+    def get_is_idempotent_replay_display(self) -> str:
+        return '是' if self.is_idempotent_replay else '否'
+
 
 class Notification(BaseModel):
     TYPES = [

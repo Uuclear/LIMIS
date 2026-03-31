@@ -482,7 +482,7 @@ onMounted(fetchProject)
           <template #header>
             <div class="card-header">
               <span>参建单位</span>
-              <el-button type="primary" :icon="Plus" size="small" @click="openOrgCreate">新增</el-button>
+              <el-button v-permission="'project:create'" type="primary" :icon="Plus" size="small" @click="openOrgCreate">新增</el-button>
             </div>
           </template>
           <el-table v-loading="orgLoading" :data="orgList" stripe border>
@@ -494,8 +494,8 @@ onMounted(fetchProject)
             <el-table-column prop="contact_phone" label="联系电话" width="140" />
             <el-table-column label="操作" width="140">
               <template #default="{ row }">
-                <el-button link type="primary" @click="openOrgEdit(row)">编辑</el-button>
-                <el-button link type="danger" @click="handleOrgDelete(row)">删除</el-button>
+                <el-button v-permission="'project:edit'" link type="primary" @click="openOrgEdit(row)">编辑</el-button>
+                <el-button v-permission="'project:delete'" link type="danger" @click="handleOrgDelete(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -508,7 +508,7 @@ onMounted(fetchProject)
           <template #header>
             <div class="card-header">
               <span>分部分项工程</span>
-              <el-button type="primary" :icon="Plus" size="small" @click="openSubCreate">新增</el-button>
+              <el-button v-permission="'project:create'" type="primary" :icon="Plus" size="small" @click="openSubCreate">新增</el-button>
             </div>
           </template>
           <el-table v-loading="subLoading" :data="subList" stripe border row-key="id" default-expand-all>
@@ -517,8 +517,8 @@ onMounted(fetchProject)
             <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
             <el-table-column label="操作" width="140" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" @click="openSubEdit(row)">编辑</el-button>
-                <el-button link type="danger" @click="handleSubDelete(row)">删除</el-button>
+                <el-button v-permission="'project:edit'" link type="primary" @click="openSubEdit(row)">编辑</el-button>
+                <el-button v-permission="'project:delete'" link type="danger" @click="handleSubDelete(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -531,7 +531,7 @@ onMounted(fetchProject)
           <template #header>
             <div class="card-header">
               <span>检测合同</span>
-              <el-button type="primary" :icon="Plus" size="small" @click="openContractCreate">新增</el-button>
+              <el-button v-permission="'project:create'" type="primary" :icon="Plus" size="small" @click="openContractCreate">新增</el-button>
             </div>
           </template>
           <el-table v-loading="contractLoading" :data="contractList" stripe border>
@@ -545,8 +545,8 @@ onMounted(fetchProject)
             <el-table-column prop="end_date" label="结束日期" width="120" />
             <el-table-column label="操作" width="140" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" @click="openContractEdit(row)">编辑</el-button>
-                <el-button link type="danger" @click="handleContractDelete(row)">删除</el-button>
+                <el-button v-permission="'project:edit'" link type="primary" @click="openContractEdit(row)">编辑</el-button>
+                <el-button v-permission="'project:delete'" link type="danger" @click="handleContractDelete(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -559,7 +559,7 @@ onMounted(fetchProject)
           <template #header>
             <div class="card-header">
               <span>见证人</span>
-              <el-button type="primary" :icon="Plus" size="small" @click="openWitnessCreate">新增</el-button>
+              <el-button v-permission="'project:create'" type="primary" :icon="Plus" size="small" @click="openWitnessCreate">新增</el-button>
             </div>
           </template>
           <el-table v-loading="witnessLoading" :data="witnessList" stripe border>
@@ -575,8 +575,8 @@ onMounted(fetchProject)
             <el-table-column prop="certificate_no" label="证书编号" width="160" />
             <el-table-column label="操作" width="140" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" @click="openWitnessEdit(row)">编辑</el-button>
-                <el-button link type="danger" @click="handleWitnessDelete(row)">删除</el-button>
+                <el-button v-permission="'project:edit'" link type="primary" @click="openWitnessEdit(row)">编辑</el-button>
+                <el-button v-permission="'project:delete'" link type="danger" @click="handleWitnessDelete(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -685,7 +685,7 @@ onMounted(fetchProject)
       </el-form>
       <template #footer>
         <el-button @click="orgDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleOrgSubmit">确定</el-button>
+        <el-button v-permission="orgForm.id ? 'project:edit' : 'project:create'" type="primary" @click="handleOrgSubmit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -703,7 +703,7 @@ onMounted(fetchProject)
       </el-form>
       <template #footer>
         <el-button @click="subDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubSubmit">确定</el-button>
+        <el-button v-permission="subForm.id ? 'project:edit' : 'project:create'" type="primary" @click="handleSubSubmit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -732,7 +732,7 @@ onMounted(fetchProject)
       </el-form>
       <template #footer>
         <el-button @click="contractDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleContractSubmit">确定</el-button>
+        <el-button v-permission="contractForm.id ? 'project:edit' : 'project:create'" type="primary" @click="handleContractSubmit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -756,7 +756,7 @@ onMounted(fetchProject)
       </el-form>
       <template #footer>
         <el-button @click="witnessDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleWitnessSubmit">确定</el-button>
+        <el-button v-permission="witnessForm.id ? 'project:edit' : 'project:create'" type="primary" @click="handleWitnessSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>

@@ -226,11 +226,13 @@ onMounted(fetchList)
         </el-table-column>
         <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="goDetail(row)">查看</el-button>
-            <el-button link type="primary" @click="handlePreview(row)">预览</el-button>
+            <el-button v-permission="'report:view'" link type="primary" @click="goDetail(row)">查看</el-button>
+            <el-button v-permission="'report:view'" link type="primary" @click="handlePreview(row)">预览</el-button>
             <el-button
               v-if="row.status === 'draft'"
-              link type="warning"
+              v-permission="'report:edit'"
+              link
+              type="warning"
               :loading="isLocked(`submit_audit_${row.id}`)"
               @click="handleSubmitAudit(row)"
             >
@@ -238,21 +240,27 @@ onMounted(fetchList)
             </el-button>
             <el-button
               v-if="row.status === 'pending_audit'"
-              link type="primary"
+              v-permission="'report:approve'"
+              link
+              type="primary"
               @click="goDetail(row)"
             >
               审核
             </el-button>
             <el-button
               v-if="row.status === 'pending_approve'"
-              link type="primary"
+              v-permission="'report:approve'"
+              link
+              type="primary"
               @click="goDetail(row)"
             >
               批准
             </el-button>
             <el-button
               v-if="row.status === 'approved'"
-              link type="success"
+              v-permission="'report:approve'"
+              link
+              type="success"
               :loading="isLocked(`issue_${row.id}`)"
               @click="handleIssue(row)"
             >
@@ -260,7 +268,9 @@ onMounted(fetchList)
             </el-button>
             <el-button
               v-if="row.status === 'issued'"
-              link type="primary"
+              v-permission="'report:export'"
+              link
+              type="primary"
               :icon="Download"
               @click="handleDownload(row)"
             >
@@ -268,7 +278,9 @@ onMounted(fetchList)
             </el-button>
             <el-button
               v-if="row.status !== 'voided' && row.status !== 'issued'"
-              link type="danger"
+              v-permission="'report:delete'"
+              link
+              type="danger"
               @click="openVoidDialog(row)"
             >
               作废
@@ -306,6 +318,7 @@ onMounted(fetchList)
       <template #footer>
         <el-button @click="voidDialogVisible = false">取消</el-button>
         <el-button
+          v-permission="'report:delete'"
           type="danger"
           :loading="voidTarget ? isLocked(`void_${voidTarget.id}`) : false"
           @click="handleVoid"

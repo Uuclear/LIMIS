@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { Search, Refresh } from '@element-plus/icons-vue'
-import { getAuditLogs } from '@/api/system'
+import { Search, Refresh, Download } from '@element-plus/icons-vue'
+import { getAuditLogs, exportAuditLogs } from '@/api/system'
+import { hasPermission } from '@/utils/permission'
 
 interface LogRow {
   id: number
@@ -39,41 +40,71 @@ const query = reactive({
 
 const methodOptions = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
 
+/** 与后端 AuditLogFilter 对齐；`withPagination` 为 true 时附带 page / page_size */
+function buildAuditLogParams(withPagination: boolean): Record<string, unknown> {
+  const params: Record<string, unknown> = { ...query }
+  if (!withPagination) {
+    delete params.page
+    delete params.page_size
+  }
+  if (query.date_range?.length === 2) {
+    params.start_date = query.date_range[0]
+    params.end_date = query.date_range[1]
+  }
+  delete params.date_range
+  const u = String(params.username ?? '').trim()
+  if (u) params.username = u
+  else delete params.username
+  const p = String(params.path ?? '').trim()
+  if (p) params.path = p
+  else delete params.path
+  const sc = params.status_code
+  if (sc !== '' && sc !== null && sc !== undefined) {
+    const n = typeof sc === 'number' ? sc : parseInt(String(sc).trim(), 10)
+    if (!Number.isFinite(n)) delete params.status_code
+    else params.status_code = n
+  } else {
+    delete params.status_code
+  }
+  const ik = String(params.idempotency_key ?? '').trim()
+  if (ik) params.idempotency_key = ik
+  else delete params.idempotency_key
+  if (params.is_idempotent_replay === 'yes') params.is_idempotent_replay = true
+  else if (params.is_idempotent_replay === 'no') params.is_idempotent_replay = false
+  else delete params.is_idempotent_replay
+  if (!String(params.method ?? '').trim()) delete params.method
+  return params
+}
+
 async function fetchList() {
   loading.value = true
   try {
-    const params: Record<string, unknown> = { ...query }
-    if (query.date_range?.length === 2) {
-      params.start_date = query.date_range[0]
-      params.end_date = query.date_range[1]
-    }
-    delete params.date_range
-    const u = String(params.username ?? '').trim()
-    if (u) params.username = u
-    else delete params.username
-    const p = String(params.path ?? '').trim()
-    if (p) params.path = p
-    else delete params.path
-    const sc = params.status_code
-    if (sc !== '' && sc !== null && sc !== undefined) {
-      const n = typeof sc === 'number' ? sc : parseInt(String(sc).trim(), 10)
-      if (!Number.isFinite(n)) delete params.status_code
-      else params.status_code = n
-    } else {
-      delete params.status_code
-    }
-    const ik = String(params.idempotency_key ?? '').trim()
-    if (ik) params.idempotency_key = ik
-    else delete params.idempotency_key
-    if (params.is_idempotent_replay === 'yes') params.is_idempotent_replay = true
-    else if (params.is_idempotent_replay === 'no') params.is_idempotent_replay = false
-    else delete params.is_idempotent_replay
-    if (!String(params.method ?? '').trim()) delete params.method
+    const params = buildAuditLogParams(true)
     const res: any = await getAuditLogs(params)
     tableData.value = res.results ?? res.list ?? []
     total.value = res.total ?? res.count ?? 0
   } finally {
     loading.value = false
+  }
+}
+
+const exporting = ref(false)
+
+async function handleExport() {
+  exporting.value = true
+  try {
+    const params = buildAuditLogParams(false)
+    const res = await exportAuditLogs(params)
+    const blob = new Blob([res as unknown as BlobPart], { type: 'text/csv;charset=utf-8' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')
+    a.download = `audit_logs_${stamp}.csv`
+    a.click()
+    window.URL.revokeObjectURL(url)
+  } finally {
+    exporting.value = false
   }
 }
 
@@ -172,7 +203,19 @@ onMounted(fetchList)
 
     <el-card shadow="never" style="margin-top: 16px">
       <template #header>
-        <span>操作日志</span>
+        <div class="audit-log-card-header">
+          <span>操作日志</span>
+          <el-button
+            v-if="hasPermission('system:export')"
+            type="primary"
+            plain
+            :icon="Download"
+            :loading="exporting"
+            @click="handleExport"
+          >
+            导出 CSV
+          </el-button>
+        </div>
       </template>
 
       <el-table v-loading="loading" :data="tableData" stripe border>
@@ -217,3 +260,13 @@ onMounted(fetchList)
     </el-card>
   </div>
 </template>
+
+<style scoped>
+.audit-log-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+</style>

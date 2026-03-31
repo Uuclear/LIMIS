@@ -147,7 +147,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header">
           <span>耗材管理</span>
-          <el-button type="primary" :icon="Plus" @click="openCreate">新增耗材</el-button>
+          <el-button v-permission="'consumables:create'" type="primary" :icon="Plus" @click="openCreate">新增耗材</el-button>
         </div>
       </template>
 
@@ -166,8 +166,8 @@ onMounted(() => {
         <el-table-column prop="expiry_date" label="有效期" width="120" />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button link type="success" @click="openInOut(row, 'in')">入库</el-button>
-            <el-button link type="warning" @click="openInOut(row, 'out')">出库</el-button>
+            <el-button v-permission="'consumables:create'" link type="success" @click="openInOut(row, 'in')">入库</el-button>
+            <el-button v-permission="'consumables:create'" link type="warning" @click="openInOut(row, 'out')">出库</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -232,7 +232,7 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="createVisible = false">取消</el-button>
-        <el-button type="primary" :loading="isLocked('consumable_create')" @click="handleCreateSubmit">确定</el-button>
+        <el-button v-permission="'consumables:create'" type="primary" :loading="isLocked('consumable_create')" @click="handleCreateSubmit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -257,6 +257,7 @@ onMounted(() => {
       <template #footer>
         <el-button @click="ioVisible = false">取消</el-button>
         <el-button
+          v-permission="'consumables:create'"
           type="primary"
           :loading="isLocked(`consumable_io_${ioType}_${ioTarget?.id ?? 0}`)"
           @click="handleIoSubmit"

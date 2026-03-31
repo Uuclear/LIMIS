@@ -208,7 +208,7 @@ onUnmounted(() => {
         <el-table-column prop="created_at" label="告警时间" width="180" />
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="handleResolve(row)">处理</el-button>
+            <el-button v-permission="'environment:create'" link type="primary" @click="handleResolve(row)">处理</el-button>
           </template>
         </el-table-column>
       </el-table>

@@ -4,6 +4,7 @@ from collections import defaultdict
 from typing import Any
 
 from django.db.models import F, QuerySet
+from django.http import HttpResponse
 
 from django.utils import timezone
 from django_filters import rest_framework as django_filters
@@ -17,6 +18,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from .tokens import SessionVersionRefreshToken
 
 from core.permissions import LimsModulePermission
+from core.utils.export import export_to_csv
 
 from . import services
 from .models import AuditLog, Notification, Permission, Role, User
@@ -177,8 +179,49 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AuditLogSerializer
     permission_classes = [permissions.IsAuthenticated, LimsModulePermission]
     lims_module = 'system'
+    lims_action_map = {
+        'export': 'export',
+    }
     filterset_class = AuditLogFilter
     ordering_fields = ['timestamp']
+
+    @action(detail=False, methods=['get'], url_path='export')
+    def export(self, request: Request) -> HttpResponse:
+        """
+        按当前列表筛选条件导出审计日志（CSV），不分页。
+        需 system:export 权限（见 lims_action_map）。
+        """
+        qs = self.filter_queryset(self.get_queryset()).order_by('-timestamp')
+        return export_to_csv(
+            queryset=qs,
+            fields=[
+                'id',
+                'timestamp',
+                'username',
+                'user_id',
+                'method',
+                'path',
+                'status_code',
+                'ip_address',
+                'idempotency_key',
+                'get_is_idempotent_replay_display',
+                'body',
+            ],
+            headers=[
+                'ID',
+                '操作时间',
+                '用户名',
+                '用户ID',
+                '方法',
+                '路径',
+                '状态码',
+                'IP',
+                '幂等键',
+                '是否重放',
+                '请求体',
+            ],
+            filename='audit_logs.csv',
+        )
 
 
 # ───────────────────── Auth Views ─────────────────────
