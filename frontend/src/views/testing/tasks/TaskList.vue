@@ -21,29 +21,32 @@ const query = reactive({
 })
 
 const statusColumns = [
-  { key: 'pending', label: '待分配', type: 'info' as const },
+  { key: 'unassigned', label: '待分配', type: 'info' as const },
   { key: 'assigned', label: '待检', type: 'warning' as const },
-  { key: 'testing', label: '检测中', type: '' as const },
+  { key: 'in_progress', label: '检测中', type: '' as const },
   { key: 'completed', label: '已完成', type: 'success' as const },
+  { key: 'abnormal', label: '异常', type: 'danger' as const },
 ]
 
 const statusMap: Record<string, string> = {
-  pending: '待分配',
+  unassigned: '待分配',
   assigned: '待检',
-  testing: '检测中',
+  in_progress: '检测中',
   completed: '已完成',
+  abnormal: '异常',
 }
 
 const statusTagType: Record<string, string> = {
-  pending: 'info',
+  unassigned: 'info',
   assigned: 'warning',
-  testing: '',
+  in_progress: '',
   completed: 'success',
+  abnormal: 'danger',
 }
 
 const kanbanData = computed(() => {
   const grouped: Record<string, TestTask[]> = {
-    pending: [], assigned: [], testing: [], completed: [],
+    unassigned: [], assigned: [], in_progress: [], completed: [], abnormal: [],
   }
   for (const task of tableData.value) {
     if (grouped[task.status]) {
@@ -218,8 +221,9 @@ onMounted(fetchList)
               </div>
               <div class="kanban-card-actions" @click.stop>
                 <el-button
-                  v-if="task.status === 'pending'"
+                  v-if="task.status === 'unassigned'"
                   size="small"
+                  v-permission="'testing:edit'"
                   type="primary"
                   @click="openAssignDialog(task)"
                 >
@@ -234,7 +238,7 @@ onMounted(fetchList)
                   开始
                 </el-button>
                 <el-button
-                  v-if="task.status === 'testing'"
+                  v-if="task.status === 'in_progress'"
                   size="small"
                   type="success"
                   @click="handleComplete(task)"
@@ -271,7 +275,8 @@ onMounted(fetchList)
             <template #default="{ row }">
               <el-button link type="primary" @click="goDetail(row)">查看</el-button>
               <el-button
-                v-if="row.status === 'pending'"
+                v-if="row.status === 'unassigned'"
+                v-permission="'testing:edit'"
                 link type="primary"
                 @click="openAssignDialog(row)"
               >
@@ -285,7 +290,7 @@ onMounted(fetchList)
                 开始
               </el-button>
               <el-button
-                v-if="row.status === 'testing'"
+                v-if="row.status === 'in_progress'"
                 link type="success"
                 @click="handleComplete(row)"
               >

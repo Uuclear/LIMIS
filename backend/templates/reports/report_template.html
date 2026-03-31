@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>检测报告 - {{ report.report_no }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 20mm 15mm;
+    @bottom-center {
+      content: "第 " counter(page) " 页 / 共 " counter(pages) " 页";
+      font-size: 9pt;
+      font-family: SimSun, serif;
+    }
+  }
+
+  body {
+    font-family: SimSun, serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #000;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ---------- Header ---------- */
+  .report-header {
+    text-align: center;
+    margin-bottom: 10mm;
+    position: relative;
+  }
+
+  .lab-name {
+    font-size: 16pt;
+    font-weight: bold;
+    letter-spacing: 2pt;
+  }
+
+  .cma-mark {
+    position: absolute;
+    top: 0;
+    right: 0;
+    border: 2px solid #000;
+    padding: 2mm 4mm;
+    font-size: 14pt;
+    font-weight: bold;
+  }
+
+  .report-title {
+    text-align: center;
+    font-size: 22pt;
+    font-weight: bold;
+    letter-spacing: 8pt;
+    margin: 8mm 0;
+  }
+
+  /* ---------- Tables ---------- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6mm;
+  }
+
+  .info-table td {
+    padding: 2mm 3mm;
+    font-size: 11pt;
+    vertical-align: top;
+  }
+
+  .info-table .label {
+    width: 20%;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+
+  .info-table .value {
+    width: 30%;
+    border-bottom: 1px solid #000;
+  }
+
+  .items-table {
+    margin-top: 4mm;
+  }
+
+  .items-table th,
+  .items-table td {
+    border: 1px solid #000;
+    padding: 2mm 3mm;
+    text-align: center;
+    font-size: 10pt;
+  }
+
+  .items-table th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+  }
+
+  /* ---------- Conclusion ---------- */
+  .conclusion-section {
+    margin: 6mm 0;
+    padding: 3mm;
+    border: 1px solid #000;
+    min-height: 20mm;
+  }
+
+  .conclusion-section .section-label {
+    font-weight: bold;
+    margin-bottom: 2mm;
+  }
+
+  /* ---------- Signatures ---------- */
+  .signature-area {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10mm;
+    page-break-inside: avoid;
+  }
+
+  .signature-block {
+    width: 30%;
+    text-align: center;
+  }
+
+  .signature-block .role-label {
+    font-weight: bold;
+    margin-bottom: 3mm;
+  }
+
+  .signature-block .sig-img img {
+    max-height: 15mm;
+    max-width: 40mm;
+  }
+
+  .signature-block .sig-name {
+    margin-top: 2mm;
+    border-top: 1px solid #000;
+    padding-top: 1mm;
+  }
+
+  .signature-block .sig-date {
+    font-size: 9pt;
+    color: #333;
+  }
+
+  /* ---------- QR & Footer ---------- */
+  .qr-section {
+    text-align: right;
+    margin-top: 6mm;
+  }
+
+  .qr-section img {
+    width: 25mm;
+    height: 25mm;
+  }
+
+  .report-footer {
+    margin-top: 8mm;
+    padding-top: 3mm;
+    border-top: 1px solid #000;
+    font-size: 9pt;
+    text-align: center;
+    color: #333;
+  }
+
+  .page-number {
+    text-align: center;
+    font-size: 9pt;
+    margin-top: 4mm;
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== Header ==================== -->
+<div class="report-header">
+  {% if has_cma %}<div class="cma-mark">CMA</div>{% endif %}
+  <div class="lab-name">上海浦东国际机场四期扩建工程工地试验室</div>
+</div>
+
+<div class="report-title">检 测 报 告</div>
+
+<!-- ==================== Info Table ==================== -->
+<table class="info-table">
+  <tr>
+    <td class="label">报告编号：</td>
+    <td class="value">{{ report.report_no }}</td>
+    <td class="label">委托编号：</td>
+    <td class="value">{{ commission.commission_no }}</td>
+  </tr>
+  <tr>
+    <td class="label">工程名称：</td>
+    <td class="value" colspan="3">
+      {% if commission.project %}{{ commission.project.name }}{% else %}—{% endif %}
+    </td>
+  </tr>
+  <tr>
+    <td class="label">委托单位：</td>
+    <td class="value" colspan="3">
+      {% if commission.client %}{{ commission.client }}{% else %}—{% endif %}
+    </td>
+  </tr>
+</table>
+
+<!-- ==================== Test Items Table ==================== -->
+<table class="items-table">
+  <thead>
+    <tr>
+      <th>序号</th>
+      <th>检测对象</th>
+      <th>检测项目</th>
+      <th>检测标准</th>
+      <th>技术要求</th>
+      <th>数量</th>
+      <th>单位</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in items %}
+    <tr>
+      <td>{{ forloop.counter }}</td>
+      <td>{{ item.test_object|default:"—" }}</td>
+      <td>{{ item.test_item|default:"—" }}</td>
+      <td>{{ item.standard|default:"—" }}</td>
+      <td>{{ item.specification|default:"—" }}</td>
+      <td>{{ item.quantity|default:"—" }}</td>
+      <td>{{ item.unit|default:"—" }}</td>
+    </tr>
+    {% empty %}
+    <tr>
+      <td colspan="7">暂无检测项目</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- ==================== Conclusion ==================== -->
+<div class="conclusion-section">
+  <div class="section-label">检测结论：</div>
+  <div>{{ conclusion|default:"—" }}</div>
+</div>
+
+<!-- ==================== Signatures ==================== -->
+<div class="signature-area">
+  {% with sig=signatures.compile %}
+  <div class="signature-block">
+    <div class="role-label">编制</div>
+    {% if sig %}
+      {% if sig.signature %}<div class="sig-img"><img src="{{ sig.signature }}" alt="签名"></div>{% endif %}
+      <div class="sig-name">{{ sig.user }}</div>
+      <div class="sig-date">{{ sig.date|date:"Y-m-d" }}</div>
+    {% endif %}
+  </div>
+  {% endwith %}
+
+  {% with sig=signatures.audit %}
+  <div class="signature-block">
+    <div class="role-label">审核</div>
+    {% if sig %}
+      {% if sig.signature %}<div class="sig-img"><img src="{{ sig.signature }}" alt="签名"></div>{% endif %}
+      <div class="sig-name">{{ sig.user }}</div>
+      <div class="sig-date">{{ sig.date|date:"Y-m-d" }}</div>
+    {% endif %}
+  </div>
+  {% endwith %}
+
+  {% with sig=signatures.approve %}
+  <div class="signature-block">
+    <div class="role-label">批准</div>
+    {% if sig %}
+      {% if sig.signature %}<div class="sig-img"><img src="{{ sig.signature }}" alt="签名"></div>{% endif %}
+      <div class="sig-name">{{ sig.user }}</div>
+      <div class="sig-date">{{ sig.date|date:"Y-m-d" }}</div>
+    {% endif %}
+  </div>
+  {% endwith %}
+</div>
+
+<!-- ==================== QR Code ==================== -->
+{% if qr_code %}
+<div class="qr-section">
+  <img src="{{ qr_code }}" alt="验证二维码">
+</div>
+{% endif %}
+
+<!-- ==================== Footer ==================== -->
+<div class="report-footer">
+  <div>{{ report.report_no }}</div>
+  <div>本报告仅对所送样品负责，未经本实验室书面批准，不得部分复制报告。</div>
+</div>
+
+<div class="page-number">- 1 -</div>
+
+</body>
+</html>

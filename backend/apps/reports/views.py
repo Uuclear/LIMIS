@@ -88,7 +88,8 @@ class ReportViewSet(BaseModelViewSet):
 
     @action(detail=True, methods=['post'])
     def audit(self, request: Request, pk: str = None) -> Response:
-        approved = request.data.get('approved', True)
+        raw = request.data.get('approved', True)
+        approved = raw if isinstance(raw, bool) else str(raw).lower() not in ('false', '0', '')
         comment = request.data.get('comment', '')
         signature = request.FILES.get('signature')
         report = workflow.audit_report(
@@ -102,7 +103,8 @@ class ReportViewSet(BaseModelViewSet):
 
     @action(detail=True, methods=['post'])
     def approve(self, request: Request, pk: str = None) -> Response:
-        approved = request.data.get('approved', True)
+        raw = request.data.get('approved', True)
+        approved = raw if isinstance(raw, bool) else str(raw).lower() not in ('false', '0', '')
         comment = request.data.get('comment', '')
         signature = request.FILES.get('signature')
         report = workflow.approve_report(

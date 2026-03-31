@@ -13,11 +13,13 @@ import {
   Fold,
   Expand,
 } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
 
 interface MenuItem {
   index: string
   title: string
   icon?: typeof HomeFilled
+  permission?: string
   children?: MenuItem[]
 }
 
@@ -29,22 +31,25 @@ const router = useRouter()
 
 const activeMenu = computed(() => route.path)
 
-const menuItems: MenuItem[] = [
+const userStore = useUserStore()
+
+const allMenuItems: MenuItem[] = [
   { index: '/dashboard', title: '首页', icon: HomeFilled },
   {
     index: 'business',
     title: '业务管理',
     icon: Briefcase,
     children: [
-      { index: '/project', title: '工程项目' },
-      { index: '/entrustment', title: '委托管理' },
-      { index: '/sample', title: '样品管理' },
+      { index: '/project', title: '工程项目', permission: 'projects:view' },
+      { index: '/entrustment', title: '委托管理', permission: 'commissions:view' },
+      { index: '/sample', title: '样品管理', permission: 'samples:view' },
     ],
   },
   {
     index: 'testing',
     title: '检测管理',
     icon: DataAnalysis,
+    permission: 'testing:view',
     children: [
       { index: '/testing/tasks', title: '检测任务' },
       { index: '/testing/records', title: '原始记录' },
@@ -55,6 +60,7 @@ const menuItems: MenuItem[] = [
     index: 'report',
     title: '报告管理',
     icon: Notebook,
+    permission: 'reports:view',
     children: [{ index: '/reports', title: '报告列表' }],
   },
   {
@@ -62,21 +68,23 @@ const menuItems: MenuItem[] = [
     title: '资源管理',
     icon: Document,
     children: [
-      { index: '/equipment', title: '仪器设备' },
-      { index: '/staff', title: '人员管理' },
-      { index: '/consumable', title: '耗材管理' },
+      { index: '/equipment', title: '仪器设备', permission: 'equipment:view' },
+      { index: '/staff', title: '人员管理', permission: 'staff:view' },
+      { index: '/consumable', title: '耗材管理', permission: 'consumables:view' },
     ],
   },
   {
     index: 'monitor',
     title: '监控管理',
     icon: Monitor,
+    permission: 'environment:view',
     children: [{ index: '/environment', title: '环境监控' }],
   },
   {
     index: 'quality',
     title: '质量体系',
     icon: SetUp,
+    permission: 'quality:view',
     children: [
       { index: '/quality/audit', title: '内部审核' },
       { index: '/quality/review', title: '管理评审' },
@@ -90,6 +98,7 @@ const menuItems: MenuItem[] = [
     index: 'system',
     title: '系统管理',
     icon: Setting,
+    permission: 'system:view',
     children: [
       { index: '/system/users', title: '用户管理' },
       { index: '/system/roles', title: '角色管理' },
@@ -97,6 +106,29 @@ const menuItems: MenuItem[] = [
     ],
   },
 ]
+
+const isAdmin = computed(() => userStore.userRoles.includes('admin'))
+
+function hasPermission(perm?: string): boolean {
+  if (!perm) return true
+  if (isAdmin.value) return true
+  return userStore.permissions.includes(perm)
+}
+
+const menuItems = computed<MenuItem[]>(() => {
+  return allMenuItems
+    .filter(item => {
+      if (!item.children) return hasPermission(item.permission)
+      return true // parent visibility depends on children
+    })
+    .map(item => {
+      if (!item.children) return item
+      const children = item.children.filter(child => hasPermission(child.permission ?? item.permission))
+      if (children.length === 0) return null
+      return { ...item, children }
+    })
+    .filter(Boolean) as MenuItem[]
+})
 
 function handleMenuSelect(index: string) {
   if (index.startsWith('/')) {

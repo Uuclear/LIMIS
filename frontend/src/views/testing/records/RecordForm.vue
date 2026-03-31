@@ -9,6 +9,7 @@ import {
   updateOriginalRecord,
   submitRecord,
   calculateResult,
+  getMergedRecordSchema,
 } from '@/api/testing'
 import type { OriginalRecord } from '@/types/testing'
 
@@ -82,9 +83,48 @@ async function fetchRecord() {
   }
 }
 
-function initNewRecord() {
+const schemaTemplateName = ref('')
+
+async function initNewRecord() {
   form.value.task_id = taskId.value
-  addRow()
+  if (taskId.value) {
+    try {
+      const schema: any = await getMergedRecordSchema(taskId.value)
+      if (schema?.sections?.length) {
+        schemaTemplateName.value = schema.sections[0]?.templateName || schema.sections[0]?.template_name || ''
+        form.value.template_id = schema.sections[0]?.templateId || schema.sections[0]?.template_id || null
+        // Pre-populate rows from merged fields
+        const fields = schema.mergedFields?.fields || schema.merged_fields?.fields || []
+        if (fields.length) {
+          form.value.data.rows = fields.map((f: any) => ({
+            parameter_name: f.name || f.parameterName || f.parameter_name || '',
+            unit: f.unit || '',
+            value_1: '',
+            value_2: '',
+            value_3: '',
+            average: '',
+            remark: '',
+          }))
+        } else {
+          // Fall back to sections parameter names
+          form.value.data.rows = schema.sections.map((s: any) => ({
+            parameter_name: s.parameterName || s.parameter_name || '',
+            unit: '',
+            value_1: '',
+            value_2: '',
+            value_3: '',
+            average: '',
+            remark: '',
+          }))
+        }
+      }
+      if (!form.value.data.rows.length) addRow()
+    } catch {
+      addRow()
+    }
+  } else {
+    addRow()
+  }
 }
 
 function addRow() {
@@ -168,6 +208,7 @@ onMounted(() => {
       <span class="page-title">
         {{ isEdit ? '编辑原始记录' : '新建原始记录' }}
         <template v-if="record"> - {{ record.record_no }}</template>
+        <template v-else-if="schemaTemplateName"> - {{ schemaTemplateName }}</template>
       </span>
       <el-tag v-if="record" :type="record.status === 'draft' ? 'info' : 'success'" effect="dark">
         {{ record.status === 'draft' ? '草稿' : record.status === 'submitted' ? '已提交' : record.status === 'reviewed' ? '已审核' : '已驳回' }}

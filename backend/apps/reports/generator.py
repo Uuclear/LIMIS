@@ -80,10 +80,40 @@ def _generate_via_weasyprint(context: dict) -> bytes:
 
 
 def _generate_placeholder(context: dict) -> bytes:
+    """WeasyPrint 不可用时的 PDF 回退方案"""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfgen import canvas
+
     report = context['report']
-    text = (
-        f'报告编号: {report.report_no}\n'
-        f'委托编号: {context["commission"]}\n'
-        f'检测结论: {report.conclusion}\n'
-    )
-    return text.encode('utf-8')
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    width, height = A4
+
+    # Try to register a Chinese font, fall back to Helvetica
+    try:
+        pdfmetrics.registerFont(TTFont('SimSun', '/usr/share/fonts/truetype/simsun.ttc'))
+        font_name = 'SimSun'
+    except Exception:
+        font_name = 'Helvetica'
+
+    c.setFont(font_name, 16)
+    c.drawCentredString(width / 2, height - 40 * mm, '检 测 报 告')
+
+    c.setFont(font_name, 11)
+    y = height - 60 * mm
+    lines = [
+        f'报告编号: {report.report_no}',
+        f'委托信息: {context["commission"]}',
+        f'检测结论: {report.conclusion}',
+        '',
+        '（完整报告需安装 WeasyPrint 生成）',
+    ]
+    for line in lines:
+        c.drawString(20 * mm, y, line)
+        y -= 8 * mm
+
+    c.save()
+    return buf.getvalue()

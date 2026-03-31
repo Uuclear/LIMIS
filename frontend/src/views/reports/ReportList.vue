@@ -33,6 +33,7 @@ const statusTabs = [
   { label: '待批准', value: 'pending_approve' },
   { label: '已批准', value: 'approved' },
   { label: '已发放', value: 'issued' },
+  { label: '已归档', value: 'archived' },
 ]
 
 const statusMap: Record<string, string> = {
@@ -41,6 +42,7 @@ const statusMap: Record<string, string> = {
   pending_approve: '待批准',
   approved: '已批准',
   issued: '已发放',
+  archived: '已归档',
   voided: '已作废',
 }
 
@@ -50,6 +52,7 @@ const statusTagType: Record<string, string> = {
   pending_approve: '',
   approved: 'success',
   issued: 'success',
+  archived: 'info',
   voided: 'danger',
 }
 

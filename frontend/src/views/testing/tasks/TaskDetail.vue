@@ -15,17 +15,19 @@ const results = ref<TestResult[]>([])
 const taskId = computed(() => Number(route.params.id))
 
 const statusMap: Record<string, string> = {
-  pending: '待分配',
+  unassigned: '待分配',
   assigned: '待检',
-  testing: '检测中',
+  in_progress: '检测中',
   completed: '已完成',
+  abnormal: '异常',
 }
 
 const statusTagType: Record<string, string> = {
-  pending: 'info',
+  unassigned: 'info',
   assigned: 'warning',
-  testing: '',
+  in_progress: '',
   completed: 'success',
+  abnormal: 'danger',
 }
 
 async function fetchTask() {
@@ -163,7 +165,7 @@ onMounted(() => {
           <div class="card-header">
             <span>检测结果</span>
             <el-button
-              v-if="task.status === 'testing'"
+              v-if="task.status === 'in_progress'"
               type="primary"
               size="small"
               @click="goRecord"
@@ -204,7 +206,7 @@ onMounted(() => {
       <!-- Actions -->
       <div class="action-bar">
         <el-button
-          v-if="task.status === 'pending'"
+          v-if="task.status === 'unassigned'"
           type="primary"
           @click="assignDialogVisible = true"
         >
@@ -218,14 +220,14 @@ onMounted(() => {
           开始检测
         </el-button>
         <el-button
-          v-if="task.status === 'testing'"
+          v-if="task.status === 'in_progress'"
           type="success"
           @click="handleComplete"
         >
           完成检测
         </el-button>
         <el-button
-          v-if="task.status === 'testing'"
+          v-if="task.status === 'in_progress'"
           @click="goRecord"
         >
           填写原始记录

@@ -28,6 +28,7 @@ const statusMap: Record<string, string> = {
   pending_approve: '待批准',
   approved: '已批准',
   issued: '已发放',
+  archived: '已归档',
   voided: '已作废',
 }
 
@@ -37,6 +38,7 @@ const statusTagType: Record<string, string> = {
   pending_approve: '',
   approved: 'success',
   issued: 'success',
+  archived: 'info',
   voided: 'danger',
 }
 
@@ -46,7 +48,8 @@ const approvalStepMap: Record<string, string> = {
 }
 
 const approvalActionMap: Record<string, string> = {
-  approve: '通过',
+  submit: '提交',
+  pass: '通过',
   reject: '驳回',
 }
 
@@ -83,24 +86,32 @@ const auditDialogVisible = ref(false)
 const auditAction = ref<'approve' | 'reject'>('approve')
 const auditComment = ref('')
 const auditType = ref<'audit' | 'approve'>('audit')
+const signatureFile = ref<File | null>(null)
 
 function openAuditDialog(type: 'audit' | 'approve') {
   auditType.value = type
   auditAction.value = 'approve'
   auditComment.value = ''
+  signatureFile.value = null
   auditDialogVisible.value = true
 }
 
+function handleSignatureChange(file: any) {
+  signatureFile.value = file.raw
+}
+
 async function handleAuditSubmit() {
-  const payload = {
-    action: auditAction.value,
-    comment: auditComment.value,
+  const fd = new FormData()
+  fd.append('approved', auditAction.value === 'approve' ? 'true' : 'false')
+  fd.append('comment', auditComment.value)
+  if (signatureFile.value) {
+    fd.append('signature', signatureFile.value)
   }
   try {
     if (auditType.value === 'audit') {
-      await auditReport(reportId.value, payload)
+      await auditReport(reportId.value, fd)
     } else {
-      await approveReport(reportId.value, payload)
+      await approveReport(reportId.value, fd)
     }
     ElMessage.success('操作成功')
     auditDialogVisible.value = false
@@ -158,7 +169,7 @@ function goBack() {
 }
 
 function approvalTagType(action: string) {
-  return action === 'approve' ? 'success' : 'danger'
+  return action === 'pass' ? 'success' : action === 'reject' ? 'danger' : 'info'
 }
 
 onMounted(fetchReport)
@@ -191,10 +202,7 @@ onMounted(fetchReport)
             <el-tag v-if="report.has_cma" type="success" size="small">CMA</el-tag>
             <span v-else>-</span>
           </el-descriptions-item>
-          <el-descriptions-item label="CNAS标志">
-            <el-tag v-if="report.has_cnas" type="success" size="small">CNAS</el-tag>
-            <span v-else>-</span>
-          </el-descriptions-item>
+          <el-descriptions-item label="报告类型">{{ report.report_type || '-' }}</el-descriptions-item>
           <el-descriptions-item label="结论" :span="3">
             {{ report.conclusion || '-' }}
           </el-descriptions-item>
@@ -233,7 +241,7 @@ onMounted(fetchReport)
             :key="approval.id"
             :timestamp="approval.created_at"
             placement="top"
-            :type="approval.action === 'approve' ? 'success' : 'danger'"
+            :type="approval.action === 'pass' ? 'success' : approval.action === 'reject' ? 'danger' : 'info'"
           >
             <div class="approval-item">
               <div>
@@ -292,15 +300,15 @@ onMounted(fetchReport)
         </template>
 
         <template v-if="report.status === 'pending_audit'">
-          <el-button type="success" @click="openAuditDialog('audit')">审核</el-button>
+          <el-button v-permission="'reports:approve'" type="success" @click="openAuditDialog('audit')">审核</el-button>
         </template>
 
         <template v-if="report.status === 'pending_approve'">
-          <el-button type="success" @click="openAuditDialog('approve')">批准</el-button>
+          <el-button v-permission="'reports:approve'" type="success" @click="openAuditDialog('approve')">批准</el-button>
         </template>
 
         <template v-if="report.status === 'approved'">
-          <el-button type="success" @click="handleIssue">发放</el-button>
+          <el-button v-permission="'reports:approve'" type="success" @click="handleIssue">发放</el-button>
         </template>
 
         <template v-if="report.status === 'issued'">
@@ -330,6 +338,16 @@ onMounted(fetchReport)
             :rows="3"
             placeholder="请输入审核/批准意见"
           />
+        </el-form-item>
+        <el-form-item label="签名">
+          <el-upload
+            :auto-upload="false"
+            :limit="1"
+            accept="image/*"
+            :on-change="handleSignatureChange"
+          >
+            <el-button size="small">上传签名图片</el-button>
+          </el-upload>
         </el-form-item>
       </el-form>
       <template #footer>

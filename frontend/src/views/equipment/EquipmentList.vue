@@ -25,7 +25,7 @@ const categoryOptions = [
 
 const statusOptions = [
   { label: '在用', value: 'in_use' },
-  { label: '停用', value: 'disabled' },
+  { label: '停用', value: 'stopped' },
   { label: '送检中', value: 'calibrating' },
   { label: '报废', value: 'scrapped' },
 ]
@@ -49,24 +49,13 @@ const formData = reactive({
 
 const dialogTitle = computed(() => formData.id ? '编辑设备' : '新增设备')
 
-/** 后端字段 manage_no/model_no/next_calibration_date/status → 表单字段 */
-function mapStatusToUi(s: string) {
-  const m: Record<string, string> = {
-    in_use: 'in_use',
-    stopped: 'disabled',
-    calibrating: 'calibrating',
-    scrapped: 'scrapped',
-  }
-  return m[s] ?? s
-}
-
+/** 后端字段 manage_no/model_no/next_calibration_date → 表单字段 */
 function normalizeEquipmentRow(row: any) {
   return {
     ...row,
-    equipment_no: row.manage_no ?? row.equipment_no ?? '',
-    model: row.model_no ?? row.model ?? '',
-    calibration_due: row.next_calibration_date ?? row.calibration_due ?? '',
-    status: mapStatusToUi(row.status ?? ''),
+    equipment_no: row.manageNo ?? row.manage_no ?? row.equipment_no ?? '',
+    model: row.modelNo ?? row.model_no ?? row.model ?? '',
+    calibration_due: row.nextCalibrationDate ?? row.next_calibration_date ?? row.calibration_due ?? '',
   }
 }
 
@@ -116,7 +105,7 @@ function openEdit(row: any) {
     name: r.name ?? '',
     model: r.model ?? r.model_no ?? '',
     category: r.category ?? 'A',
-    status: mapStatusToUi(r.status ?? 'in_use'),
+    status: r.status ?? 'in_use',
     manufacturer: r.manufacturer ?? '',
     serial_no: r.serial_no ?? '',
     purchase_date: r.purchase_date ?? '',
@@ -129,14 +118,6 @@ function openEdit(row: any) {
 }
 
 async function handleSubmit() {
-  const statusMap: Record<string, string> = {
-    in_use: 'in_use',
-    disabled: 'stopped',
-    calibrating: 'calibrating',
-    repairing: 'in_use',
-    scrapped: 'scrapped',
-  }
-
   const manageNo = (formData.equipment_no || '').trim()
   if (!manageNo) {
     ElMessage.warning('请填写管理编号')
@@ -150,7 +131,7 @@ async function handleSubmit() {
     serial_no: formData.serial_no,
     manufacturer: formData.manufacturer,
     category: formData.category,
-    status: statusMap[formData.status] ?? 'in_use',
+    status: formData.status,
     purchase_date: formData.purchase_date || null,
     next_calibration_date: formData.calibration_due || null,
     location: formData.location,
@@ -190,7 +171,7 @@ function categoryTagType(cat: string) {
 
 function statusTagType(status: string) {
   const map: Record<string, string> = {
-    in_use: 'success', disabled: 'danger', calibrating: 'warning',
+    in_use: 'success', stopped: 'danger', calibrating: 'warning',
     repairing: '', scrapped: 'info',
   }
   return map[status] ?? 'info'

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import {
-  Document, List, Notebook, WarningFilled,
+  Document, List, Notebook, WarningFilled, Refresh,
 } from '@element-plus/icons-vue'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
@@ -21,6 +21,10 @@ interface StatCard {
   color: string
   bg: string
 }
+
+const defaultEnd = new Date().toISOString().slice(0, 10)
+const defaultStart = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+const dateRange = ref<[string, string]>([defaultStart, defaultEnd])
 
 const stats = ref<StatCard[]>([
   { title: '今日委托', value: 0, icon: Document, color: '#2563eb', bg: '#eff6ff' },
@@ -47,17 +51,29 @@ async function fetchDashboard() {
 
 async function fetchVolume() {
   try {
-    const res: any = await getTestVolume()
+    const res: any = await getTestVolume({ start_date: dateRange.value[0], end_date: dateRange.value[1] })
     volumeData.value = res ?? {}
   } catch { /* ignore */ }
 }
 
 async function fetchQualRate() {
   try {
-    const res: any = await getQualificationRate()
+    const res: any = await getQualificationRate({ start_date: dateRange.value[0], end_date: dateRange.value[1] })
     qualData.value = res?.items ?? res ?? []
   } catch { /* ignore */ }
 }
+
+function handleRefresh() {
+  fetchDashboard()
+  fetchVolume()
+  fetchQualRate()
+}
+
+watch(dateRange, () => {
+  if (dateRange.value && dateRange.value[0] && dateRange.value[1]) {
+    handleRefresh()
+  }
+})
 
 const barOption = computed(() => ({
   tooltip: { trigger: 'axis' },
@@ -105,6 +121,23 @@ onMounted(() => {
 
 <template>
   <div class="dashboard">
+    <div class="filter-bar">
+      <el-date-picker
+        v-model="dateRange"
+        type="daterange"
+        range-separator="至"
+        start-placeholder="开始日期"
+        end-placeholder="结束日期"
+        value-format="YYYY-MM-DD"
+        :shortcuts="[
+          { text: '最近7天', value: () => { const e = new Date(); const s = new Date(); s.setDate(s.getDate() - 7); return [s, e] } },
+          { text: '最近30天', value: () => { const e = new Date(); const s = new Date(); s.setDate(s.getDate() - 30); return [s, e] } },
+          { text: '最近90天', value: () => { const e = new Date(); const s = new Date(); s.setDate(s.getDate() - 90); return [s, e] } },
+        ]"
+        style="width: 280px"
+      />
+      <el-button :icon="Refresh" @click="handleRefresh" style="margin-left: 12px">刷新</el-button>
+    </div>
     <el-row :gutter="20" class="stat-row">
       <el-col v-for="item in stats" :key="item.title" :span="6">
         <el-card shadow="hover" class="stat-card">
@@ -170,6 +203,12 @@ onMounted(() => {
 <style scoped>
 .dashboard {
   max-width: 1400px;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .stat-row {
