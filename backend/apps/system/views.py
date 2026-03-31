@@ -201,6 +201,7 @@ class CurrentUserView(APIView):
         user = request.user
         user_data = UserSerializer(user).data
         user_data['permissions'] = services.get_user_permissions(user)
+        user_data['is_superuser'] = user.is_superuser
         return Response(user_data)
 
 

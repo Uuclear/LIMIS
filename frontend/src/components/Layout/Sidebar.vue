@@ -107,11 +107,19 @@ const allMenuItems: MenuItem[] = [
   },
 ]
 
-const isAdmin = computed(() => userStore.userRoles.includes('admin'))
+const isAdmin = computed(() => {
+  // 超级管理员: 角色含 admin 或后端返回 is_superuser
+  if (userStore.userRoles.includes('admin')) return true
+  const info = userStore.userInfo as any
+  if (info?.isSuperuser || info?.is_superuser) return true
+  return false
+})
 
 function hasPermission(perm?: string): boolean {
   if (!perm) return true
   if (isAdmin.value) return true
+  // 权限列表尚未加载时（刚登录），先显示全部菜单
+  if (!userStore.permissions.length && !userStore.userRoles.length) return true
   return userStore.permissions.includes(perm)
 }
 
