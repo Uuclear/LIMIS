@@ -13,6 +13,7 @@
 | `07-api-design.md` | API接口清单、URL规范、响应格式 | 开发前后端接口时 |
 | `08-directory-structure.md` | 完整目录树、文件拆分规则 | 创建新文件/模块时 |
 | `09-csres-crawl-form-pitfalls.md` | 工标网爬取回填表单不完整/错位的原因与规避 | 改爬虫、标准表单、`request` 信封时 |
+| `10-qualification-and-workflow.md` | 资质管理作用、状态枚举对齐、以及资质如何过滤可用集合 | 开发/维护质量体系能力范围与工作流时 |
 
 ## 使用方式
 

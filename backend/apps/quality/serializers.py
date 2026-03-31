@@ -14,7 +14,11 @@ from .models import (
     ProficiencyTest,
     QualitySupervision,
     ReviewDecision,
+    QualificationProfile,
 )
+
+from apps.standards.models import Standard
+from apps.testing.models import RecordTemplate, TestMethod
 
 
 # ───────────────────── Audit ─────────────────────
@@ -247,3 +251,45 @@ class QualitySupervisionSerializer(BaseModelSerializer):
         if obj.supervisor:
             return obj.supervisor.get_full_name() or str(obj.supervisor)
         return ''
+
+
+# ───────────────────── Qualification ─────────────────────
+
+
+class QualificationProfileSerializer(BaseModelSerializer):
+    """
+    资质配置：允许系统在“能力范围”内展示/可用的标准与模板集合。
+    """
+
+    allowed_standards = serializers.PrimaryKeyRelatedField(
+        queryset=Standard.objects.all(),
+        many=True,
+        required=False,
+    )
+    allowed_test_methods = serializers.PrimaryKeyRelatedField(
+        queryset=TestMethod.objects.all(),
+        many=True,
+        required=False,
+    )
+    allowed_record_templates = serializers.PrimaryKeyRelatedField(
+        queryset=RecordTemplate.objects.all(),
+        many=True,
+        required=False,
+    )
+
+    class Meta:
+        model = QualificationProfile
+        fields = [
+            'id',
+            'name',
+            'is_active',
+            'valid_from',
+            'valid_to',
+            'attachment',
+            'allowed_standards',
+            'allowed_test_methods',
+            'allowed_record_templates',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

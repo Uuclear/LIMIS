@@ -21,29 +21,29 @@ const query = reactive({
 })
 
 const statusColumns = [
-  { key: 'pending', label: '待分配', type: 'info' as const },
+  { key: 'unassigned', label: '待分配', type: 'info' as const },
   { key: 'assigned', label: '待检', type: 'warning' as const },
-  { key: 'testing', label: '检测中', type: '' as const },
+  { key: 'in_progress', label: '检测中', type: '' as const },
   { key: 'completed', label: '已完成', type: 'success' as const },
 ]
 
 const statusMap: Record<string, string> = {
-  pending: '待分配',
+  unassigned: '待分配',
   assigned: '待检',
-  testing: '检测中',
+  in_progress: '检测中',
   completed: '已完成',
 }
 
 const statusTagType: Record<string, string> = {
-  pending: 'info',
+  unassigned: 'info',
   assigned: 'warning',
-  testing: '',
+  in_progress: '',
   completed: 'success',
 }
 
 const kanbanData = computed(() => {
   const grouped: Record<string, TestTask[]> = {
-    pending: [], assigned: [], testing: [], completed: [],
+    unassigned: [], assigned: [], in_progress: [], completed: [],
   }
   for (const task of tableData.value) {
     if (grouped[task.status]) {
@@ -101,7 +101,7 @@ async function handleAssign() {
   if (!currentTask.value || !assignForm.tester_id) return
   try {
     await assignTask(currentTask.value.id, {
-      tester_id: assignForm.tester_id,
+      tester: assignForm.tester_id,
     })
     ElMessage.success('分配成功')
     assignDialogVisible.value = false
@@ -218,7 +218,7 @@ onMounted(fetchList)
               </div>
               <div class="kanban-card-actions" @click.stop>
                 <el-button
-                  v-if="task.status === 'pending'"
+                  v-if="task.status === 'unassigned'"
                   size="small"
                   type="primary"
                   @click="openAssignDialog(task)"
@@ -234,7 +234,7 @@ onMounted(fetchList)
                   开始
                 </el-button>
                 <el-button
-                  v-if="task.status === 'testing'"
+                  v-if="task.status === 'in_progress'"
                   size="small"
                   type="success"
                   @click="handleComplete(task)"
@@ -271,7 +271,7 @@ onMounted(fetchList)
             <template #default="{ row }">
               <el-button link type="primary" @click="goDetail(row)">查看</el-button>
               <el-button
-                v-if="row.status === 'pending'"
+                v-if="row.status === 'unassigned'"
                 link type="primary"
                 @click="openAssignDialog(row)"
               >
@@ -285,7 +285,7 @@ onMounted(fetchList)
                 开始
               </el-button>
               <el-button
-                v-if="row.status === 'testing'"
+                v-if="row.status === 'in_progress'"
                 link type="success"
                 @click="handleComplete(row)"
               >

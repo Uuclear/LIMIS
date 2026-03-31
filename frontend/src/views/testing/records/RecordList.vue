@@ -20,23 +20,23 @@ const query = reactive({
 
 const statusOptions = [
   { label: '草稿', value: 'draft' },
-  { label: '已提交', value: 'submitted' },
-  { label: '已审核', value: 'reviewed' },
-  { label: '已驳回', value: 'rejected' },
+  { label: '待复核', value: 'pending_review' },
+  { label: '已复核', value: 'reviewed' },
+  { label: '已退回', value: 'returned' },
 ]
 
 const statusMap: Record<string, string> = {
   draft: '草稿',
-  submitted: '已提交',
-  reviewed: '已审核',
-  rejected: '已驳回',
+  pending_review: '待复核',
+  reviewed: '已复核',
+  returned: '已退回',
 }
 
 const statusTagType: Record<string, string> = {
   draft: 'info',
-  submitted: 'warning',
+  pending_review: 'warning',
   reviewed: 'success',
-  rejected: 'danger',
+  returned: 'danger',
 }
 
 async function fetchList() {
@@ -130,7 +130,7 @@ onMounted(fetchList)
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button
-              v-if="row.status === 'draft' || row.status === 'rejected'"
+              v-if="row.status === 'draft'"
               link
               type="primary"
               @click="goEdit(row)"
@@ -146,7 +146,7 @@ onMounted(fetchList)
               查看
             </el-button>
             <el-button
-              v-if="row.status === 'draft' || row.status === 'rejected'"
+              v-if="row.status === 'draft'"
               link
               type="success"
               @click="handleSubmit(row)"

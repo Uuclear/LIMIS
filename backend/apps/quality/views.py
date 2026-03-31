@@ -22,6 +22,7 @@ from .models import (
     ProficiencyTest,
     QualitySupervision,
     ReviewDecision,
+    QualificationProfile,
 )
 from .serializers import (
     AuditFindingSerializer,
@@ -35,6 +36,7 @@ from .serializers import (
     ProficiencyTestSerializer,
     QualitySupervisionSerializer,
     ReviewDecisionSerializer,
+    QualificationProfileSerializer,
 )
 
 
@@ -143,3 +145,14 @@ class QualitySupervisionViewSet(BaseModelViewSet):
     lims_module = 'quality'
     filterset_class = QualitySupervisionFilter
     search_fields = ['plan_no']
+
+
+# ───────────────────── Qualification ─────────────────────
+
+
+class QualificationProfileViewSet(BaseModelViewSet):
+    queryset = QualificationProfile.objects.all()
+    serializer_class = QualificationProfileSerializer
+    lims_module = 'quality'
+    search_fields = ['name']
+    filterset_fields = ['is_active']

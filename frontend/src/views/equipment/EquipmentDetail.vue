@@ -158,12 +158,16 @@ async function handleMtSubmit() {
 // --- Traceability / Usage ---
 const usageLoading = ref(false)
 const usageList = ref<any[]>([])
+const usageLoaded = ref(false)
 
 async function fetchUsage() {
+  // 使用记录通常较少变化；避免 tab 切换反复触发重请求造成“等待很久”。
+  if (usageLoaded.value) return
   usageLoading.value = true
   try {
     const res: any = await getUsageLogs(equipmentId.value, { page_size: 100 })
     usageList.value = res.results ?? res.list ?? res ?? []
+    usageLoaded.value = true
   } finally {
     usageLoading.value = false
   }
@@ -172,7 +176,7 @@ async function fetchUsage() {
 const mtTypeOptions = [
   { label: '日常保养', value: 'routine' },
   { label: '故障维修', value: 'repair' },
-  { label: '定期维护', value: 'periodic' },
+  { label: '定期维护', value: 'overhaul' },
 ]
 
 function mtTypeLabel(val: string) {
@@ -205,16 +209,16 @@ onMounted(fetchEquipment)
       <el-tab-pane label="基本信息" name="basic">
         <el-card shadow="never">
           <el-descriptions :column="2" border>
-            <el-descriptions-item label="管理编号">{{ equipment.equipment_no }}</el-descriptions-item>
+            <el-descriptions-item label="管理编号">{{ equipment.manage_no }}</el-descriptions-item>
             <el-descriptions-item label="设备名称">{{ equipment.name }}</el-descriptions-item>
-            <el-descriptions-item label="型号">{{ equipment.model }}</el-descriptions-item>
+            <el-descriptions-item label="型号">{{ equipment.model_no }}</el-descriptions-item>
             <el-descriptions-item label="分类">{{ equipment.category }}类</el-descriptions-item>
             <el-descriptions-item label="制造商">{{ equipment.manufacturer }}</el-descriptions-item>
             <el-descriptions-item label="出厂编号">{{ equipment.serial_no }}</el-descriptions-item>
             <el-descriptions-item label="购置日期">{{ equipment.purchase_date }}</el-descriptions-item>
-            <el-descriptions-item label="校准到期">{{ equipment.calibration_due }}</el-descriptions-item>
+            <el-descriptions-item label="校准到期">{{ equipment.next_calibration_date }}</el-descriptions-item>
             <el-descriptions-item label="存放地点">{{ equipment.location }}</el-descriptions-item>
-            <el-descriptions-item label="保管人">{{ equipment.custodian }}</el-descriptions-item>
+            <el-descriptions-item label="建档人">{{ equipment.created_by_name }}</el-descriptions-item>
             <el-descriptions-item label="状态">{{ equipment.status }}</el-descriptions-item>
             <el-descriptions-item label="备注">{{ equipment.remark }}</el-descriptions-item>
           </el-descriptions>
@@ -238,10 +242,12 @@ onMounted(fetchEquipment)
                 <el-tag :type="validityColor(row.valid_until)" size="small">{{ row.valid_until }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="institution" label="检定机构" min-width="160" />
+            <el-table-column prop="calibration_org" label="检定机构" min-width="160" />
             <el-table-column label="结论" width="100" align="center">
               <template #default="{ row }">
-                <el-tag :type="calResultTag(row.result)" size="small">{{ calResultLabel(row.result) }}</el-tag>
+                <el-tag :type="calResultTag(row.conclusion)" size="small">
+                  {{ calResultLabel(row.conclusion) }}
+                </el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
@@ -260,17 +266,16 @@ onMounted(fetchEquipment)
           </template>
           <el-table v-loading="checkLoading" :data="checkList" stripe border>
             <el-table-column prop="check_date" label="核查日期" width="120" />
-            <el-table-column prop="checker" label="核查人" width="100" />
-            <el-table-column prop="standard_value" label="标准值" width="120" />
-            <el-table-column prop="measured_value" label="实测值" width="120" />
+            <el-table-column prop="checker_name" label="核查人" width="120" />
+            <el-table-column prop="check_method" label="标准值" width="120" />
+            <el-table-column prop="check_result" label="实测值" width="120" />
             <el-table-column label="结论" width="100" align="center">
               <template #default="{ row }">
-                <el-tag :type="row.result === 'normal' ? 'success' : 'danger'" size="small">
-                  {{ row.result === 'normal' ? '正常' : '异常' }}
+                <el-tag :type="row.conclusion === 'normal' ? 'success' : 'danger'" size="small">
+                  {{ row.conclusion === 'normal' ? '正常' : '异常' }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
           </el-table>
         </el-card>
       </el-tab-pane>
@@ -287,11 +292,11 @@ onMounted(fetchEquipment)
           <el-table v-loading="mtLoading" :data="mtList" stripe border>
             <el-table-column prop="maintenance_date" label="日期" width="120" />
             <el-table-column label="类型" width="100">
-              <template #default="{ row }">{{ mtTypeLabel(row.type) }}</template>
+              <template #default="{ row }">{{ mtTypeLabel(row.maintenance_type) }}</template>
             </el-table-column>
-            <el-table-column prop="content" label="内容" min-width="200" show-overflow-tooltip />
-            <el-table-column prop="operator" label="操作人" width="100" />
-            <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
+            <el-table-column prop="description" label="内容" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="result" label="结果" min-width="140" show-overflow-tooltip />
+            <el-table-column prop="handler_name" label="操作人" width="120" />
           </el-table>
         </el-card>
       </el-tab-pane>

@@ -54,7 +54,15 @@ def create_samples_from_commission(commission_id: int) -> list[Sample]:
                 sample_no=generate_sample_no(commission),
                 blind_no=generate_blind_no(),
                 commission=commission,
-                name=getattr(item, 'name', ''),
+                # 样品名称来源：委托项目（CommissionItem）里的“检测对象/检测项目”字段。
+                # 旧实现错误地读取了不存在的 `item.name`，导致 name 为空，进而触发必填校验问题。
+                # 有些 demo/历史数据里 `test_object` 可能用 '—' 表示缺失，此时应回退到 `test_item`。
+                name=(
+                    (lambda v: v if str(v).strip() not in ('', '-', '—', '－') else '')(  # type: ignore[no-any-return]
+                        getattr(item, 'test_object', ''),
+                    )
+                    or getattr(item, 'test_item', '')
+                ),
                 specification=getattr(item, 'specification', ''),
                 grade=getattr(item, 'grade', ''),
                 quantity=1,
