@@ -33,6 +33,11 @@
 - `serializers.py` 超限 → 改为 `serializers/` 包
 - `.vue` 文件超限 → 抽取子组件
 
+## Git 工作流
+
+- **默认开发分支**：`airport-site-lab-lims-741d`。在 Cursor 中的改动应提交并推送到该分支（勿默认推到 `main`，除非明确要做合并）。
+- 推送示例：`git push -u origin airport-site-lab-lims-741d`
+
 ## 开发参考
 
 开发前请阅读 `memory/` 目录下的文件：
