@@ -108,7 +108,7 @@ onMounted(fetchDetail)
         <el-table-column prop="test_item" label="检测项目" min-width="140" />
         <el-table-column prop="test_standard" label="检测标准" min-width="180" show-overflow-tooltip />
         <el-table-column prop="specification" label="规格型号" width="130" />
-        <el-table-column prop="design_grade" label="设计等级" width="100" />
+        <el-table-column prop="grade" label="设计等级" width="100" />
         <el-table-column prop="quantity" label="数量" width="80" align="center" />
         <el-table-column prop="unit" label="单位" width="80" align="center" />
       </el-table>

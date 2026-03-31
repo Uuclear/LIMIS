@@ -27,7 +27,6 @@ const statusOptions = [
   { label: '在用', value: 'in_use' },
   { label: '停用', value: 'disabled' },
   { label: '送检中', value: 'calibrating' },
-  { label: '维修中', value: 'repairing' },
   { label: '报废', value: 'scrapped' },
 ]
 

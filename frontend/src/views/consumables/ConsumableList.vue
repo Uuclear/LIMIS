@@ -148,7 +148,7 @@ onMounted(() => {
       <el-table v-loading="loading" :data="tableData" stripe border>
         <el-table-column prop="code" label="编码" width="130" />
         <el-table-column prop="name" label="名称" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="spec" label="规格" width="120" />
+        <el-table-column prop="specification" label="规格" width="120" />
         <el-table-column label="库存量" width="100" align="center">
           <template #default="{ row }">
             <span :style="{ color: stockColor(row), fontWeight: stockColor(row) ? '700' : 'normal' }">
