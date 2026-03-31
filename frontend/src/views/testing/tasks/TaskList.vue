@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { Search, Refresh, Grid, List } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getTestTaskList, assignTask, startTask, completeTask } from '@/api/testing'
+import { getAssignableTesters } from '@/api/staff'
 import type { TestTask } from '@/types/testing'
+import { useActionLock } from '@/composables/useActionLock'
+
+const { isLocked, runLocked } = useActionLock()
 
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
 const tableData = ref<TestTask[]>([])
 const total = ref(0)
@@ -18,6 +23,7 @@ const query = reactive({
   status: '',
   tester_name: '',
   date_range: [] as string[],
+  sample: null as number | null,
 })
 
 const statusColumns = [
@@ -52,15 +58,19 @@ const kanbanData = computed(() => {
   }
   return grouped
 })
+const hasSampleFilter = computed(() => !!query.sample)
 
 const assignDialogVisible = ref(false)
 const currentTask = ref<TestTask | null>(null)
 const assignForm = reactive({ tester_id: null as number | null, tester_name: '' })
+const testerOptions = ref<{ value: number; label: string }[]>([])
+const testerLoading = ref(false)
 
 async function fetchList() {
   loading.value = true
   try {
     const params: Record<string, any> = { ...query }
+    if (!query.sample) delete params.sample
     if (query.date_range?.length === 2) {
       params.start_date = query.date_range[0]
       params.end_date = query.date_range[1]
@@ -74,6 +84,27 @@ async function fetchList() {
   }
 }
 
+async function fetchTesterOptions(methodId?: number) {
+  testerLoading.value = true
+  try {
+    const res: any = await getAssignableTesters(methodId)
+    const rows = res.results ?? res.list ?? res ?? []
+    const seen = new Set<number>()
+    testerOptions.value = rows
+      .map((r: any) => {
+        const uid = Number(r.user)
+        const name = r.name || r.user_name || r.staff_no || ''
+        return Number.isFinite(uid) && uid > 0 ? {
+          value: uid,
+          label: `${name} (${r.staff_no || r.employee_no || uid})`,
+        } : null
+      })
+      .filter((x: any) => x && !seen.has(x.value) && seen.add(x.value))
+  } finally {
+    testerLoading.value = false
+  }
+}
+
 function handleSearch() {
   query.page = 1
   fetchList()
@@ -81,7 +112,7 @@ function handleSearch() {
 
 function handleReset() {
   Object.assign(query, {
-    page: 1, status: '', tester_name: '', date_range: [],
+    page: 1, status: '', tester_name: '', date_range: [], sample: null,
   })
   fetchList()
 }
@@ -90,43 +121,55 @@ function goDetail(task: TestTask) {
   router.push(`/testing/tasks/${task.id}`)
 }
 
+function goSampleDetail() {
+  if (!query.sample) return
+  router.push(`/sample/${query.sample}`)
+}
+
 function openAssignDialog(task: TestTask) {
   currentTask.value = task
   assignForm.tester_id = null
   assignForm.tester_name = ''
+  fetchTesterOptions((task as any).test_method)
   assignDialogVisible.value = true
 }
 
 async function handleAssign() {
   if (!currentTask.value || !assignForm.tester_id) return
-  try {
-    await assignTask(currentTask.value.id, {
-      tester: assignForm.tester_id,
-    })
-    ElMessage.success('分配成功')
-    assignDialogVisible.value = false
-    fetchList()
-  } catch {
-    ElMessage.error('分配失败')
-  }
+  await runLocked(`assign_task_${currentTask.value.id}`, async () => {
+    try {
+      await assignTask(currentTask.value!.id, {
+        tester: assignForm.tester_id,
+      })
+      ElMessage.success('分配成功')
+      assignDialogVisible.value = false
+      fetchList()
+    } catch {
+      ElMessage.error('分配失败')
+    }
+  })
 }
 
 async function handleStart(task: TestTask) {
-  try {
-    await ElMessageBox.confirm('确认开始检测？', '提示')
-    await startTask(task.id)
-    ElMessage.success('已开始检测')
-    fetchList()
-  } catch { /* cancelled */ }
+  await runLocked(`start_task_${task.id}`, async () => {
+    try {
+      await ElMessageBox.confirm('确认开始检测？', '提示')
+      await startTask(task.id)
+      ElMessage.success('已开始检测')
+      fetchList()
+    } catch { /* cancelled */ }
+  })
 }
 
 async function handleComplete(task: TestTask) {
-  try {
-    await ElMessageBox.confirm('确认完成检测？', '提示')
-    await completeTask(task.id)
-    ElMessage.success('检测已完成')
-    fetchList()
-  } catch { /* cancelled */ }
+  await runLocked(`complete_task_${task.id}`, async () => {
+    try {
+      await ElMessageBox.confirm('确认完成检测？', '提示')
+      await completeTask(task.id)
+      ElMessage.success('检测已完成')
+      fetchList()
+    } catch { /* cancelled */ }
+  })
 }
 
 function isOverdue(task: TestTask) {
@@ -134,7 +177,13 @@ function isOverdue(task: TestTask) {
   return new Date(task.planned_date) < new Date()
 }
 
-onMounted(fetchList)
+onMounted(() => {
+  const s = route.query.sample
+  const st = route.query.status
+  if (s != null && s !== '') query.sample = Number(s)
+  if (st != null && st !== '') query.status = String(st)
+  fetchList()
+})
 </script>
 
 <template>
@@ -192,6 +241,21 @@ onMounted(fetchList)
         </div>
       </template>
 
+      <el-alert
+        v-if="hasSampleFilter && !loading && tableData.length === 0"
+        type="info"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 12px"
+      >
+        <template #title>
+          当前样品暂无检测任务。请回到样品详情点击“生成检测任务”后再分配人员。
+        </template>
+        <template #default>
+          <el-button type="primary" link @click="goSampleDetail">返回样品详情</el-button>
+        </template>
+      </el-alert>
+
       <!-- Kanban View -->
       <div v-if="viewMode === 'kanban'" v-loading="loading" class="kanban-board">
         <div v-for="col in statusColumns" :key="col.key" class="kanban-column">
@@ -229,6 +293,7 @@ onMounted(fetchList)
                   v-if="task.status === 'assigned'"
                   size="small"
                   type="warning"
+                  :loading="isLocked(`start_task_${task.id}`)"
                   @click="handleStart(task)"
                 >
                   开始
@@ -237,6 +302,7 @@ onMounted(fetchList)
                   v-if="task.status === 'in_progress'"
                   size="small"
                   type="success"
+                  :loading="isLocked(`complete_task_${task.id}`)"
                   @click="handleComplete(task)"
                 >
                   完成
@@ -279,14 +345,18 @@ onMounted(fetchList)
               </el-button>
               <el-button
                 v-if="row.status === 'assigned'"
-                link type="warning"
+                link
+                type="warning"
+                :loading="isLocked(`start_task_${row.id}`)"
                 @click="handleStart(row)"
               >
                 开始
               </el-button>
               <el-button
                 v-if="row.status === 'in_progress'"
-                link type="success"
+                link
+                type="success"
+                :loading="isLocked(`complete_task_${row.id}`)"
                 @click="handleComplete(row)"
               >
                 完成
@@ -314,12 +384,32 @@ onMounted(fetchList)
     <el-dialog v-model="assignDialogVisible" title="分配检测人员" width="400px">
       <el-form label-width="80px">
         <el-form-item label="检测人员">
-          <el-input v-model.number="assignForm.tester_id" placeholder="请输入检测人员ID" />
+          <el-select
+            v-model="assignForm.tester_id"
+            filterable
+            clearable
+            placeholder="请选择检测人员"
+            style="width: 100%"
+            :loading="testerLoading"
+          >
+            <el-option
+              v-for="u in testerOptions"
+              :key="u.value"
+              :label="u.label"
+              :value="u.value"
+            />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="assignDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleAssign">确定</el-button>
+        <el-button
+          type="primary"
+          :loading="currentTask ? isLocked(`assign_task_${currentTask.id}`) : false"
+          @click="handleAssign"
+        >
+          确定
+        </el-button>
       </template>
     </el-dialog>
   </div>

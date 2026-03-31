@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 from collections import defaultdict
+from typing import Any
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -9,12 +10,152 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from core.utils.numbering import NumberGenerator
+from core.audit import log_business_event
 
 from .models import OriginalRecord, TestTask
 
 
 def generate_task_no() -> str:
     return NumberGenerator.generate(prefix='RW')
+
+
+def _clean_text(v: str | None) -> str:
+    v = (v or '').strip()
+    if v in ('', '-', '—', '－'):
+        return ''
+    return v
+
+
+def _commission_item_matches_sample(item, sample) -> bool:
+    """
+    用样品在创建时继承自委托项目（CommissionItem）的字段做弱匹配：
+    - specification/grade 必须尽量一致（为空不强校验）
+    - name 需能对上 item.test_object 或 item.test_item
+    """
+    if item is None or sample is None:
+        return False
+
+    if item.specification and sample.specification and item.specification != sample.specification:
+        return False
+    if item.grade and sample.grade and item.grade != sample.grade:
+        return False
+
+    sample_name = _clean_text(getattr(sample, 'name', ''))
+    # 兼容历史数据：样品 name 可能为空（例如你之前修复过“样品 name 为空”的问题）
+    # 若 name 缺失，则仅依赖 specification/grade 的匹配结果来放行委托项目。
+    if not sample_name:
+        return True
+
+    return (
+        _clean_text(getattr(item, 'test_object', '')) == sample_name
+        or _clean_text(getattr(item, 'test_item', '')) == sample_name
+    )
+
+
+def _deduped_task_slots(sample, items) -> list[tuple[Any, Any]]:
+    """
+    与 create_tasks_for_sample 中逐项解析逻辑一致，但对 (方法, 参数) 去重，
+    避免并发下重复创建同一组合的任务。
+    """
+    from apps.testing.models import TestMethod, TestParameter
+
+    seen: set[tuple[int, int | None]] = set()
+    slots: list[tuple[Any, Any]] = []
+    for item in items:
+        if not _commission_item_matches_sample(item, sample):
+            continue
+
+        method_name = _clean_text(getattr(item, 'test_method', ''))
+        if not method_name:
+            continue
+
+        test_method = TestMethod.objects.filter(
+            name__iexact=method_name,
+            is_active=True,
+        ).first()
+        if not test_method:
+            std_no = _clean_text(getattr(item, 'test_standard', ''))
+            if std_no:
+                test_method = TestMethod.objects.filter(
+                    standard_no__iexact=std_no,
+                    is_active=True,
+                ).first()
+
+        if not test_method:
+            continue
+
+        test_item_name = _clean_text(getattr(item, 'test_item', ''))
+        test_parameter = None
+        if test_item_name:
+            test_parameter = TestParameter.objects.filter(
+                method_id=test_method.id,
+                name__iexact=test_item_name,
+                is_deleted=False,
+            ).first()
+
+        key = (test_method.id, test_parameter.id if test_parameter else None)
+        if key in seen:
+            continue
+        seen.add(key)
+        slots.append((test_method, test_parameter))
+    return slots
+
+
+@transaction.atomic
+def create_tasks_for_sample(sample_id: int, user=None) -> list[TestTask]:
+    """
+    当“样品检测中但检测任务为空”时：根据样品所属委托单中的委托项目，
+    生成对应 TestTask（默认状态为 unassigned）。
+    """
+    from apps.commissions.models import CommissionItem
+    from apps.samples.models import Sample
+
+    sample = (
+        Sample.objects.select_for_update()
+        .select_related('commission')
+        .get(pk=sample_id)
+    )
+    # 样品检测中：保持与任务流一致
+    if sample.status != 'testing':
+        sample.status = 'testing'
+        sample.save(update_fields=['status', 'updated_at'])
+
+    commission: Any = sample.commission
+    if not commission:
+        raise ValidationError('样品缺少所属委托单，无法生成检测任务。')
+
+    # 以样品继承的字段为依据，筛选出最可能匹配的委托项目
+    items = CommissionItem.objects.filter(commission_id=commission.pk, is_deleted=False) \
+        if hasattr(CommissionItem, 'is_deleted') else commission.items.all()
+
+    slots = _deduped_task_slots(sample, items)
+    if not slots:
+        raise ValidationError('未能为该样品生成检测任务：请检查委托项目中的“检测方法/参数”配置。')
+
+    planned_date = timezone.now().date()
+    created: list[TestTask] = []
+    for test_method, test_parameter in slots:
+        existing = TestTask.objects.filter(
+            sample_id=sample.pk,
+            test_method_id=test_method.id,
+            test_parameter_id=(test_parameter.id if test_parameter else None),
+        ).first()
+        if existing:
+            created.append(existing)
+            continue
+
+        task = TestTask.objects.create(
+            task_no=generate_task_no(),
+            sample=sample,
+            commission=commission,
+            test_method=test_method,
+            test_parameter=test_parameter,
+            planned_date=planned_date,
+            created_by=user if user and user.is_authenticated else None,
+        )
+        created.append(task)
+
+    return created
 
 
 @transaction.atomic
@@ -28,6 +169,13 @@ def assign_task(
 
     if task.status not in ('unassigned', 'assigned'):
         raise ValidationError('只有待分配或待检状态的任务可以分配')
+    if (
+        task.status == 'assigned'
+        and task.assigned_tester_id == tester_id
+        and task.assigned_equipment_id == equipment_id
+        and task.planned_date == planned_date
+    ):
+        return task
 
     task.assigned_tester_id = tester_id
     task.assigned_equipment_id = equipment_id
@@ -37,12 +185,28 @@ def assign_task(
         'assigned_tester_id', 'assigned_equipment_id',
         'planned_date', 'status', 'updated_at',
     ])
+    log_business_event(
+        user=None,
+        module='testing',
+        action='assign_task',
+        entity='test_task',
+        entity_id=task.pk,
+        path=f'/api/v1/testing/tasks/{task.pk}/assign/',
+        payload={
+            'task_no': task.task_no,
+            'tester_id': tester_id,
+            'equipment_id': equipment_id,
+            'planned_date': str(planned_date) if planned_date else None,
+        },
+    )
     return task
 
 
 @transaction.atomic
 def start_task(task_id: int) -> TestTask:
     task = TestTask.objects.select_for_update().get(pk=task_id)
+    if task.status == 'in_progress':
+        return task
 
     if task.status != 'assigned':
         raise ValidationError('只有待检状态的任务可以开始检测')
@@ -53,12 +217,22 @@ def start_task(task_id: int) -> TestTask:
 
     task.sample.status = 'testing'
     task.sample.save(update_fields=['status', 'updated_at'])
+    log_business_event(
+        module='testing',
+        action='start_task',
+        entity='test_task',
+        entity_id=task.pk,
+        path=f'/api/v1/testing/tasks/{task.pk}/start/',
+        payload={'task_no': task.task_no},
+    )
     return task
 
 
 @transaction.atomic
 def complete_task(task_id: int) -> TestTask:
     task = TestTask.objects.select_for_update().get(pk=task_id)
+    if task.status == 'completed':
+        return task
 
     if task.status != 'in_progress':
         raise ValidationError('只有检测中的任务可以完成')
@@ -70,6 +244,14 @@ def complete_task(task_id: int) -> TestTask:
     if not pending:
         task.sample.status = 'tested'
         task.sample.save(update_fields=['status', 'updated_at'])
+    log_business_event(
+        module='testing',
+        action='complete_task',
+        entity='test_task',
+        entity_id=task.pk,
+        path=f'/api/v1/testing/tasks/{task.pk}/complete/',
+        payload={'task_no': task.task_no, 'sample_id': task.sample_id},
+    )
     return task
 
 
@@ -127,12 +309,22 @@ def calculate_planned_date(
 @transaction.atomic
 def submit_record(record_id: int) -> OriginalRecord:
     record = OriginalRecord.objects.select_for_update().get(pk=record_id)
+    if record.status == 'pending_review':
+        return record
 
     if record.status != 'draft':
         raise ValidationError('只有草稿状态的记录可以提交')
 
     record.status = 'pending_review'
     record.save(update_fields=['status', 'updated_at'])
+    log_business_event(
+        module='testing',
+        action='submit_record',
+        entity='original_record',
+        entity_id=record.pk,
+        path=f'/api/v1/testing/records/{record.pk}/submit/',
+        payload={'record_no': record.record_no, 'task_id': record.task_id},
+    )
     return record
 
 
@@ -144,6 +336,9 @@ def review_record(
     comment: str = '',
 ) -> OriginalRecord:
     record = OriginalRecord.objects.select_for_update().get(pk=record_id)
+    target_status = 'reviewed' if approved else 'returned'
+    if record.status == target_status:
+        return record
 
     if record.status != 'pending_review':
         raise ValidationError('只有待复核状态的记录可以复核')
@@ -156,6 +351,19 @@ def review_record(
         'status', 'reviewer', 'review_date',
         'review_comment', 'updated_at',
     ])
+    log_business_event(
+        user=user,
+        module='testing',
+        action='review_record',
+        entity='original_record',
+        entity_id=record.pk,
+        path=f'/api/v1/testing/records/{record.pk}/review/',
+        payload={
+            'record_no': record.record_no,
+            'approved': approved,
+            'status': record.status,
+        },
+    )
     return record
 
 

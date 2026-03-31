@@ -14,6 +14,9 @@ export function getSampleTimeline(id: number) { return request.get(`${S}/${id}/t
 export function getSampleLabel(id: number) { return request.get(`${S}/${id}/label/`) }
 export function getRetentionSamples(params?: any) { return request.get(`${S}/retention-list/`, { params }) }
 export function disposeSample(id: number, data: any) { return request.post(`${S}/${id}/dispose/`, data) }
+export function createTestingTasksForSample(id: number) {
+  return request.post(`${S}/${id}/create-testing-tasks/`, {})
+}
 export function exportSamples(params?: any) {
   return request.get(`${S}/export/`, { params, responseType: 'blob' } as any)
 }

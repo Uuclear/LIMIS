@@ -27,6 +27,11 @@ class SampleViewSet(BaseModelViewSet):
         'commission', 'commission__project', 'group',
     ).all()
     lims_module = 'sample'
+    lims_action_map = {
+        # 状态流转属于编辑行为，避免仅拥有 edit 权限时被错误拦截为 create
+        'change_status': 'edit',
+        'create_testing_tasks': 'edit',
+    }
     filterset_class = SampleFilter
     search_fields = ['sample_no', 'blind_no', 'name']
     ordering_fields = ['created_at', 'sampling_date', 'received_date', 'sample_no']
@@ -57,6 +62,23 @@ class SampleViewSet(BaseModelViewSet):
             'code': 200,
             'message': '状态变更成功',
             'data': SampleDetailSerializer(updated).data,
+        })
+
+    @action(detail=True, methods=['post'], url_path='create-testing-tasks')
+    def create_testing_tasks(self, request: Request, pk: str = None) -> Response:
+        """
+        样品状态为“检测中”但检测任务为空时：一键生成检测任务（unassigned），供用户继续分配/开始检测。
+        """
+        sample = self.get_object()
+        # 这里把 task 生成放在 testing/services：复用其 TestMethod/TestParameter 映射逻辑
+        from apps.testing import services as testing_services
+        from apps.testing.serializers import TestTaskListSerializer
+
+        tasks = testing_services.create_tasks_for_sample(sample.pk, user=request.user)
+        return Response({
+            'code': 200,
+            'message': '检测任务已生成',
+            'data': TestTaskListSerializer(tasks, many=True).data,
         })
 
     @action(detail=True, methods=['get'])

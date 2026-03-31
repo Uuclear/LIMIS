@@ -4,7 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getTestTask, assignTask, startTask, completeTask, getTestResults } from '@/api/testing'
+import { getAssignableTesters } from '@/api/staff'
 import type { TestTask, TestResult } from '@/types/testing'
+import { useActionLock } from '@/composables/useActionLock'
+
+const { isLocked, runLocked } = useActionLock()
 
 const route = useRoute()
 const router = useRouter()
@@ -32,6 +36,9 @@ async function fetchTask() {
   loading.value = true
   try {
     task.value = await getTestTask(taskId.value) as any
+    if (task.value) {
+      await fetchTesterOptions((task.value as any).test_method)
+    }
   } finally {
     loading.value = false
   }
@@ -46,37 +53,71 @@ async function fetchResults() {
 
 const assignDialogVisible = ref(false)
 const assignTester = ref<number | null>(null)
+const testerOptions = ref<{ value: number; label: string }[]>([])
+const testerLoading = ref(false)
 
 async function handleAssign() {
   if (!task.value || !assignTester.value) return
+  await runLocked(`assign_task_${task.value.id}`, async () => {
+    try {
+      await assignTask(task.value!.id, { tester: assignTester.value! })
+      ElMessage.success('分配成功')
+      assignDialogVisible.value = false
+      fetchTask()
+    } catch {
+      ElMessage.error('分配失败')
+    }
+  })
+}
+
+function openAssignDialog() {
+  assignTester.value = null
+  assignDialogVisible.value = true
+}
+
+async function fetchTesterOptions(methodId?: number) {
+  testerLoading.value = true
   try {
-    await assignTask(task.value.id, { tester: assignTester.value })
-    ElMessage.success('分配成功')
-    assignDialogVisible.value = false
-    fetchTask()
-  } catch {
-    ElMessage.error('分配失败')
+    const res: any = await getAssignableTesters(methodId)
+    const rows = res.results ?? res.list ?? res ?? []
+    const seen = new Set<number>()
+    testerOptions.value = rows
+      .map((r: any) => {
+        const uid = Number(r.user)
+        const name = r.name || r.user_name || r.staff_no || ''
+        return Number.isFinite(uid) && uid > 0 ? {
+          value: uid,
+          label: `${name} (${r.staff_no || r.employee_no || uid})`,
+        } : null
+      })
+      .filter((x: any) => x && !seen.has(x.value) && seen.add(x.value))
+  } finally {
+    testerLoading.value = false
   }
 }
 
 async function handleStart() {
   if (!task.value) return
-  try {
-    await ElMessageBox.confirm('确认开始检测？', '提示')
-    await startTask(task.value.id)
-    ElMessage.success('已开始检测')
-    fetchTask()
-  } catch { /* cancelled */ }
+  await runLocked(`start_task_${task.value.id}`, async () => {
+    try {
+      await ElMessageBox.confirm('确认开始检测？', '提示')
+      await startTask(task.value!.id)
+      ElMessage.success('已开始检测')
+      fetchTask()
+    } catch { /* cancelled */ }
+  })
 }
 
 async function handleComplete() {
   if (!task.value) return
-  try {
-    await ElMessageBox.confirm('确认完成检测？', '提示')
-    await completeTask(task.value.id)
-    ElMessage.success('检测已完成')
-    fetchTask()
-  } catch { /* cancelled */ }
+  await runLocked(`complete_task_${task.value.id}`, async () => {
+    try {
+      await ElMessageBox.confirm('确认完成检测？', '提示')
+      await completeTask(task.value!.id)
+      ElMessage.success('检测已完成')
+      fetchTask()
+    } catch { /* cancelled */ }
+  })
 }
 
 function goRecord() {
@@ -206,13 +247,14 @@ onMounted(() => {
         <el-button
           v-if="task.status === 'unassigned'"
           type="primary"
-          @click="assignDialogVisible = true"
+          @click="openAssignDialog"
         >
           分配人员
         </el-button>
         <el-button
           v-if="task.status === 'assigned'"
           type="warning"
+          :loading="isLocked(`start_task_${task.id}`)"
           @click="handleStart"
         >
           开始检测
@@ -220,6 +262,7 @@ onMounted(() => {
         <el-button
           v-if="task.status === 'in_progress'"
           type="success"
+          :loading="isLocked(`complete_task_${task.id}`)"
           @click="handleComplete"
         >
           完成检测
@@ -237,12 +280,32 @@ onMounted(() => {
     <el-dialog v-model="assignDialogVisible" title="分配检测人员" width="400px">
       <el-form label-width="80px">
         <el-form-item label="检测人员">
-          <el-input v-model.number="assignTester" placeholder="请输入检测人员ID" />
+          <el-select
+            v-model="assignTester"
+            filterable
+            clearable
+            placeholder="请选择检测人员"
+            style="width: 100%"
+            :loading="testerLoading"
+          >
+            <el-option
+              v-for="u in testerOptions"
+              :key="u.value"
+              :label="u.label"
+              :value="u.value"
+            />
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="assignDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleAssign">确定</el-button>
+        <el-button
+          type="primary"
+          :loading="task ? isLocked(`assign_task_${task.id}`) : false"
+          @click="handleAssign"
+        >
+          确定
+        </el-button>
       </template>
     </el-dialog>
   </div>

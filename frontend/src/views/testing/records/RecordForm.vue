@@ -11,11 +11,12 @@ import {
   calculateResult,
 } from '@/api/testing'
 import type { OriginalRecord } from '@/types/testing'
+import { useActionLock } from '@/composables/useActionLock'
 
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
-const saving = ref(false)
+const { isLocked, runLocked } = useActionLock()
 
 const recordId = computed(() => {
   const id = route.params.id as string
@@ -59,6 +60,12 @@ const isReadonly = computed(() => {
   if (!record.value) return false
   // 仅草稿可编辑；提交后进入待复核/已复核/已退回，前端锁定编辑。
   return record.value.status !== 'draft'
+})
+
+const saveLockKey = computed(() => `save_record_${recordId.value ?? 'new'}`)
+const submitLockKey = computed(() => {
+  const id = recordId.value ?? record.value?.id
+  return id != null ? `submit_record_${id}` : 'submit_record_none'
 })
 
 async function fetchRecord() {
@@ -105,21 +112,21 @@ function removeRow(index: number) {
 }
 
 async function handleSave() {
-  saving.value = true
-  try {
-    if (isEdit.value && recordId.value) {
-      await updateOriginalRecord(recordId.value, form.value)
-      ElMessage.success('保存成功')
-    } else {
-      const res: any = await createOriginalRecord(form.value)
-      ElMessage.success('创建成功')
-      router.replace(`/testing/records/${res.id}`)
+  const key = `save_record_${recordId.value ?? 'new'}`
+  await runLocked(key, async () => {
+    try {
+      if (isEdit.value && recordId.value) {
+        await updateOriginalRecord(recordId.value, form.value)
+        ElMessage.success('保存成功')
+      } else {
+        const res: any = await createOriginalRecord(form.value)
+        ElMessage.success('创建成功')
+        router.replace(`/testing/records/${res.id}`)
+      }
+    } catch {
+      ElMessage.error('保存失败')
     }
-  } catch {
-    ElMessage.error('保存失败')
-  } finally {
-    saving.value = false
-  }
+  })
 }
 
 async function handleSubmit() {
@@ -128,25 +135,29 @@ async function handleSubmit() {
     ElMessage.warning('请先保存记录')
     return
   }
-  try {
-    await ElMessageBox.confirm('确认提交审核？提交后不可修改。', '提示')
-    await submitRecord(id)
-    ElMessage.success('提交成功')
-    router.push('/testing/records')
-  } catch { /* cancelled */ }
+  await runLocked(`submit_record_${id}`, async () => {
+    try {
+      await ElMessageBox.confirm('确认提交审核？提交后不可修改。', '提示')
+      await submitRecord(id)
+      ElMessage.success('提交成功')
+      router.push('/testing/records')
+    } catch { /* cancelled */ }
+  })
 }
 
 async function handleCalculate() {
-  try {
-    const res: any = await calculateResult({
-      task_id: form.value.task_id,
-      rows: form.value.data.rows,
-    })
-    calculatedResults.value = res.results ?? res ?? []
-    ElMessage.success('计算完成')
-  } catch {
-    ElMessage.error('计算失败')
-  }
+  await runLocked('calculate_result', async () => {
+    try {
+      const res: any = await calculateResult({
+        task_id: form.value.task_id,
+        rows: form.value.data.rows,
+      })
+      calculatedResults.value = res.results ?? res ?? []
+      ElMessage.success('计算完成')
+    } catch {
+      ElMessage.error('计算失败')
+    }
+  })
 }
 
 function goBack() {
@@ -228,7 +239,13 @@ onMounted(() => {
             <el-button type="primary" size="small" :icon="Plus" @click="addRow">
               添加行
             </el-button>
-            <el-button size="small" @click="handleCalculate">计算结果</el-button>
+            <el-button
+              size="small"
+              :loading="isLocked('calculate_result')"
+              @click="handleCalculate"
+            >
+              计算结果
+            </el-button>
           </div>
         </div>
       </template>
@@ -370,10 +387,10 @@ onMounted(() => {
     <!-- Actions -->
     <div v-if="!isReadonly" class="action-bar">
       <el-button @click="goBack">取消</el-button>
-      <el-button type="primary" :loading="saving" @click="handleSave">
+      <el-button type="primary" :loading="isLocked(saveLockKey)" @click="handleSave">
         保存草稿
       </el-button>
-      <el-button type="success" @click="handleSubmit">
+      <el-button type="success" :loading="isLocked(submitLockKey)" @click="handleSubmit">
         提交审核
       </el-button>
     </div>

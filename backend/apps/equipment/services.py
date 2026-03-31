@@ -14,7 +14,7 @@ from .models import Calibration, Equipment, EquipUsageLog, PeriodCheck
 logger = logging.getLogger(__name__)
 
 
-def get_expiring_equipment(days: int = 30) -> QuerySet:
+def get_expiring_equipment(days: int = 15) -> QuerySet:
     threshold = date.today() + timedelta(days=days)
     return Equipment.objects.filter(
         status='in_use',

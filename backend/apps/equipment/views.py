@@ -43,7 +43,8 @@ class EquipmentViewSet(BaseModelViewSet):
 
     @action(detail=False, methods=['get'])
     def expiring(self, request: Request) -> Response:
-        days = int(request.query_params.get('days', 30))
+        # 提醒阈值：仅当距离校准到期日 <= 15 天时提醒
+        days = int(request.query_params.get('days', 15))
         qs = services.get_expiring_equipment(days)
         serializer = EquipmentListSerializer(qs, many=True)
         return Response({
@@ -98,7 +99,10 @@ class PeriodCheckViewSet(BaseModelViewSet):
         )
         kwargs = {'equipment': equipment}
         if self.request.user.is_authenticated:
+            # PeriodCheck/维护保养页面需要展示“核查人/操作人”
+            # 后端统一用当前登录用户回填，避免前端字段名不一致或未传导致展示为空。
             kwargs['created_by'] = self.request.user
+            kwargs['checker'] = self.request.user
         serializer.save(**kwargs)
 
 
@@ -118,6 +122,7 @@ class MaintenanceViewSet(BaseModelViewSet):
         kwargs = {'equipment': equipment}
         if self.request.user.is_authenticated:
             kwargs['created_by'] = self.request.user
+            kwargs['handler'] = self.request.user
         serializer.save(**kwargs)
 
 

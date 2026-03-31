@@ -9,12 +9,14 @@ import {
   getMaintenances, createMaintenance,
   getUsageLogs,
 } from '@/api/equipment'
+import { useActionLock } from '@/composables/useActionLock'
 
 const route = useRoute()
 const router = useRouter()
 const equipmentId = computed(() => Number(route.params.id))
 const activeTab = ref('basic')
 const equipment = ref<any>({})
+const { isLocked, runLocked } = useActionLock()
 
 async function fetchEquipment() {
   equipment.value = await getEquipment(equipmentId.value) as any
@@ -48,17 +50,19 @@ function openCalCreate() {
 }
 
 async function handleCalSubmit() {
-  await createCalibration(equipmentId.value, {
-    certificate_no: calForm.certificate_no,
-    calibration_date: calForm.calibration_date,
-    valid_until: calForm.valid_until,
-    calibration_org: calForm.institution,
-    conclusion: calForm.result,
-    remark: calForm.remark,
+  await runLocked('equipment_cal_submit', async () => {
+    await createCalibration(equipmentId.value, {
+      certificate_no: calForm.certificate_no,
+      calibration_date: calForm.calibration_date,
+      valid_until: calForm.valid_until,
+      calibration_org: calForm.institution,
+      conclusion: calForm.result,
+      remark: calForm.remark,
+    })
+    ElMessage.success('创建成功')
+    calDialogVisible.value = false
+    fetchCalibrations()
   })
-  ElMessage.success('创建成功')
-  calDialogVisible.value = false
-  fetchCalibrations()
 }
 
 function calResultTag(result: string) {
@@ -107,15 +111,17 @@ function openCheckCreate() {
 }
 
 async function handleCheckSubmit() {
-  await createPeriodCheck(equipmentId.value, {
-    check_date: checkForm.check_date,
-    check_method: checkForm.standard_value || '-',
-    check_result: checkForm.measured_value || '-',
-    conclusion: checkForm.result,
+  await runLocked('equipment_check_submit', async () => {
+    await createPeriodCheck(equipmentId.value, {
+      check_date: checkForm.check_date,
+      check_method: checkForm.standard_value || '-',
+      check_result: checkForm.measured_value || '-',
+      conclusion: checkForm.result,
+    })
+    ElMessage.success('创建成功')
+    checkDialogVisible.value = false
+    fetchChecks()
   })
-  ElMessage.success('创建成功')
-  checkDialogVisible.value = false
-  fetchChecks()
 }
 
 // --- Maintenances ---
@@ -144,15 +150,17 @@ function openMtCreate() {
 }
 
 async function handleMtSubmit() {
-  await createMaintenance(equipmentId.value, {
-    maintenance_date: mtForm.maintenance_date,
-    maintenance_type: mtForm.type,
-    description: mtForm.content,
-    result: mtForm.remark,
+  await runLocked('equipment_mt_submit', async () => {
+    await createMaintenance(equipmentId.value, {
+      maintenance_date: mtForm.maintenance_date,
+      maintenance_type: mtForm.type,
+      description: mtForm.content,
+      result: mtForm.remark,
+    })
+    ElMessage.success('创建成功')
+    mtDialogVisible.value = false
+    fetchMaintenances()
   })
-  ElMessage.success('创建成功')
-  mtDialogVisible.value = false
-  fetchMaintenances()
 }
 
 // --- Traceability / Usage ---
@@ -348,7 +356,7 @@ onMounted(fetchEquipment)
       </el-form>
       <template #footer>
         <el-button @click="calDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleCalSubmit">确定</el-button>
+        <el-button type="primary" :loading="isLocked('equipment_cal_submit')" @click="handleCalSubmit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -377,7 +385,7 @@ onMounted(fetchEquipment)
       </el-form>
       <template #footer>
         <el-button @click="checkDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleCheckSubmit">确定</el-button>
+        <el-button type="primary" :loading="isLocked('equipment_check_submit')" @click="handleCheckSubmit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -398,7 +406,7 @@ onMounted(fetchEquipment)
       </el-form>
       <template #footer>
         <el-button @click="mtDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleMtSubmit">确定</el-button>
+        <el-button type="primary" :loading="isLocked('equipment_mt_submit')" @click="handleMtSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>

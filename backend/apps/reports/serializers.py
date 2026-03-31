@@ -4,7 +4,27 @@ from rest_framework import serializers
 
 from core.serializers import BaseModelSerializer
 
-from .models import Report, ReportApproval, ReportDistribution
+from .models import Report, ReportApproval, ReportDistribution, ReportTemplate
+
+
+class ReportTemplateSerializer(BaseModelSerializer):
+    test_method_name = serializers.CharField(
+        source='test_method.name', read_only=True,
+    )
+    test_parameter_name = serializers.CharField(
+        source='test_parameter.name', read_only=True,
+    )
+
+    class Meta:
+        model = ReportTemplate
+        fields = [
+            'id', 'name', 'code', 'report_type',
+            'test_method', 'test_method_name',
+            'test_parameter', 'test_parameter_name',
+            'version', 'schema', 'is_active',
+            'created_at', 'updated_at', 'created_by', 'created_by_name',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
 
 
 class ReportApprovalSerializer(BaseModelSerializer):

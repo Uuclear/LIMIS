@@ -7,6 +7,7 @@ import { getCommission, createCommission, updateCommission, submitCommission } f
 import { getProjectList, getSubProjects, getWitnesses } from '@/api/projects'
 import { getStandardList } from '@/api/standards'
 import { getTestMethods, getTestParameters } from '@/api/testing'
+import { useActionLock } from '@/composables/useActionLock'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,7 +15,7 @@ const isEdit = computed(() => !!route.params.id)
 const commissionId = computed(() => Number(route.params.id) || 0)
 
 const formRef = ref()
-const saving = ref(false)
+const { isLocked, runLocked } = useActionLock()
 
 export interface CommissionItemRow {
   standard_id: number | null
@@ -206,8 +207,7 @@ function buildUpdatePayload() {
 
 async function handleSave() {
   await formRef.value?.validate()
-  saving.value = true
-  try {
+  await runLocked('commission_save', async () => {
     if (isEdit.value) {
       await updateCommission(commissionId.value, buildUpdatePayload())
     } else {
@@ -215,15 +215,12 @@ async function handleSave() {
     }
     ElMessage.success('保存成功')
     router.push('/entrustment')
-  } finally {
-    saving.value = false
-  }
+  })
 }
 
 async function handleSaveAndSubmit() {
   await formRef.value?.validate()
-  saving.value = true
-  try {
+  await runLocked('commission_submit', async () => {
     let id = commissionId.value
     if (isEdit.value) {
       await updateCommission(id, buildUpdatePayload())
@@ -234,9 +231,7 @@ async function handleSaveAndSubmit() {
     await submitCommission(id)
     ElMessage.success('已提交评审')
     router.push('/entrustment')
-  } finally {
-    saving.value = false
-  }
+  })
 }
 
 onMounted(async () => {
@@ -419,8 +414,8 @@ onMounted(async () => {
 
         <div style="margin-top: 24px; text-align: right">
           <el-button @click="router.push('/entrustment')">取消</el-button>
-          <el-button type="info" :loading="saving" @click="handleSave">保存草稿</el-button>
-          <el-button type="primary" :loading="saving" @click="handleSaveAndSubmit">提交评审</el-button>
+          <el-button type="info" :loading="isLocked('commission_save')" @click="handleSave">保存草稿</el-button>
+          <el-button type="primary" :loading="isLocked('commission_submit')" @click="handleSaveAndSubmit">提交评审</el-button>
         </div>
       </el-form>
     </el-card>

@@ -49,6 +49,12 @@ const qualityRoutes: RouteRecordRaw[] = [
     component: () => import('@/views/quality/ReportTemplateGuide.vue'),
     meta: { title: '报告模板', permission: 'testing:view' },
   },
+  {
+    path: '/quality/qualification-profiles',
+    name: 'QualificationProfiles',
+    component: () => import('@/views/quality/QualificationProfiles.vue'),
+    meta: { title: '资质管理', permission: 'quality:view' },
+  },
 ]
 
 export default qualityRoutes

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Refresh, Plus } from '@element-plus/icons-vue'
 import { getStaffList, createStaff, updateStaff } from '@/api/staff'
+import { getUserList } from '@/api/system'
 
 const router = useRouter()
 const loading = ref(false)
@@ -40,10 +41,43 @@ const educationOptions = [
 
 const dialogVisible = ref(false)
 const formData = reactive({
-  id: 0, staff_no: '', name: '', gender: '男', department: '',
+  id: 0, user_id: null as number | null, staff_no: '', name: '',
+  gender: '男', department: '',
   title: '', education: '', phone: '', email: '', entry_date: '',
 })
 const dialogTitle = computed(() => formData.id ? '编辑人员' : '新增人员')
+
+const userLoading = ref(false)
+const userOptions = ref<any[]>([])
+
+async function fetchUsers() {
+  userLoading.value = true
+  try {
+    const res: any = await getUserList({ page_size: 500, is_active: true })
+    userOptions.value = res.results ?? res.list ?? res ?? []
+    syncUserToForm()
+  } catch {
+    userOptions.value = []
+  } finally {
+    userLoading.value = false
+  }
+}
+
+function syncUserToForm() {
+  const u = userOptions.value.find((x) => x.id === formData.user_id)
+  if (!u) return
+  formData.staff_no = u.username ?? ''
+  formData.name = u.real_name ?? u.first_name ?? u.username ?? ''
+  formData.department = u.department ?? ''
+  formData.title = u.title ?? ''
+}
+
+watch(
+  () => formData.user_id,
+  () => {
+    syncUserToForm()
+  },
+)
 
 async function fetchList() {
   loading.value = true
@@ -68,14 +102,17 @@ function handleReset() {
 
 function openCreate() {
   Object.assign(formData, {
-    id: 0, staff_no: '', name: '', gender: '男', department: '',
+    id: 0, user_id: null, staff_no: '', name: '', gender: '男', department: '',
     title: '', education: '', phone: '', email: '', entry_date: '',
   })
   dialogVisible.value = true
 }
 
 function openEdit(row: any) {
-  Object.assign(formData, { ...row })
+  Object.assign(formData, {
+    ...row,
+    user_id: row.user ?? null,
+  })
   dialogVisible.value = true
 }
 
@@ -95,7 +132,10 @@ function goDetail(row: any) {
   router.push(`/staff/${row.id}`)
 }
 
-onMounted(fetchList)
+onMounted(() => {
+  fetchList()
+  fetchUsers()
+})
 </script>
 
 <template>
@@ -164,10 +204,30 @@ onMounted(fetchList)
       <el-form :model="formData" label-width="80px">
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="工号"><el-input v-model="formData.staff_no" /></el-form-item>
+            <el-form-item label="绑定系统用户">
+              <el-select
+                v-model="formData.user_id"
+                filterable
+                clearable
+                placeholder="可选：从用户管理中绑定"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="u in userOptions"
+                  :key="u.id"
+                  :label="`${u.username} - ${u.real_name || u.first_name || ''}`"
+                  :value="u.id"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="工号">
+              <el-input v-model="formData.staff_no" :disabled="formData.user_id != null" />
+            </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="姓名"><el-input v-model="formData.name" /></el-form-item>
+            <el-form-item label="姓名">
+              <el-input v-model="formData.name" :disabled="formData.user_id != null" />
+            </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="16">

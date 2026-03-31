@@ -11,6 +11,8 @@ interface LogRow {
   status_code: number
   ip_address: string
   created_at: string
+  idempotency_key?: string
+  is_idempotent_replay?: boolean
 }
 
 const loading = ref(false)
@@ -23,6 +25,9 @@ const query = reactive({
   user: '',
   method: '',
   date_range: [] as string[],
+  idempotency_key: '',
+  /** 全部 / 是 / 否 — 对应后端 is_idempotent_replay */
+  is_idempotent_replay: '' as '' | 'yes' | 'no',
 })
 
 const methodOptions = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
@@ -36,6 +41,12 @@ async function fetchList() {
       params.end_date = query.date_range[1]
     }
     delete params.date_range
+    const ik = String(params.idempotency_key ?? '').trim()
+    if (ik) params.idempotency_key = ik
+    else delete params.idempotency_key
+    if (params.is_idempotent_replay === 'yes') params.is_idempotent_replay = true
+    else if (params.is_idempotent_replay === 'no') params.is_idempotent_replay = false
+    else delete params.is_idempotent_replay
     const res: any = await getAuditLogs(params)
     tableData.value = res.results ?? res.list ?? []
     total.value = res.total ?? res.count ?? 0
@@ -50,7 +61,14 @@ function handleSearch() {
 }
 
 function handleReset() {
-  Object.assign(query, { page: 1, user: '', method: '', date_range: [] })
+  Object.assign(query, {
+    page: 1,
+    user: '',
+    method: '',
+    date_range: [],
+    idempotency_key: '',
+    is_idempotent_replay: '',
+  })
   fetchList()
 }
 
@@ -93,6 +111,21 @@ onMounted(fetchList)
             <el-option v-for="m in methodOptions" :key="m" :label="m" :value="m" />
           </el-select>
         </el-form-item>
+        <el-form-item label="幂等键">
+          <el-input
+            v-model="query.idempotency_key"
+            placeholder="支持模糊匹配"
+            clearable
+            style="width: 200px"
+          />
+        </el-form-item>
+        <el-form-item label="是否重放">
+          <el-select v-model="query.is_idempotent_replay" placeholder="全部" clearable style="width: 110px">
+            <el-option label="全部" value="" />
+            <el-option label="是" value="yes" />
+            <el-option label="否" value="no" />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
           <el-button :icon="Refresh" @click="handleReset">重置</el-button>
@@ -114,6 +147,16 @@ onMounted(fetchList)
           </template>
         </el-table-column>
         <el-table-column prop="path" label="请求路径" min-width="260" show-overflow-tooltip />
+        <el-table-column prop="idempotency_key" label="幂等键" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.idempotency_key || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="是否重放" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.is_idempotent_replay ? 'warning' : 'info'" size="small">
+              {{ row.is_idempotent_replay ? '是' : '否' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="状态码" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="statusTagType(row.status_code)" size="small">{{ row.status_code }}</el-tag>

@@ -119,6 +119,12 @@ class AuditLog(models.Model):
     body = models.TextField(blank=True, verbose_name='请求体')
     ip_address = models.GenericIPAddressField(null=True, verbose_name='IP地址')
     status_code = models.IntegerField(null=True, verbose_name='状态码')
+    idempotency_key = models.CharField(
+        max_length=128, blank=True, verbose_name='幂等键',
+    )
+    is_idempotent_replay = models.BooleanField(
+        default=False, verbose_name='是否重放返回',
+    )
     timestamp = models.DateTimeField(auto_now_add=True, verbose_name='操作时间')
 
     class Meta:
@@ -128,6 +134,7 @@ class AuditLog(models.Model):
         indexes = [
             models.Index(fields=['-timestamp'], name='idx_auditlog_timestamp'),
             models.Index(fields=['user'], name='idx_auditlog_user'),
+            models.Index(fields=['idempotency_key'], name='idx_auditlog_idemp'),
         ]
 
     def __str__(self) -> str:
@@ -157,3 +164,48 @@ class Notification(BaseModel):
     class Meta:
         ordering = ['-created_at']
         verbose_name = '通知'
+
+
+class IdempotencyRecord(models.Model):
+    STATE_CHOICES = [
+        ('processing', '处理中'),
+        ('completed', '已完成'),
+        ('failed', '失败'),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='idempotency_records',
+        verbose_name='请求用户',
+    )
+    key = models.CharField(max_length=128, verbose_name='幂等键')
+    method = models.CharField(max_length=10, verbose_name='请求方法')
+    path = models.CharField(max_length=500, verbose_name='请求路径')
+    request_hash = models.CharField(max_length=64, verbose_name='请求摘要')
+    state = models.CharField(
+        max_length=20, choices=STATE_CHOICES, default='processing', verbose_name='状态',
+    )
+    response_status = models.IntegerField(null=True, blank=True, verbose_name='响应状态码')
+    response_body = models.TextField(blank=True, verbose_name='响应体')
+    content_type = models.CharField(max_length=120, blank=True, verbose_name='响应类型')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        verbose_name = '幂等请求记录'
+        verbose_name_plural = verbose_name
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'key', 'method', 'path'],
+                name='uniq_idemp_user_key_method_path',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['key'], name='idx_idemp_key'),
+            models.Index(fields=['state'], name='idx_idemp_state'),
+            models.Index(fields=['-created_at'], name='idx_idemp_created'),
+        ]

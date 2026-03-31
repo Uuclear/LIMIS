@@ -3,8 +3,17 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Printer } from '@element-plus/icons-vue'
-import { getSample, changeSampleStatus, getSampleTimeline, getSampleLabel, disposeSample } from '@/api/samples'
+import {
+  getSample,
+  changeSampleStatus,
+  getSampleTimeline,
+  getSampleLabel,
+  disposeSample,
+  createTestingTasksForSample,
+} from '@/api/samples'
+import { getTestTaskList } from '@/api/testing'
 import type { Sample } from '@/types/sample'
+import { useActionLock } from '@/composables/useActionLock'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,6 +22,27 @@ const sampleId = computed(() => Number(route.params.id))
 const detail = ref<Sample>({} as Sample)
 const loading = ref(false)
 const timeline = ref<{ time: string; status: string; operator: string; remark: string }[]>([])
+const { isLocked, runLocked } = useActionLock()
+
+// 检测任务（用于“检测中”的下一步引导）
+const tasks = ref<any[]>([])
+const tasksLoading = ref(false)
+const tasksLoaded = ref(false)
+
+async function fetchTasks() {
+  if (detail.value.status !== 'testing') return
+  tasksLoading.value = true
+  try {
+    const res: any = await getTestTaskList({
+      sample: sampleId.value,
+      page_size: 200,
+    })
+    tasks.value = res.results ?? res.list ?? res ?? []
+  } finally {
+    tasksLoading.value = false
+    tasksLoaded.value = true
+  }
+}
 
 const statusSteps = [
   { label: '待检', value: 'pending' },
@@ -31,6 +61,12 @@ async function fetchDetail() {
   loading.value = true
   try {
     detail.value = await getSample(sampleId.value) as any
+    if (detail.value.status === 'testing') {
+      await fetchTasks()
+    } else {
+      tasks.value = []
+      tasksLoaded.value = false
+    }
   } finally {
     loading.value = false
   }
@@ -42,12 +78,14 @@ async function fetchTimeline() {
 }
 
 async function handleStatusChange(newStatus: string) {
-  const label = statusSteps.find(s => s.value === newStatus)?.label ?? newStatus
-  await ElMessageBox.confirm(`确认将状态变更为"${label}"？`, '提示', { type: 'warning' })
-  await changeSampleStatus(sampleId.value, { new_status: newStatus })
-  ElMessage.success('状态变更成功')
-  fetchDetail()
-  fetchTimeline()
+  await runLocked(`sample_status_${newStatus}`, async () => {
+    const label = statusSteps.find(s => s.value === newStatus)?.label ?? newStatus
+    await ElMessageBox.confirm(`确认将状态变更为"${label}"？`, '提示', { type: 'warning' })
+    await changeSampleStatus(sampleId.value, { new_status: newStatus })
+    ElMessage.success('状态变更成功')
+    fetchDetail()
+    fetchTimeline()
+  })
 }
 
 async function handlePrintLabel() {
@@ -66,12 +104,14 @@ function openDisposeDialog() {
 }
 
 async function handleDispose() {
-  if (!disposeForm.disposal_method) return ElMessage.warning('请选择处置方式')
-  await disposeSample(sampleId.value, disposeForm)
-  ElMessage.success('处置成功')
-  disposeDialogVisible.value = false
-  fetchDetail()
-  fetchTimeline()
+  await runLocked('sample_dispose', async () => {
+    if (!disposeForm.disposal_method) return ElMessage.warning('请选择处置方式')
+    await disposeSample(sampleId.value, disposeForm)
+    ElMessage.success('处置成功')
+    disposeDialogVisible.value = false
+    fetchDetail()
+    fetchTimeline()
+  })
 }
 
 function statusTagType(status: string) {
@@ -87,11 +127,33 @@ function statusLabel(status: string) {
 
 const nextStatus = computed(() => {
   const idx = currentStep.value
-  if (idx < statusSteps.length - 1 && detail.value.status !== 'disposed') {
-    return statusSteps[idx + 1]
+  if (idx >= statusSteps.length - 1 || detail.value.status === 'disposed') return null
+
+  const candidate = statusSteps[idx + 1]
+
+  // 样品“检测中”后：必须先生成/分配检测任务并完成，才能变更为“已检”
+  if (detail.value.status === 'testing' && candidate?.value === 'tested') {
+    if (!tasksLoaded.value) return null
+    if (!tasks.value.length) return null
+    const allCompleted = tasks.value.every((t) => t.status === 'completed')
+    return allCompleted ? candidate : null
   }
-  return null
+
+  return candidate ?? null
 })
+
+function goTasks() {
+  router.push(`/testing/tasks?sample=${sampleId.value}`)
+}
+
+async function handleCreateTasks() {
+  await runLocked('create_tasks', async () => {
+    await createTestingTasksForSample(sampleId.value)
+    ElMessage.success('检测任务已生成，请继续分配/开始检测')
+    await fetchTasks()
+    router.push(`/testing/tasks?sample=${sampleId.value}&status=unassigned`)
+  })
+}
 
 onMounted(() => { fetchDetail(); fetchTimeline() })
 </script>
@@ -108,8 +170,24 @@ onMounted(() => { fetchDetail(); fetchTimeline() })
       <template #extra>
         <el-button :icon="Printer" @click="handlePrintLabel">打印标签</el-button>
         <el-button
+          v-if="detail.status === 'testing'"
+          type="primary"
+          @click="goTasks"
+        >
+          查看检测任务
+        </el-button>
+        <el-button
+          v-if="detail.status === 'testing' && tasksLoaded && !tasks.length"
+          type="warning"
+          @click="handleCreateTasks"
+          :loading="tasksLoading || isLocked('create_tasks')"
+        >
+          生成检测任务
+        </el-button>
+        <el-button
           v-if="nextStatus && detail.status !== 'retained'"
           type="primary"
+          :loading="nextStatus ? isLocked(`sample_status_${nextStatus.value}`) : false"
           @click="handleStatusChange(nextStatus.value)"
         >
           变更为「{{ nextStatus.label }}」
@@ -182,7 +260,7 @@ onMounted(() => { fetchDetail(); fetchTimeline() })
       </el-form>
       <template #footer>
         <el-button @click="disposeDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleDispose">确定</el-button>
+        <el-button type="primary" :loading="isLocked('sample_dispose')" @click="handleDispose">确定</el-button>
       </template>
     </el-dialog>
   </div>

@@ -10,7 +10,14 @@ import {
   GridComponent, TooltipComponent, LegendComponent, TitleComponent,
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
-import { getDashboardData, getTestVolume, getQualificationRate } from '@/api/statistics'
+import {
+  getDashboardData,
+  getTestVolume,
+  getQualificationRate,
+  getCycleAnalysis,
+  getWorkload,
+  getEquipmentUsage,
+} from '@/api/statistics'
 
 use([BarChart, PieChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent, CanvasRenderer])
 
@@ -31,6 +38,12 @@ const stats = ref<StatCard[]>([
 
 const volumeData = ref<any>({})
 const qualData = ref<any[]>([])
+const kpi = ref({
+  avg_cycle_days: 0,
+  workload_top_tester: '',
+  workload_top_total: 0,
+  equipment_usage_rate: 0,
+})
 
 const recentTasks = ref<any[]>([])
 
@@ -56,6 +69,28 @@ async function fetchQualRate() {
   try {
     const res: any = await getQualificationRate()
     qualData.value = res?.items ?? res ?? []
+  } catch { /* ignore */ }
+}
+
+async function fetchKpi() {
+  try {
+    const [cycleRes, workloadRes, equipmentRes]: any[] = await Promise.all([
+      getCycleAnalysis(),
+      getWorkload(),
+      getEquipmentUsage(),
+    ])
+    const cycle = cycleRes ?? {}
+    const workload = workloadRes ?? []
+    const equipment = equipmentRes ?? {}
+    const top = workload[0] ?? {}
+    const totalEq = Number(equipment.total_equipment ?? 0)
+    const usedEq = Number(equipment.used_equipment ?? 0)
+    kpi.value = {
+      avg_cycle_days: Number(cycle.avg_days ?? 0),
+      workload_top_tester: top.tester_name ?? '-',
+      workload_top_total: Number(top.total ?? 0),
+      equipment_usage_rate: totalEq > 0 ? Math.round((usedEq / totalEq) * 1000) / 10 : 0,
+    }
   } catch { /* ignore */ }
 }
 
@@ -116,6 +151,7 @@ onMounted(() => {
   fetchDashboard()
   fetchVolume()
   fetchQualRate()
+  fetchKpi()
 })
 </script>
 
@@ -154,6 +190,30 @@ onMounted(() => {
             <div class="card-header"><span>合格率分布</span></div>
           </template>
           <v-chart :option="pieOption" style="height: 280px; width: 100%" autoresize />
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="20" class="chart-row">
+      <el-col :span="8">
+        <el-card shadow="hover">
+          <template #header><div class="card-header"><span>平均流转周期</span></div></template>
+          <div class="kpi-value">{{ kpi.avg_cycle_days }} 天</div>
+          <div class="kpi-sub">委托到批准的平均耗时</div>
+        </el-card>
+      </el-col>
+      <el-col :span="8">
+        <el-card shadow="hover">
+          <template #header><div class="card-header"><span>最高工作量人员</span></div></template>
+          <div class="kpi-value">{{ kpi.workload_top_tester || '-' }}</div>
+          <div class="kpi-sub">近30天任务数：{{ kpi.workload_top_total }}</div>
+        </el-card>
+      </el-col>
+      <el-col :span="8">
+        <el-card shadow="hover">
+          <template #header><div class="card-header"><span>设备利用率</span></div></template>
+          <div class="kpi-value">{{ kpi.equipment_usage_rate }}%</div>
+          <div class="kpi-sub">近30天有任务的在用设备占比</div>
         </el-card>
       </el-col>
     </el-row>
@@ -226,6 +286,18 @@ onMounted(() => {
 
 .chart-row {
   margin-bottom: 20px;
+}
+
+.kpi-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--el-text-color-primary);
+}
+
+.kpi-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
 }
 
 .task-card {

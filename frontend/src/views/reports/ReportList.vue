@@ -12,12 +12,14 @@ import {
   previewReport,
 } from '@/api/reports'
 import type { Report } from '@/types/report'
+import { useActionLock } from '@/composables/useActionLock'
 
 const router = useRouter()
 const loading = ref(false)
 const tableData = ref<Report[]>([])
 const total = ref(0)
 const activeTab = ref('')
+const { isLocked, runLocked } = useActionLock()
 
 const query = reactive({
   page: 1,
@@ -105,21 +107,25 @@ async function handlePreview(row: Report) {
 }
 
 async function handleSubmitAudit(row: Report) {
-  try {
-    await ElMessageBox.confirm('确认提交审核？', '提示')
-    await submitForAudit(row.id)
-    ElMessage.success('已提交审核')
-    fetchList()
-  } catch { /* cancelled */ }
+  await runLocked(`submit_audit_${row.id}`, async () => {
+    try {
+      await ElMessageBox.confirm('确认提交审核？', '提示')
+      await submitForAudit(row.id)
+      ElMessage.success('已提交审核')
+      fetchList()
+    } catch { /* cancelled */ }
+  })
 }
 
 async function handleIssue(row: Report) {
-  try {
-    await ElMessageBox.confirm('确认发放报告？', '提示')
-    await issueReport(row.id)
-    ElMessage.success('报告已发放')
-    fetchList()
-  } catch { /* cancelled */ }
+  await runLocked(`issue_${row.id}`, async () => {
+    try {
+      await ElMessageBox.confirm('确认发放报告？', '提示')
+      await issueReport(row.id)
+      ElMessage.success('报告已发放')
+      fetchList()
+    } catch { /* cancelled */ }
+  })
 }
 
 async function handleDownload(row: Report) {
@@ -149,14 +155,16 @@ function openVoidDialog(row: Report) {
 
 async function handleVoid() {
   if (!voidTarget.value) return
-  try {
-    await voidReport(voidTarget.value.id, { reason: voidReason.value })
-    ElMessage.success('报告已作废')
-    voidDialogVisible.value = false
-    fetchList()
-  } catch {
-    ElMessage.error('作废失败')
-  }
+  await runLocked(`void_${voidTarget.value.id}`, async () => {
+    try {
+      await voidReport(voidTarget.value!.id, { reason: voidReason.value })
+      ElMessage.success('报告已作废')
+      voidDialogVisible.value = false
+      fetchList()
+    } catch {
+      ElMessage.error('作废失败')
+    }
+  })
 }
 
 onMounted(fetchList)
@@ -223,6 +231,7 @@ onMounted(fetchList)
             <el-button
               v-if="row.status === 'draft'"
               link type="warning"
+              :loading="isLocked(`submit_audit_${row.id}`)"
               @click="handleSubmitAudit(row)"
             >
               提交审核
@@ -244,6 +253,7 @@ onMounted(fetchList)
             <el-button
               v-if="row.status === 'approved'"
               link type="success"
+              :loading="isLocked(`issue_${row.id}`)"
               @click="handleIssue(row)"
             >
               发放
@@ -295,7 +305,13 @@ onMounted(fetchList)
       </el-form>
       <template #footer>
         <el-button @click="voidDialogVisible = false">取消</el-button>
-        <el-button type="danger" @click="handleVoid">确认作废</el-button>
+        <el-button
+          type="danger"
+          :loading="voidTarget ? isLocked(`void_${voidTarget.id}`) : false"
+          @click="handleVoid"
+        >
+          确认作废
+        </el-button>
       </template>
     </el-dialog>
   </div>

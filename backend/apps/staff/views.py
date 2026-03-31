@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.request import Request
@@ -55,6 +56,32 @@ class StaffProfileViewSet(BaseModelViewSet):
             is_deleted=False,
         ).select_related('staff', 'staff__user')
         serializer = CertificateSerializer(certs, many=True)
+        return Response({'code': 200, 'data': serializer.data})
+
+    @action(detail=False, methods=['get'], url_path='assignable-testers')
+    def assignable_testers(self, request: Request) -> Response:
+        """
+        按检测方法过滤可分配检测员：
+        - 人员需存在有效授权（Authorization.is_active=True）
+        - 授权方式满足其一：
+          1) 直接授权了该 test_method
+          2) 授权了该方法所属 test_category
+        """
+        method_id = request.query_params.get('method_id')
+        qs = self.get_queryset()
+        if method_id:
+            try:
+                from apps.testing.models import TestMethod
+                method = TestMethod.objects.select_related('category').get(pk=int(method_id))
+                qs = qs.filter(
+                    authorizations__is_active=True,
+                ).filter(
+                    Q(authorizations__test_methods=method)
+                    | Q(authorizations__test_category=method.category),
+                )
+            except Exception:
+                qs = qs.none()
+        serializer = StaffProfileListSerializer(qs.distinct(), many=True)
         return Response({'code': 200, 'data': serializer.data})
 
 

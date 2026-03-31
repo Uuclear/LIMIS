@@ -39,3 +39,9 @@ export function createEvaluation(_staffId: number, data: any) {
 export function getExpiringCerts(params?: any) {
   return request.get('/v1/staff/expiring-certs/', { params })
 }
+
+export function getAssignableTesters(methodId?: number) {
+  return request.get('/v1/staff/profiles/assignable-testers/', {
+    params: methodId ? { method_id: methodId } : {},
+  })
+}

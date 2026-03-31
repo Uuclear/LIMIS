@@ -83,6 +83,7 @@ const menuItems: MenuItem[] = [
       { index: '/quality/parameter-library', title: '项目参数库' },
       { index: '/quality/record-templates', title: '原始记录模板' },
       { index: '/quality/report-templates', title: '报告模板' },
+      { index: '/quality/qualification-profiles', title: '资质管理' },
       { index: '/quality/audit', title: '内部审核' },
       { index: '/quality/review', title: '管理评审' },
       { index: '/quality/nonconformity', title: '不符合项' },

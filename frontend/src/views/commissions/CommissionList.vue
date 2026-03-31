@@ -5,12 +5,14 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh } from '@element-plus/icons-vue'
 import { getCommissionList, deleteCommission, submitCommission } from '@/api/commissions'
 import type { Commission } from '@/types/commission'
+import { useActionLock } from '@/composables/useActionLock'
 
 const router = useRouter()
 const loading = ref(false)
 const tableData = ref<Commission[]>([])
 const total = ref(0)
 const activeStatus = ref('')
+const { isLocked, runLocked } = useActionLock()
 
 const query = reactive({
   page: 1, page_size: 20, search: '', status: '',
@@ -64,10 +66,12 @@ function goEdit(row: Commission) {
 }
 
 async function handleSubmitReview(row: Commission) {
-  await ElMessageBox.confirm('确认提交评审？提交后不可编辑。', '提示', { type: 'warning' })
-  await submitCommission(row.id)
-  ElMessage.success('已提交评审')
-  fetchList()
+  await runLocked(`commission_submit_${row.id}`, async () => {
+    await ElMessageBox.confirm('确认提交评审？提交后不可编辑。', '提示', { type: 'warning' })
+    await submitCommission(row.id)
+    ElMessage.success('已提交评审')
+    fetchList()
+  })
 }
 
 async function handleDelete(row: Commission) {
@@ -141,7 +145,13 @@ onMounted(fetchList)
           <template #default="{ row }">
             <el-button link type="primary" @click="goDetail(row)">查看</el-button>
             <el-button v-if="row.status === 'draft'" link type="primary" @click="goEdit(row)">编辑</el-button>
-            <el-button v-if="row.status === 'draft'" link type="success" @click="handleSubmitReview(row)">
+            <el-button
+              v-if="row.status === 'draft'"
+              link
+              type="success"
+              :loading="isLocked(`commission_submit_${row.id}`)"
+              @click="handleSubmitReview(row)"
+            >
               提交评审
             </el-button>
             <el-button v-if="row.status === 'draft'" link type="danger" @click="handleDelete(row)">删除</el-button>

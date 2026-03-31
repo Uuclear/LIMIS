@@ -4,8 +4,10 @@ import { ElMessage } from 'element-plus'
 import { Search, Refresh, Plus } from '@element-plus/icons-vue'
 import { getAuditList, createAudit, getAudit } from '@/api/quality'
 import { getUserList } from '@/api/system'
+import { useActionLock } from '@/composables/useActionLock'
 
 const loading = ref(false)
+const { isLocked, runLocked } = useActionLock()
 const tableData = ref<any[]>([])
 const total = ref(0)
 
@@ -104,18 +106,20 @@ async function handleSubmit() {
     ElMessage.warning('请选择审核组长')
     return
   }
-  await createAudit({
-    audit_no: formData.audit_no || undefined,
-    title: formData.title,
-    audit_type: formData.audit_type,
-    planned_date: formData.planned_date,
-    lead_auditor: formData.lead_auditor,
-    scope: formData.scope,
-    status: formData.status,
+  await runLocked('quality_audit_create', async () => {
+    await createAudit({
+      audit_no: formData.audit_no || undefined,
+      title: formData.title,
+      audit_type: formData.audit_type,
+      planned_date: formData.planned_date,
+      lead_auditor: formData.lead_auditor,
+      scope: formData.scope,
+      status: formData.status,
+    })
+    ElMessage.success('创建成功')
+    dialogVisible.value = false
+    fetchList()
   })
-  ElMessage.success('创建成功')
-  dialogVisible.value = false
-  fetchList()
 }
 
 async function showDetail(row: any) {
@@ -249,7 +253,7 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <el-button type="primary" :loading="isLocked('quality_audit_create')" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
 

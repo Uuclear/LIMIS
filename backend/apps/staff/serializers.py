@@ -79,6 +79,10 @@ class CompetencyEvalSerializer(BaseModelSerializer):
 
 class StaffProfileListSerializer(BaseModelSerializer):
     user_name = serializers.SerializerMethodField()
+    # 为前端兼容：人员管理列表/详情页面使用 staff_no/name/title 字段命名
+    staff_no = serializers.CharField(source='employee_no', read_only=True)
+    name = serializers.SerializerMethodField()
+    title = serializers.CharField(source='user.title', read_only=True)
     department = serializers.CharField(
         source='user.department', read_only=True,
     )
@@ -90,6 +94,7 @@ class StaffProfileListSerializer(BaseModelSerializer):
         model = StaffProfile
         fields = [
             'id', 'user', 'user_name', 'employee_no',
+            'staff_no', 'name', 'title',
             'education', 'education_display', 'major',
             'department', 'hire_date', 'created_at',
         ]
@@ -98,9 +103,16 @@ class StaffProfileListSerializer(BaseModelSerializer):
     def get_user_name(self, obj: StaffProfile) -> str:
         return obj.user.get_full_name() or obj.user.username
 
+    def get_name(self, obj: StaffProfile) -> str:
+        # 与 user_name 同语义
+        return self.get_user_name(obj)
+
 
 class StaffProfileDetailSerializer(BaseModelSerializer):
     user_name = serializers.SerializerMethodField()
+    staff_no = serializers.CharField(source='employee_no', read_only=True)
+    name = serializers.SerializerMethodField()
+    title = serializers.CharField(source='user.title', read_only=True)
     department = serializers.CharField(
         source='user.department', read_only=True,
     )
@@ -116,6 +128,7 @@ class StaffProfileDetailSerializer(BaseModelSerializer):
         model = StaffProfile
         fields = [
             'id', 'user', 'user_name', 'employee_no',
+            'staff_no', 'name', 'title',
             'education', 'education_display', 'major',
             'department', 'hire_date', 'signature_image',
             'certificates', 'authorizations', 'trainings',
@@ -126,6 +139,9 @@ class StaffProfileDetailSerializer(BaseModelSerializer):
     def get_user_name(self, obj: StaffProfile) -> str:
         return obj.user.get_full_name() or obj.user.username
 
+    def get_name(self, obj: StaffProfile) -> str:
+        return self.get_user_name(obj)
+
 
 class StaffProfileCreateSerializer(serializers.Serializer):
     """
@@ -135,6 +151,13 @@ class StaffProfileCreateSerializer(serializers.Serializer):
 
     # 前端会带上 id，这里允许忽略
     id = serializers.IntegerField(required=False)
+
+    # 可选：绑定已有系统用户（user 管理模块）
+    user_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
 
     # 这些字段只用于写入/创建；响应里不需要序列化到 StaffProfile 实例上
     staff_no = serializers.CharField(required=True, write_only=True)
@@ -151,29 +174,48 @@ class StaffProfileCreateSerializer(serializers.Serializer):
         staff_no = validated_data['staff_no'].strip()
         full_name = validated_data['name'].strip()
 
-        # 默认密码：仅用于演示/可登录；生产环境建议改为可配置或让用户先设定密码
-        default_password = 'Limis@123456'
+        bound_user_id = validated_data.get('user_id')
+        if bound_user_id:
+            user = User.objects.get(pk=bound_user_id)
+            # 强约束：绑定模式下，工号应与用户 username 一致，避免后续难以对齐权限/账号。
+            if user.username != staff_no:
+                raise serializers.ValidationError({
+                    'staff_no': '该系统用户的用户名与工号不一致，请先在用户管理中调整或选择正确用户。',
+                })
+        else:
+            # 默认密码：仅用于演示/可登录；生产环境建议改为可配置或让用户先设定密码
+            default_password = 'Limis@123456'
+            user, _created = User.objects.get_or_create(
+                username=staff_no,
+                defaults={
+                    'first_name': full_name,
+                    'last_name': '',
+                    'department': validated_data.get('department', ''),
+                    'title': validated_data.get('title', ''),
+                    'phone': validated_data.get('phone', ''),
+                    'email': validated_data.get('email', ''),
+                    'is_active': True,
+                },
+            )
+            # 若已存在则也同步一份基础信息（演示用）
+            user.first_name = full_name
+            user.department = validated_data.get('department', '') or user.department
+            user.title = validated_data.get('title', '') or user.title
+            user.phone = validated_data.get('phone', '') or user.phone
+            user.email = validated_data.get('email', '') or user.email
+            user.set_password(default_password)
 
-        user, _created = User.objects.get_or_create(
-            username=staff_no,
-            defaults={
-                'first_name': full_name,
-                'last_name': '',
-                'department': validated_data.get('department', ''),
-                'title': validated_data.get('title', ''),
-                'phone': validated_data.get('phone', ''),
-                'email': validated_data.get('email', ''),
-                'is_active': True,
-            },
-        )
-        # 若已存在则也同步一份基础信息（演示用）
-        user.first_name = full_name
-        user.department = validated_data.get('department', '') or user.department
-        user.title = validated_data.get('title', '') or user.title
-        user.phone = validated_data.get('phone', '') or user.phone
-        user.email = validated_data.get('email', '') or user.email
-        user.set_password(default_password)
-        user.save()
+        # 绑定/非绑定：都同步更新展示字段
+        if not bound_user_id:
+            # 非绑定模式：上面已 set_password 并 save
+            user.save()
+        else:
+            user.first_name = full_name
+            user.department = validated_data.get('department', '') or user.department
+            user.title = validated_data.get('title', '') or user.title
+            user.phone = validated_data.get('phone', '') or user.phone
+            user.email = validated_data.get('email', '') or user.email
+            user.save()
 
         profile, _ = StaffProfile.objects.get_or_create(
             user=user,
@@ -197,15 +239,33 @@ class StaffProfileCreateSerializer(serializers.Serializer):
         staff_no = validated_data['staff_no'].strip()
         full_name = validated_data['name'].strip()
 
+        bound_user_id = validated_data.get('user_id')
         user = instance.user
-        # staff_no -> user.username / profile.employee_no
-        user.username = staff_no
-        user.first_name = full_name
-        user.department = validated_data.get('department', '') or user.department
-        user.title = validated_data.get('title', '') or user.title
-        user.phone = validated_data.get('phone', '') or user.phone
-        user.email = validated_data.get('email', '') or user.email
-        user.save()
+
+        if bound_user_id:
+            if bound_user_id != instance.user_id:
+                user = User.objects.get(pk=bound_user_id)
+                if user.username != staff_no:
+                    raise serializers.ValidationError({
+                        'staff_no': '该系统用户的用户名与工号不一致，请选择正确用户。',
+                    })
+                instance.user = user
+            # 绑定模式下：不改 username，只同步 first_name/部门/电话等字段
+            user.first_name = full_name
+            user.department = validated_data.get('department', '') or user.department
+            user.title = validated_data.get('title', '') or user.title
+            user.phone = validated_data.get('phone', '') or user.phone
+            user.email = validated_data.get('email', '') or user.email
+            user.save()
+        else:
+            # 非绑定模式：兼容旧逻辑：staff_no 变更会同步到 user.username
+            user.username = staff_no
+            user.first_name = full_name
+            user.department = validated_data.get('department', '') or user.department
+            user.title = validated_data.get('title', '') or user.title
+            user.phone = validated_data.get('phone', '') or user.phone
+            user.email = validated_data.get('email', '') or user.email
+            user.save()
 
         instance.employee_no = staff_no
         instance.education = validated_data.get('education', '') or instance.education

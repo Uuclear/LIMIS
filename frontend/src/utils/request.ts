@@ -9,11 +9,32 @@ const service = axios.create({
   timeout: 30000,
 })
 
+const IDEMPOTENT_METHODS = new Set(['post', 'put', 'patch', 'delete'])
+const IDEMPOTENT_SKIP_PATHS = ['/system/login/', '/system/token/refresh/']
+
+function shouldAttachIdempotencyKey(config: InternalAxiosRequestConfig): boolean {
+  const method = String(config.method || '').toLowerCase()
+  if (!IDEMPOTENT_METHODS.has(method)) return false
+  const url = config.url || ''
+  if (IDEMPOTENT_SKIP_PATHS.some((p) => url.includes(p))) return false
+  return true
+}
+
+function generateIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
 service.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = getToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+    if (shouldAttachIdempotencyKey(config) && !config.headers['Idempotency-Key']) {
+      config.headers['Idempotency-Key'] = generateIdempotencyKey()
     }
     return config
   },

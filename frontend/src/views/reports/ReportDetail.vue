@@ -14,11 +14,13 @@ import {
   previewReport,
 } from '@/api/reports'
 import type { Report } from '@/types/report'
+import { useActionLock } from '@/composables/useActionLock'
 
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
 const report = ref<Report | null>(null)
+const { isLocked, runLocked } = useActionLock()
 
 const reportId = computed(() => Number(route.params.id))
 
@@ -62,21 +64,25 @@ async function fetchReport() {
 }
 
 async function handleGenerate() {
-  try {
-    await ElMessageBox.confirm('确认生成报告PDF？', '提示')
-    await generateReport(reportId.value)
-    ElMessage.success('报告生成成功')
-    fetchReport()
-  } catch { /* cancelled */ }
+  await runLocked('generate', async () => {
+    try {
+      await ElMessageBox.confirm('确认生成报告PDF？', '提示')
+      await generateReport(reportId.value)
+      ElMessage.success('报告生成成功')
+      fetchReport()
+    } catch { /* cancelled */ }
+  })
 }
 
 async function handleSubmitAudit() {
-  try {
-    await ElMessageBox.confirm('确认提交审核？', '提示')
-    await submitForAudit(reportId.value)
-    ElMessage.success('已提交审核')
-    fetchReport()
-  } catch { /* cancelled */ }
+  await runLocked('submit_audit', async () => {
+    try {
+      await ElMessageBox.confirm('确认提交审核？', '提示')
+      await submitForAudit(reportId.value)
+      ElMessage.success('已提交审核')
+      fetchReport()
+    } catch { /* cancelled */ }
+  })
 }
 
 const auditDialogVisible = ref(false)
@@ -96,27 +102,31 @@ async function handleAuditSubmit() {
     action: auditAction.value,
     comment: auditComment.value,
   }
-  try {
-    if (auditType.value === 'audit') {
-      await auditReport(reportId.value, payload)
-    } else {
-      await approveReport(reportId.value, payload)
+  await runLocked('audit_submit', async () => {
+    try {
+      if (auditType.value === 'audit') {
+        await auditReport(reportId.value, payload)
+      } else {
+        await approveReport(reportId.value, payload)
+      }
+      ElMessage.success('操作成功')
+      auditDialogVisible.value = false
+      fetchReport()
+    } catch {
+      ElMessage.error('操作失败')
     }
-    ElMessage.success('操作成功')
-    auditDialogVisible.value = false
-    fetchReport()
-  } catch {
-    ElMessage.error('操作失败')
-  }
+  })
 }
 
 async function handleIssue() {
-  try {
-    await ElMessageBox.confirm('确认发放报告？', '提示')
-    await issueReport(reportId.value)
-    ElMessage.success('报告已发放')
-    fetchReport()
-  } catch { /* cancelled */ }
+  await runLocked('issue', async () => {
+    try {
+      await ElMessageBox.confirm('确认发放报告？', '提示')
+      await issueReport(reportId.value)
+      ElMessage.success('报告已发放')
+      fetchReport()
+    } catch { /* cancelled */ }
+  })
 }
 
 async function handleDownload() {
@@ -287,8 +297,8 @@ onMounted(fetchReport)
         <el-button @click="handlePreview">预览</el-button>
 
         <template v-if="report.status === 'draft'">
-          <el-button type="primary" @click="handleGenerate">生成PDF</el-button>
-          <el-button type="warning" @click="handleSubmitAudit">提交审核</el-button>
+          <el-button type="primary" :loading="isLocked('generate')" @click="handleGenerate">生成PDF</el-button>
+          <el-button type="warning" :loading="isLocked('submit_audit')" @click="handleSubmitAudit">提交审核</el-button>
         </template>
 
         <template v-if="report.status === 'pending_audit'">
@@ -300,7 +310,7 @@ onMounted(fetchReport)
         </template>
 
         <template v-if="report.status === 'approved'">
-          <el-button type="success" @click="handleIssue">发放</el-button>
+          <el-button type="success" :loading="isLocked('issue')" @click="handleIssue">发放</el-button>
         </template>
 
         <template v-if="report.status === 'issued'">
@@ -334,7 +344,7 @@ onMounted(fetchReport)
       </el-form>
       <template #footer>
         <el-button @click="auditDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleAuditSubmit">确定</el-button>
+        <el-button type="primary" :loading="isLocked('audit_submit')" @click="handleAuditSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>

@@ -13,6 +13,7 @@ from rest_framework.exceptions import ValidationError
 
 from core.utils.barcode import generate_qrcode
 from core.utils.numbering import NumberGenerator
+from core.audit import log_business_event
 
 from .models import Sample, SampleDisposal
 
@@ -80,12 +81,15 @@ def create_samples_from_commission(commission_id: int) -> list[Sample]:
     return samples
 
 
+@transaction.atomic
 def change_sample_status(
     sample_id: int,
     new_status: str,
     user,
 ) -> Sample:
-    sample = Sample.objects.get(pk=sample_id)
+    sample = Sample.objects.select_for_update().get(pk=sample_id)
+    if new_status == sample.status:
+        return sample
     allowed = VALID_TRANSITIONS.get(sample.status, set())
 
     if new_status not in allowed:
@@ -99,6 +103,18 @@ def change_sample_status(
     sample.save(update_fields=['status', 'updated_at'])
 
     _log_status_change(sample, new_status, user)
+    log_business_event(
+        user=user,
+        module='sample',
+        action='status_change',
+        entity='sample',
+        entity_id=sample.pk,
+        path=f'/api/v1/samples/samples/{sample.pk}/change-status/',
+        payload={
+            'sample_no': sample.sample_no,
+            'new_status': new_status,
+        },
+    )
     return sample
 
 
@@ -188,8 +204,22 @@ def dispose_sample(
     handler,
     remark: str = '',
 ) -> SampleDisposal:
-    sample = Sample.objects.get(pk=sample_id)
+    sample = Sample.objects.select_for_update().get(pk=sample_id)
     target = 'returned' if disposal_type == 'return' else 'disposed'
+
+    if sample.status == target:
+        existing = (
+            SampleDisposal.objects.filter(
+                sample=sample,
+                disposal_type=disposal_type,
+                disposal_date=disposal_date,
+            )
+            .order_by('-id')
+            .first()
+        )
+        if existing:
+            return existing
+
     allowed = VALID_TRANSITIONS.get(sample.status, set())
 
     if target not in allowed:
@@ -215,4 +245,17 @@ def dispose_sample(
     ])
 
     _log_status_change(sample, target, handler)
+    log_business_event(
+        user=handler,
+        module='sample',
+        action='dispose',
+        entity='sample',
+        entity_id=sample.pk,
+        path=f'/api/v1/samples/samples/{sample.pk}/dispose/',
+        payload={
+            'sample_no': sample.sample_no,
+            'disposal_type': disposal_type,
+            'target_status': target,
+        },
+    )
     return disposal

@@ -6,11 +6,13 @@ import {
   getConsumableList, createConsumable, consumableIn, consumableOut,
   getLowStock,
 } from '@/api/consumables'
+import { useActionLock } from '@/composables/useActionLock'
 
 const loading = ref(false)
 const tableData = ref<any[]>([])
 const total = ref(0)
 const lowStockList = ref<any[]>([])
+const { isLocked, runLocked } = useActionLock()
 // 后端目前仅实现了 low-stock，无 expiring 接口
 
 const query = reactive({ page: 1, page_size: 20, keyword: '' })
@@ -78,10 +80,12 @@ async function handleCreateSubmit() {
     expiry_date: createForm.expiry_date || null,
     storage_location: '',
   }
-  await createConsumable(payload)
-  ElMessage.success('创建成功')
-  createVisible.value = false
-  fetchList()
+  await runLocked('consumable_create', async () => {
+    await createConsumable(payload)
+    ElMessage.success('创建成功')
+    createVisible.value = false
+    fetchList()
+  })
 }
 
 function openInOut(row: any, type: 'in' | 'out') {
@@ -92,12 +96,14 @@ function openInOut(row: any, type: 'in' | 'out') {
 }
 
 async function handleIoSubmit() {
-  const fn = ioType.value === 'in' ? consumableIn : consumableOut
-  await fn(ioTarget.value.id, ioForm)
-  ElMessage.success(ioType.value === 'in' ? '入库成功' : '出库成功')
-  ioVisible.value = false
-  fetchList()
-  fetchAlerts()
+  await runLocked(`consumable_io_${ioType.value}_${ioTarget.value?.id ?? 0}`, async () => {
+    const fn = ioType.value === 'in' ? consumableIn : consumableOut
+    await fn(ioTarget.value.id, ioForm)
+    ElMessage.success(ioType.value === 'in' ? '入库成功' : '出库成功')
+    ioVisible.value = false
+    fetchList()
+    fetchAlerts()
+  })
 }
 
 function stockColor(row: any) {
@@ -226,7 +232,7 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="createVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleCreateSubmit">确定</el-button>
+        <el-button type="primary" :loading="isLocked('consumable_create')" @click="handleCreateSubmit">确定</el-button>
       </template>
     </el-dialog>
 
@@ -250,7 +256,13 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="ioVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleIoSubmit">确定</el-button>
+        <el-button
+          type="primary"
+          :loading="isLocked(`consumable_io_${ioType}_${ioTarget?.id ?? 0}`)"
+          @click="handleIoSubmit"
+        >
+          确定
+        </el-button>
       </template>
     </el-dialog>
   </div>

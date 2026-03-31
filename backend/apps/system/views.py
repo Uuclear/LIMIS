@@ -46,10 +46,27 @@ class AuditLogFilter(django_filters.FilterSet):
     )
     user = django_filters.NumberFilter(field_name='user_id')
     method = django_filters.CharFilter(lookup_expr='iexact')
+    path = django_filters.CharFilter(field_name='path', lookup_expr='icontains')
+    username = django_filters.CharFilter(field_name='username', lookup_expr='icontains')
+    status_code = django_filters.NumberFilter(field_name='status_code')
+    idempotency_key = django_filters.CharFilter(
+        field_name='idempotency_key', lookup_expr='icontains',
+    )
+    is_idempotent_replay = django_filters.BooleanFilter(
+        field_name='is_idempotent_replay',
+    )
+    keyword = django_filters.CharFilter(method='filter_keyword')
 
     class Meta:
         model = AuditLog
-        fields = ['user', 'method', 'start_date', 'end_date']
+        fields = [
+            'user', 'method', 'path', 'username', 'status_code',
+            'idempotency_key', 'is_idempotent_replay',
+            'start_date', 'end_date', 'keyword',
+        ]
+
+    def filter_keyword(self, queryset, name, value):
+        return queryset.filter(body__icontains=value)
 
 
 # ───────────────────── ViewSets ─────────────────────

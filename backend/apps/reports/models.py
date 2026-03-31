@@ -4,6 +4,43 @@ from django.db import models
 from core.models import BaseModel
 
 
+class ReportTemplate(BaseModel):
+    name = models.CharField(max_length=200, verbose_name='模板名称')
+    code = models.CharField(max_length=50, unique=True, verbose_name='模板编号')
+    report_type = models.CharField(max_length=50, blank=True, verbose_name='报告类型')
+    test_method = models.ForeignKey(
+        'testing.TestMethod',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='report_templates',
+        verbose_name='关联检测方法',
+    )
+    test_parameter = models.ForeignKey(
+        'testing.TestParameter',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='report_templates',
+        verbose_name='关联检测参数',
+    )
+    version = models.CharField(max_length=20, default='1.0', verbose_name='版本号')
+    schema = models.JSONField(default=dict, verbose_name='模板定义')
+    is_active = models.BooleanField(default=True, verbose_name='是否启用')
+
+    class Meta:
+        verbose_name = '报告模板'
+        verbose_name_plural = verbose_name
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['report_type'], name='idx_rpt_tpl_type'),
+            models.Index(fields=['is_active'], name='idx_rpt_tpl_active'),
+        ]
+
+    def __str__(self) -> str:
+        return f'{self.code} - {self.name} v{self.version}'
+
+
 class Report(BaseModel):
     STATUS_CHOICES = [
         ('draft', '草稿'),
@@ -129,6 +166,16 @@ class ReportApproval(BaseModel):
         verbose_name = '报告审批记录'
         verbose_name_plural = verbose_name
         ordering = ['-created_at']
+        indexes = [
+            models.Index(
+                fields=['report', 'role'],
+                name='idx_rpt_appr_report_role',
+            ),
+            models.Index(
+                fields=['report', 'created_at'],
+                name='idx_rpt_appr_report_created',
+            ),
+        ]
 
     def __str__(self) -> str:
         return f'{self.report.report_no} - {self.get_role_display()}'

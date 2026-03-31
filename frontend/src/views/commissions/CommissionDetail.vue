@@ -5,11 +5,13 @@ import { ElMessage } from 'element-plus'
 import { getCommission, reviewCommission } from '@/api/commissions'
 import type { Commission } from '@/types/commission'
 import { useUserStore } from '@/stores/user'
+import { useActionLock } from '@/composables/useActionLock'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const commissionId = computed(() => Number(route.params.id))
+const { isLocked, runLocked } = useActionLock()
 
 const detail = ref<Commission>({} as Commission)
 const loading = ref(false)
@@ -41,13 +43,15 @@ function openReviewDialog() {
 }
 
 async function handleReview() {
-  await reviewCommission(commissionId.value, {
-    approved: reviewForm.approved,
-    comment: reviewForm.comment,
+  await runLocked('commission_review', async () => {
+    await reviewCommission(commissionId.value, {
+      approved: reviewForm.approved,
+      comment: reviewForm.comment,
+    })
+    ElMessage.success('评审完成')
+    reviewDialogVisible.value = false
+    fetchDetail()
   })
-  ElMessage.success('评审完成')
-  reviewDialogVisible.value = false
-  fetchDetail()
 }
 
 function statusLabel(status: string) {
@@ -148,7 +152,7 @@ onMounted(fetchDetail)
       </el-form>
       <template #footer>
         <el-button @click="reviewDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleReview">确定</el-button>
+        <el-button type="primary" :loading="isLocked('commission_review')" @click="handleReview">确定</el-button>
       </template>
     </el-dialog>
   </div>

@@ -26,3 +26,14 @@ export function createPt(data: any) { return request.post('/v1/quality/proficien
 // Supervision
 export function getSupervisionList(params?: any) { return request.get('/v1/quality/supervisions/', { params }) }
 export function createSupervision(data: any) { return request.post('/v1/quality/supervisions/', data) }
+
+// Qualification profiles（资质能力范围）
+export function getQualificationProfiles(params?: any) {
+  return request.get('/v1/quality/qualification-profiles/', { params })
+}
+export function createQualificationProfile(data: any) {
+  return request.post('/v1/quality/qualification-profiles/', data)
+}
+export function updateQualificationProfile(id: number, data: any) {
+  return request.put(`/v1/quality/qualification-profiles/${id}/`, data)
+}

@@ -6,12 +6,14 @@ import { Search, Refresh, Plus, WarningFilled } from '@element-plus/icons-vue'
 import {
   getEquipmentList, createEquipment, updateEquipment, deleteEquipment, getExpiringEquipment,
 } from '@/api/equipment'
+import { useActionLock } from '@/composables/useActionLock'
 
 const router = useRouter()
 const loading = ref(false)
 const tableData = ref<any[]>([])
 const total = ref(0)
 const expiringList = ref<any[]>([])
+const { isLocked, runLocked } = useActionLock()
 
 const query = reactive({
   page: 1, page_size: 20, keyword: '', category: '', status: '',
@@ -130,54 +132,58 @@ function openEdit(row: any) {
 }
 
 async function handleSubmit() {
-  const statusMap: Record<string, string> = {
-    in_use: 'in_use',
-    disabled: 'stopped',
-    calibrating: 'calibrating',
-    repairing: 'in_use',
-    scrapped: 'scrapped',
-  }
+  await runLocked('equipment_submit', async () => {
+    const statusMap: Record<string, string> = {
+      in_use: 'in_use',
+      disabled: 'stopped',
+      calibrating: 'calibrating',
+      repairing: 'in_use',
+      scrapped: 'scrapped',
+    }
 
-  const manageNo = (formData.equipment_no || '').trim()
-  if (!manageNo) {
-    ElMessage.warning('请填写管理编号')
-    return
-  }
+    const manageNo = (formData.equipment_no || '').trim()
+    if (!manageNo) {
+      ElMessage.warning('请填写管理编号')
+      return
+    }
 
-  const payload: Record<string, unknown> = {
-    manage_no: manageNo,
-    name: formData.name,
-    model_no: formData.model,
-    serial_no: formData.serial_no,
-    manufacturer: formData.manufacturer,
-    category: formData.category,
-    status: statusMap[formData.status] ?? 'in_use',
-    purchase_date: formData.purchase_date || null,
-    next_calibration_date: formData.calibration_due || null,
-    location: formData.location,
-    remark: formData.remark || '',
-  }
+    const payload: Record<string, unknown> = {
+      manage_no: manageNo,
+      name: formData.name,
+      model_no: formData.model,
+      serial_no: formData.serial_no,
+      manufacturer: formData.manufacturer,
+      category: formData.category,
+      status: statusMap[formData.status] ?? 'in_use',
+      purchase_date: formData.purchase_date || null,
+      next_calibration_date: formData.calibration_due || null,
+      location: formData.location,
+      remark: formData.remark || '',
+    }
 
-  if (formData.id) {
-    await updateEquipment(formData.id, payload)
-    ElMessage.success('更新成功')
-  } else {
-    await createEquipment(payload)
-    ElMessage.success('创建成功')
-  }
-  dialogVisible.value = false
-  fetchList()
+    if (formData.id) {
+      await updateEquipment(formData.id, payload)
+      ElMessage.success('更新成功')
+    } else {
+      await createEquipment(payload)
+      ElMessage.success('创建成功')
+    }
+    dialogVisible.value = false
+    fetchList()
+  })
 }
 
 async function handleDelete(row: any) {
-  await ElMessageBox.confirm(
-    `确定删除设备「${row.name || row.manage_no}」?`,
-    '删除确认',
-    { type: 'warning' },
-  )
-  await deleteEquipment(row.id)
-  ElMessage.success('已删除')
-  fetchList()
+  await runLocked(`equipment_delete_${row.id}`, async () => {
+    await ElMessageBox.confirm(
+      `确定删除设备「${row.name || row.manage_no}」?`,
+      '删除确认',
+      { type: 'warning' },
+    )
+    await deleteEquipment(row.id)
+    ElMessage.success('已删除')
+    fetchList()
+  })
 }
 
 function goDetail(row: any) {
@@ -273,7 +279,14 @@ onMounted(() => {
           <template #default="{ row }">
             <el-button link type="primary" @click="goDetail(row)">查看</el-button>
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button
+              link
+              type="danger"
+              :loading="isLocked(`equipment_delete_${row.id}`)"
+              @click="handleDelete(row)"
+            >
+              删除
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -367,7 +380,7 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <el-button type="primary" :loading="isLocked('equipment_submit')" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>

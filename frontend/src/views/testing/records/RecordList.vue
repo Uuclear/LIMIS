@@ -5,11 +5,13 @@ import { Search, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getOriginalRecordList, submitRecord } from '@/api/testing'
 import type { OriginalRecord } from '@/types/testing'
+import { useActionLock } from '@/composables/useActionLock'
 
 const router = useRouter()
 const loading = ref(false)
 const tableData = ref<OriginalRecord[]>([])
 const total = ref(0)
+const { isLocked, runLocked } = useActionLock()
 
 const query = reactive({
   page: 1,
@@ -69,12 +71,14 @@ function goView(record: OriginalRecord) {
 }
 
 async function handleSubmit(record: OriginalRecord) {
-  try {
-    await ElMessageBox.confirm('确认提交该原始记录？提交后不可修改。', '提示')
-    await submitRecord(record.id)
-    ElMessage.success('提交成功')
-    fetchList()
-  } catch { /* cancelled */ }
+  await runLocked(`submit_record_${record.id}`, async () => {
+    try {
+      await ElMessageBox.confirm('确认提交该原始记录？提交后不可修改。', '提示')
+      await submitRecord(record.id)
+      ElMessage.success('提交成功')
+      fetchList()
+    } catch { /* cancelled */ }
+  })
 }
 
 onMounted(fetchList)
@@ -149,6 +153,7 @@ onMounted(fetchList)
               v-if="row.status === 'draft'"
               link
               type="success"
+              :loading="isLocked(`submit_record_${row.id}`)"
               @click="handleSubmit(row)"
             >
               提交审核

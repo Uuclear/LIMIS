@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { Search, Refresh, Plus } from '@element-plus/icons-vue'
 import { getReviewList, createReview } from '@/api/quality'
 import { getUserList } from '@/api/system'
+import { useActionLock } from '@/composables/useActionLock'
 
 const loading = ref(false)
 const tableData = ref<any[]>([])
@@ -20,6 +21,7 @@ const statusOptions = [
 const userOptions = ref<{ id: number; username: string }[]>([])
 
 const dialogVisible = ref(false)
+const { isLocked, runLocked } = useActionLock()
 const formData = reactive({
   review_no: '',
   title: '',
@@ -74,31 +76,33 @@ function openCreate() {
 }
 
 async function handleSubmit() {
-  if (!formData.title?.trim()) {
-    ElMessage.warning('请填写评审主题')
-    return
-  }
-  if (!formData.review_date) {
-    ElMessage.warning('请选择评审日期')
-    return
-  }
-  if (!formData.chairperson) {
-    ElMessage.warning('请选择主持人')
-    return
-  }
-  await createReview({
-    review_no: formData.review_no || undefined,
-    title: formData.title,
-    review_date: formData.review_date,
-    chairperson: formData.chairperson,
-    participants: formData.participants || '',
-    input_materials: '',
-    minutes: formData.minutes || '',
-    status: formData.status,
+  await runLocked('review_create', async () => {
+    if (!formData.title?.trim()) {
+      ElMessage.warning('请填写评审主题')
+      return
+    }
+    if (!formData.review_date) {
+      ElMessage.warning('请选择评审日期')
+      return
+    }
+    if (!formData.chairperson) {
+      ElMessage.warning('请选择主持人')
+      return
+    }
+    await createReview({
+      review_no: formData.review_no || undefined,
+      title: formData.title,
+      review_date: formData.review_date,
+      chairperson: formData.chairperson,
+      participants: formData.participants || '',
+      input_materials: '',
+      minutes: formData.minutes || '',
+      status: formData.status,
+    })
+    ElMessage.success('创建成功')
+    dialogVisible.value = false
+    fetchList()
   })
-  ElMessage.success('创建成功')
-  dialogVisible.value = false
-  fetchList()
 }
 
 function statusTagType(status: string) {
@@ -197,7 +201,7 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <el-button type="primary" :loading="isLocked('review_create')" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>
