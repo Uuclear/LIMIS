@@ -1,33 +1,70 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ArrowDown, Bell, User, Lock, SwitchButton } from '@element-plus/icons-vue'
+import { getUnreadCount, getNotifications, markAllRead, markRead } from '@/api/notifications'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
-/** 站内提醒（示例数据，后续可对接通知接口） */
-const notifications = ref([
-  { id: 1, title: '待办：委托评审', desc: '有委托单待您评审', path: '/entrustment' },
-  { id: 2, title: '设备校准提醒', desc: '部分设备即将到检', path: '/equipment' },
-  { id: 3, title: '质量体系', desc: '内部审核计划请关注', path: '/quality/audit' },
-])
+interface NotificationItem {
+  id: number
+  notificationType: string
+  title: string
+  content: string
+  linkPath: string
+  isRead: boolean
+  createdAt: string
+}
+const notifications = ref<NotificationItem[]>([])
+const unreadCount = ref(0)
 
-const unreadCount = computed(() => notifications.value.length)
+async function fetchUnreadCount() {
+  try {
+    const res = await getUnreadCount() as any
+    unreadCount.value = res?.count ?? 0
+  } catch {}
+}
+
+async function fetchNotifications() {
+  try {
+    const res = await getNotifications({ page_size: 10 }) as any
+    notifications.value = Array.isArray(res) ? res : (res?.results ?? [])
+  } catch {}
+}
+
+async function handleMarkAllRead() {
+  await markAllRead()
+  notifications.value.forEach(n => { n.isRead = true })
+  unreadCount.value = 0
+}
+
+async function handleMarkRead(notif: NotificationItem) {
+  if (!notif.isRead) {
+    await markRead(notif.id)
+    notif.isRead = true
+    unreadCount.value = Math.max(0, unreadCount.value - 1)
+  }
+  if (notif.linkPath) {
+    router.push(notif.linkPath)
+  }
+}
+
+onMounted(() => {
+  fetchUnreadCount()
+  fetchNotifications()
+})
+
+const pollTimer = setInterval(fetchUnreadCount, 60000)
+onUnmounted(() => clearInterval(pollTimer))
 
 const breadcrumbs = computed(() => {
   return route.matched
     .filter((item) => item.meta?.title)
     .map((item) => ({ title: item.meta.title as string, path: item.path }))
 })
-
-function openNotification(n: { path?: string }) {
-  if (n.path) {
-    router.push(n.path)
-  }
-}
 
 async function handleCommand(command: string) {
   if (command === 'logout') {
@@ -65,16 +102,20 @@ async function handleCommand(command: string) {
           </span>
         </template>
         <div class="notif-panel">
-          <div class="notif-panel-title">消息提醒</div>
+          <div class="notif-panel-header">
+            <span class="notif-panel-title">消息提醒</span>
+            <el-button link type="primary" size="small" @click="handleMarkAllRead">全部已读</el-button>
+          </div>
           <el-scrollbar max-height="280px">
             <div
-              v-for="n in notifications"
-              :key="n.id"
+              v-for="notif in notifications"
+              :key="notif.id"
               class="notif-item"
-              @click="openNotification(n)"
+              :class="{ 'notif-item-unread': !notif.isRead }"
+              @click="handleMarkRead(notif)"
             >
-              <div class="notif-item-title">{{ n.title }}</div>
-              <div class="notif-item-desc">{{ n.desc }}</div>
+              <div class="notif-item-title">{{ notif.title }}</div>
+              <div class="notif-item-desc">{{ notif.content }}</div>
             </div>
             <el-empty v-if="!notifications.length" description="暂无消息" :image-size="64" />
           </el-scrollbar>
@@ -150,12 +191,23 @@ async function handleCommand(command: string) {
   align-items: center;
 }
 
-.notif-panel-title {
-  font-weight: 600;
-  font-size: 14px;
+.notif-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 8px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.notif-panel-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.notif-item-unread .notif-item-title {
+  font-weight: 600;
+  color: var(--lims-primary);
 }
 
 .notif-item {

@@ -9,6 +9,7 @@ router.register('users', views.UserViewSet, basename='user')
 router.register('roles', views.RoleViewSet, basename='role')
 router.register('permissions', views.PermissionViewSet, basename='permission')
 router.register('audit-logs', views.AuditLogViewSet, basename='auditlog')
+router.register('notifications', views.NotificationViewSet, basename='notification')
 
 urlpatterns = [
     path('', include(router.urls)),

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
@@ -131,3 +132,28 @@ class AuditLog(models.Model):
 
     def __str__(self) -> str:
         return f'{self.username} {self.method} {self.path}'
+
+
+class Notification(BaseModel):
+    TYPES = [
+        ('commission_review', '委托待评审'),
+        ('equipment_expiring', '设备即将到检'),
+        ('sample_overdue', '样品超期'),
+        ('task_assigned', '任务已分配'),
+        ('record_review', '记录待复核'),
+        ('report_audit', '报告待审核'),
+        ('report_approve', '报告待批准'),
+        ('quality_audit', '质量审核'),
+        ('system', '系统通知'),
+    ]
+    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications', verbose_name='接收人')
+    notification_type = models.CharField(max_length=50, choices=TYPES, verbose_name='类型')
+    title = models.CharField(max_length=200, verbose_name='标题')
+    content = models.TextField(blank=True, verbose_name='内容')
+    link_path = models.CharField(max_length=200, blank=True, verbose_name='跳转路径')
+    is_read = models.BooleanField(default=False, verbose_name='已读')
+    read_at = models.DateTimeField(null=True, blank=True, verbose_name='阅读时间')
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = '通知'

@@ -58,9 +58,13 @@ export const useUserStore = defineStore('user', () => {
       resetState()
       return
     }
-    const res = await authApi.refreshToken(refreshTk)
-    token.value = (res as any).access
-    setToken((res as any).access, refreshTk)
+    try {
+      const res = await authApi.refreshToken(refreshTk)
+      token.value = (res as any).access
+      setToken((res as any).access, refreshTk)
+    } catch {
+      resetState()
+    }
   }
 
   function resetState() {

@@ -105,7 +105,7 @@ class TestTaskViewSet(BaseModelViewSet):
         ser = TestTaskAssignSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         task = services.assign_task(
-            task_id=pk,
+            task_id=int(pk),
             tester_id=ser.validated_data['tester'],
             equipment_id=ser.validated_data.get('equipment'),
             planned_date=ser.validated_data.get('planned_date'),
@@ -118,7 +118,7 @@ class TestTaskViewSet(BaseModelViewSet):
 
     @action(detail=True, methods=['post'])
     def start(self, request: Request, pk: str = None) -> Response:
-        task = services.start_task(pk)
+        task = services.start_task(int(pk))
         return Response({
             'code': 200,
             'message': '已开始检测',
@@ -127,7 +127,7 @@ class TestTaskViewSet(BaseModelViewSet):
 
     @action(detail=True, methods=['post'])
     def complete(self, request: Request, pk: str = None) -> Response:
-        task = services.complete_task(pk)
+        task = services.complete_task(int(pk))
         return Response({
             'code': 200,
             'message': '检测完成',
@@ -202,7 +202,7 @@ class OriginalRecordViewSet(BaseModelViewSet):
 
     @action(detail=True, methods=['post'])
     def submit(self, request: Request, pk: str = None) -> Response:
-        record = services.submit_record(pk)
+        record = services.submit_record(int(pk))
         return Response({
             'code': 200,
             'message': '提交成功',
@@ -214,7 +214,7 @@ class OriginalRecordViewSet(BaseModelViewSet):
         approved = request.data.get('approved', True)
         comment = request.data.get('comment', '')
         record = services.review_record(
-            pk, request.user, approved, comment,
+            int(pk), request.user, approved, comment,
         )
         return Response({
             'code': 200,

@@ -11,4 +11,4 @@ export const issueReport = (id: number) => request.post(`/v1/reports/${id}/issue
 export const voidReport = (id: number, data: any) => request.post(`/v1/reports/${id}/void/`, data)
 export const previewReport = (id: number) => request.get(`/v1/reports/${id}/preview/`, { responseType: 'blob' } as any)
 export const downloadReport = (id: number) => request.get(`/v1/reports/${id}/download/`, { responseType: 'blob' } as any)
-export const verifyReport = (code: string) => request.get(`/v1/reports/verify/${code}/`)
+export const verifyReport = (id: number) => request.get(`/v1/reports/${id}/verify/`)
