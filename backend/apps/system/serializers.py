@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import AuditLog, Permission, Role, User
+from .models import AuditLog, Notification, Permission, Role, User
 
 
 class PermissionSerializer(serializers.ModelSerializer):
@@ -172,3 +172,10 @@ class LoginSerializer(serializers.Serializer):
 class TokenSerializer(serializers.Serializer):
     access = serializers.CharField(label='访问令牌')
     refresh = serializers.CharField(label='刷新令牌')
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'notification_type', 'title', 'content', 'link_path', 'is_read', 'read_at', 'created_at']
+        read_only_fields = ['id', 'created_at', 'read_at']

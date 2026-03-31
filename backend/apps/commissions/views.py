@@ -56,7 +56,7 @@ class CommissionViewSet(BaseModelViewSet):
 
     @action(detail=True, methods=['post'])
     def submit(self, request: Request, pk: str = None) -> Response:
-        commission = services.submit_commission(pk, request.user)
+        commission = services.submit_commission(int(pk), request.user)
         return Response({
             'code': 200,
             'message': '提交成功',
@@ -68,7 +68,7 @@ class CommissionViewSet(BaseModelViewSet):
         approved = request.data.get('approved', True)
         comment = request.data.get('comment', '')
         commission = services.review_commission(
-            pk, request.user, approved, comment,
+            int(pk), request.user, approved, comment,
         )
         return Response({
             'code': 200,

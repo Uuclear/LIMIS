@@ -7,7 +7,8 @@ from django.db.models import QuerySet
 
 from django.utils import timezone
 from django_filters import rest_framework as django_filters
-from rest_framework import permissions, status, viewsets
+from rest_framework import mixins, permissions, status, viewsets
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -18,10 +19,11 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from core.permissions import LimsModulePermission
 
 from . import services
-from .models import AuditLog, Permission, Role, User
+from .models import AuditLog, Notification, Permission, Role, User
 from .serializers import (
     AuditLogSerializer,
     LoginSerializer,
+    NotificationSerializer,
     PasswordChangeSerializer,
     PermissionSerializer,
     RoleCreateUpdateSerializer,
@@ -213,3 +215,33 @@ class PasswordChangeView(APIView):
         request.user.set_password(serializer.validated_data['new_password'])
         request.user.save(update_fields=['password'])
         return Response({'detail': '密码修改成功'})
+
+
+class NotificationViewSet(viewsets.GenericViewSet,
+                          mixins.ListModelMixin,
+                          mixins.RetrieveModelMixin):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(recipient=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def unread_count(self, request):
+        count = self.get_queryset().filter(is_read=False).count()
+        return Response({'code': 200, 'data': {'count': count}})
+
+    @action(detail=False, methods=['post'])
+    def mark_all_read(self, request):
+        from django.utils import timezone
+        self.get_queryset().filter(is_read=False).update(is_read=True, read_at=timezone.now())
+        return Response({'code': 200, 'message': '已全部标记已读'})
+
+    @action(detail=True, methods=['post'])
+    def mark_read(self, request, pk=None):
+        from django.utils import timezone
+        notif = self.get_object()
+        notif.is_read = True
+        notif.read_at = timezone.now()
+        notif.save(update_fields=['is_read', 'read_at'])
+        return Response({'code': 200, 'data': NotificationSerializer(notif).data})
