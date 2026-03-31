@@ -2,6 +2,15 @@
 
 本文档说明近期典型故障根因、演示数据用法，以及建议在后续迭代中逐步落实的工程化与功能完善方向。
 
+**当前运行模式提示**：`docker-compose.yml` 默认使用 **`limis.settings.dev`**（`DEBUG=True`、`ALLOWED_HOSTS=['*']`、开发向 CORS）。使用 **Docker** 时，请在 `backend` 容器内执行管理命令，例如：
+
+```bash
+docker compose exec backend python manage.py migrate
+docker compose exec backend python manage.py seed_full_workflow
+```
+
+本地虚拟环境则设置 `DJANGO_SETTINGS_MODULE=limis.settings.dev` 后执行相同命令。
+
 ---
 
 ## 1. 「Request failed with status code 500」常见根因（通知模块）
@@ -27,6 +36,12 @@ export DB_HOST=127.0.0.1 DB_NAME=limis DB_USER=limis DB_PASSWORD=<密码>
 export REDIS_URL=redis://127.0.0.1:6379/0
 python manage.py migrate
 python manage.py seed_full_workflow
+```
+
+在 **Docker** 中（数据库主机名为 `db`、Redis 为 `redis`）无需手动 export，直接：
+
+```bash
+docker compose exec backend python manage.py seed_full_workflow
 ```
 
 - 干净重建：`python manage.py seed_full_workflow --clear`（**勿在生产未经评估使用**）。
@@ -83,3 +98,7 @@ python manage.py seed_full_workflow
 ---
 
 *文档随迭代更新；若你希望将其中某条落实为具体 issue/任务，可直接指定条目编号。*
+
+---
+
+*最后更新：2026 年 3 月 31 日*

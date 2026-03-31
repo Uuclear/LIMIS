@@ -1,5 +1,9 @@
 # 浦东国际机场工地试验室LIMS系统规划
 
+> **与仓库同步说明（2026-03）**  
+> 本文档为**业务与规划**材料；**实现进度、模块清单、接口细节**以仓库根目录 `PROJECT_STATUS.md` 与 `docs/TODO.md` 顶部「现状对照」为准。技术栈以当前代码为准：Django 5.x、DRF、PostgreSQL、Redis、Celery、MinIO、Vue 3 + Vite + TypeScript。  
+> 默认分支开发：`airport-site-lab-lims-741d`（见 GitHub 远程）。
+
 ## 一、项目背景与定位
 
 - **项目名称**：浦东国际机场四期扩建工程工地试验室管理信息系统（LIMIS）

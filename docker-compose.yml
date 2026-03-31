@@ -45,7 +45,7 @@ services:
   backend:
     build: ./backend
     environment:
-      - DJANGO_SETTINGS_MODULE=limis.settings.prod
+      - DJANGO_SETTINGS_MODULE=limis.settings.dev
       - DB_NAME=${DB_NAME:-limis}
       - DB_USER=${DB_USER:-limis}
       - DB_PASSWORD=${DB_PASSWORD:-limis123}
@@ -76,7 +76,7 @@ services:
   celery:
     build: ./backend
     environment:
-      - DJANGO_SETTINGS_MODULE=limis.settings.prod
+      - DJANGO_SETTINGS_MODULE=limis.settings.dev
       - DB_NAME=${DB_NAME:-limis}
       - DB_USER=${DB_USER:-limis}
       - DB_PASSWORD=${DB_PASSWORD:-limis123}
@@ -96,7 +96,7 @@ services:
   celery-beat:
     build: ./backend
     environment:
-      - DJANGO_SETTINGS_MODULE=limis.settings.prod
+      - DJANGO_SETTINGS_MODULE=limis.settings.dev
       - DB_NAME=${DB_NAME:-limis}
       - DB_USER=${DB_USER:-limis}
       - DB_PASSWORD=${DB_PASSWORD:-limis123}
