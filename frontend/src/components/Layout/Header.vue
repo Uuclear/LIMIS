@@ -1,99 +1,85 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ArrowDown, Bell, User, Lock, SwitchButton } from '@element-plus/icons-vue'
-import { getDashboardData } from '@/api/statistics'
+import { getUnreadCount, getNotifications, markAllRead, markRead } from '@/api/notifications'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
-/** 与仪表盘 /statistics/dashboard 一致的待办类提醒（非站内信系统） */
-type NotifItem = { id: string; title: string; desc: string; path: string; count: number }
-const notifications = ref<NotifItem[]>([])
+interface NotificationItem {
+  id: number
+  notificationType: string
+  title: string
+  content: string
+  linkPath: string
+  isRead: boolean
+  createdAt: string
+}
+const notifications = ref<NotificationItem[]>([])
+const unreadCount = ref(0)
 
-const unreadCount = computed(() =>
-  notifications.value.reduce((s, n) => s + n.count, 0),
-)
+function mapNotification(raw: Record<string, unknown>): NotificationItem {
+  return {
+    id: raw.id as number,
+    notificationType: (raw.notification_type ?? raw.notificationType) as string,
+    title: (raw.title ?? '') as string,
+    content: (raw.content ?? '') as string,
+    linkPath: (raw.link_path ?? raw.linkPath ?? '') as string,
+    isRead: Boolean(raw.is_read ?? raw.isRead),
+    createdAt: (raw.created_at ?? raw.createdAt ?? '') as string,
+  }
+}
 
-async function loadNotifications() {
+async function fetchUnreadCount() {
   try {
-    const res: any = await getDashboardData()
-    const items: NotifItem[] = []
-    const n = (v: unknown) => (typeof v === 'number' && !Number.isNaN(v) ? v : 0)
+    const res = await getUnreadCount() as { count?: number }
+    unreadCount.value = res?.count ?? 0
+  } catch {}
+}
 
-    const pc = n(res?.pending_commission_reviews)
-    if (pc > 0) {
-      items.push({
-        id: 'commission_review',
-        title: '委托待评审',
-        desc: `共 ${pc} 条委托单待评审`,
-        path: '/entrustment',
-        count: pc,
-      })
+async function fetchNotifications() {
+  try {
+    const res = await getNotifications({ page_size: 10 }) as {
+      results?: Record<string, unknown>[]
     }
-    const pt = n(res?.pending_tasks)
-    if (pt > 0) {
-      items.push({
-        id: 'pending_tasks',
-        title: '检测任务待办',
-        desc: `共 ${pt} 个任务待分配或待检`,
-        path: '/testing/tasks',
-        count: pt,
-      })
-    }
-    const rr = n(res?.records_pending_review)
-    if (rr > 0) {
-      items.push({
-        id: 'record_review',
-        title: '原始记录待复核',
-        desc: `共 ${rr} 条记录待复核`,
-        path: '/testing/records',
-        count: rr,
-      })
-    }
-    const pr = n(res?.pending_report_reviews)
-    if (pr > 0) {
-      items.push({
-        id: 'report_review',
-        title: '检测报告审批',
-        desc: `共 ${pr} 份报告待审核/批准`,
-        path: '/reports',
-        count: pr,
-      })
-    }
-    const ew = n(res?.equipment_warnings)
-    if (ew > 0) {
-      items.push({
-        id: 'equipment_cal',
-        title: '设备校准提醒',
-        desc: `共 ${ew} 台设备需关注校准/检定`,
-        path: '/equipment',
-        count: ew,
-      })
-    }
-    notifications.value = items
-  } catch {
-    notifications.value = []
+    const raw = Array.isArray(res) ? res : (res?.results ?? [])
+    notifications.value = raw.map(mapNotification)
+  } catch {}
+}
+
+async function handleMarkAllRead() {
+  await markAllRead()
+  notifications.value.forEach(n => { n.isRead = true })
+  unreadCount.value = 0
+}
+
+async function handleMarkRead(notif: NotificationItem) {
+  if (!notif.isRead) {
+    await markRead(notif.id)
+    notif.isRead = true
+    unreadCount.value = Math.max(0, unreadCount.value - 1)
+  }
+  if (notif.linkPath) {
+    router.push(notif.linkPath)
   }
 }
 
 onMounted(() => {
-  loadNotifications()
+  fetchUnreadCount()
+  fetchNotifications()
 })
+
+const pollTimer = setInterval(fetchUnreadCount, 60000)
+onUnmounted(() => clearInterval(pollTimer))
 
 const breadcrumbs = computed(() => {
   return route.matched
     .filter((item) => item.meta?.title)
     .map((item) => ({ title: item.meta.title as string, path: item.path }))
 })
-
-function openNotification(n: { path?: string }) {
-  if (n.path) {
-    router.push(n.path)
-  }
-}
 
 async function handleCommand(command: string) {
   if (command === 'logout') {
@@ -122,7 +108,7 @@ async function handleCommand(command: string) {
     </div>
 
     <div class="header-right">
-      <el-popover placement="bottom-end" :width="340" trigger="click" @show="loadNotifications">
+      <el-popover placement="bottom-end" :width="340" trigger="click">
         <template #reference>
           <span class="notif-trigger" role="button" tabindex="0">
             <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="notification-badge">
@@ -131,16 +117,20 @@ async function handleCommand(command: string) {
           </span>
         </template>
         <div class="notif-panel">
-          <div class="notif-panel-title">消息提醒</div>
+          <div class="notif-panel-header">
+            <span class="notif-panel-title">消息提醒</span>
+            <el-button link type="primary" size="small" @click="handleMarkAllRead">全部已读</el-button>
+          </div>
           <el-scrollbar max-height="280px">
             <div
-              v-for="n in notifications"
-              :key="n.id"
+              v-for="notif in notifications"
+              :key="notif.id"
               class="notif-item"
-              @click="openNotification(n)"
+              :class="{ 'notif-item-unread': !notif.isRead }"
+              @click="handleMarkRead(notif)"
             >
-              <div class="notif-item-title">{{ n.title }}</div>
-              <div class="notif-item-desc">{{ n.desc }}</div>
+              <div class="notif-item-title">{{ notif.title }}</div>
+              <div class="notif-item-desc">{{ notif.content }}</div>
             </div>
             <el-empty v-if="!notifications.length" description="暂无消息" :image-size="64" />
           </el-scrollbar>
@@ -216,12 +206,23 @@ async function handleCommand(command: string) {
   align-items: center;
 }
 
-.notif-panel-title {
-  font-weight: 600;
-  font-size: 14px;
+.notif-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 8px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.notif-panel-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.notif-item-unread .notif-item-title {
+  font-weight: 600;
+  color: var(--lims-primary);
 }
 
 .notif-item {

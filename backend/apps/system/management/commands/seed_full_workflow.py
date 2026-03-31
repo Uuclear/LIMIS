@@ -677,6 +677,8 @@ class Command(BaseCommand):
             defaults={'name': 'C40混凝土试块组', 'sample_count': 3, 'description': 'T3航站楼地下一层承台C40混凝土'}
         )
 
+        comm3 = commissions.get('WT-2024-0003')
+
         samples_data = [
             ('YP-2024-0001', '混凝土试块', 'C40',        comm1, 'tested', 28,  group1),
             ('YP-2024-0002', '混凝土试块', 'C40',        comm1, 'tested', 28,  group1),
@@ -684,11 +686,20 @@ class Command(BaseCommand):
             ('YP-2024-0004', '热轧带肋钢筋', 'HRB400 φ25', comm2, 'tested', None, None),
             ('YP-2024-0005', '热轧带肋钢筋', 'HRB400 φ25', comm2, 'tested', None, None),
             ('YP-2024-0006', '热轧带肋钢筋', 'HRB400 φ25', comm2, 'tested', None, None),
+            # 待评审委托：仍登记样品与待分配任务，便于全流程界面有数据可看
+            ('YP-2024-0007', '粗骨料（碎石）', '5-25mm', comm3, 'pending', None, None),
         ]
 
         samples = {}
         count = 0
         for s_no, name, spec, comm, status, age_days, group in samples_data:
+            if not comm:
+                continue
+            loc = 'T3航站楼地下一层'
+            recv = datetime.date(2024, 3, 1)
+            if comm == comm3:
+                loc = '站坪道面施工区'
+                recv = datetime.date(2024, 3, 10)
             sample, created = Sample.objects.get_or_create(
                 sample_no=s_no,
                 defaults={
@@ -697,10 +708,10 @@ class Command(BaseCommand):
                     'name': name,
                     'specification': spec,
                     'quantity': 1,
-                    'unit': '个',
-                    'sampling_date': datetime.date(2024, 3, 1),
-                    'received_date': datetime.date(2024, 3, 1),
-                    'sampling_location': 'T3航站楼地下一层',
+                    'unit': '组' if comm == comm3 else '个',
+                    'sampling_date': recv,
+                    'received_date': recv,
+                    'sampling_location': loc,
                     'status': status,
                     'retention_deadline': today + datetime.timedelta(days=60) if age_days else None,
                 }
@@ -726,6 +737,7 @@ class Command(BaseCommand):
 
         concrete_method = methods.get('混凝土抗压强度试验')
         steel_method = methods.get('钢筋拉伸性能试验')
+        sand_method = methods.get('砂细度模数试验')
 
         tasks_data = [
             ('TT-2024-0001', 'YP-2024-0001', concrete_method, eq_e001, 'WT-2024-0001'),
@@ -734,25 +746,28 @@ class Command(BaseCommand):
             ('TT-2024-0004', 'YP-2024-0004', steel_method,    eq_e002, 'WT-2024-0002'),
             ('TT-2024-0005', 'YP-2024-0005', steel_method,    eq_e002, 'WT-2024-0002'),
             ('TT-2024-0006', 'YP-2024-0006', steel_method,    eq_e002, 'WT-2024-0002'),
+            # 待评审委托：骨料检测任务（待分配，与演示「受理后待评审」场景并存）
+            ('TT-2024-0007', 'YP-2024-0007', sand_method,     None,    'WT-2024-0003'),
         ]
 
         tasks = {}
         count = 0
         for task_no, sample_no, method, equip, comm_no in tasks_data:
             sample = samples.get(sample_no)
-            if not sample:
+            if not sample or not method:
                 continue
+            pending = task_no == 'TT-2024-0007'
             task, created = TestTask.objects.get_or_create(
                 task_no=task_no,
                 defaults={
                     'sample': sample,
                     'commission': sample.commission,
                     'test_method': method,
-                    'assigned_tester': ztester,
+                    'assigned_tester': None if pending else ztester,
                     'assigned_equipment': equip,
-                    'planned_date': today - datetime.timedelta(days=5),
-                    'actual_date': today - datetime.timedelta(days=3),
-                    'status': 'completed',
+                    'planned_date': today + datetime.timedelta(days=3) if pending else today - datetime.timedelta(days=5),
+                    'actual_date': None if pending else today - datetime.timedelta(days=3),
+                    'status': 'unassigned' if pending else 'completed',
                 }
             )
             tasks[task_no] = task
