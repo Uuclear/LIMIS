@@ -67,6 +67,20 @@ class StandardWriteSerializer(BaseModelSerializer):
         ]
         read_only_fields = ['id']
 
+    def validate_standard_no(self, value: str) -> str:
+        """避免唯一约束在数据库层抛 IntegrityError → 500；重复时返回 400 与可读说明。"""
+        v = (value or '').strip()
+        if not v:
+            return v
+        qs = Standard.objects.filter(standard_no=v)
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(
+                '该标准编号已存在，请直接编辑已有标准，或更换标准编号后再保存。',
+            )
+        return v
+
     def _maybe_resolve_replaced_by(self, validated_data: dict) -> None:
         """
         前端现在输入的是“替代情况(replaced_case)”而不是替代标准ID。
@@ -85,7 +99,7 @@ class StandardWriteSerializer(BaseModelSerializer):
         standard_no = standard_no.strip('[]（）()（） ')
 
         # 简单清洗：去掉多余空格，但保留 GB/T 中的空格与格式
-        standard_no = re.sub(r'\\s+', ' ', standard_no).strip()
+        standard_no = re.sub(r'\s+', ' ', standard_no).strip()
 
         try:
             replaced = Standard.objects.filter(standard_no=standard_no).first()

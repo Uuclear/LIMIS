@@ -12,7 +12,9 @@ class Standard(BaseModel):
     ]
 
     standard_no = models.CharField(
-        max_length=100, unique=True, verbose_name='标准号',
+        max_length=100,
+        verbose_name='标准号',
+        # 唯一性见 Meta：仅对未软删记录唯一，避免「列表里看不见但编号仍被占用」
     )
     name = models.CharField(max_length=300, verbose_name='标准名称')
     category = models.CharField(max_length=50, verbose_name='标准分类')
@@ -46,6 +48,13 @@ class Standard(BaseModel):
         verbose_name = '标准'
         verbose_name_plural = verbose_name
         ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['standard_no'],
+                condition=models.Q(is_deleted=False),
+                name='standards_standard_no_unique_if_active',
+            ),
+        ]
 
     def __str__(self) -> str:
         return f'{self.standard_no} {self.name}'

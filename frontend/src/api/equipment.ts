@@ -33,3 +33,7 @@ export function getExpiringEquipment(params?: any) {
 export function getTraceability(id: number) {
   return request.get(`/v1/equipment/${id}/traceability/`)
 }
+
+export function getUsageLogs(equipmentId: number, params?: any) {
+  return request.get(`/v1/equipment/${equipmentId}/usage-logs/`, { params })
+}

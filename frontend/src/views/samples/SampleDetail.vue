@@ -18,7 +18,7 @@ const statusSteps = [
   { label: '待检', value: 'pending' },
   { label: '检测中', value: 'testing' },
   { label: '已检', value: 'tested' },
-  { label: '留样', value: 'retention' },
+  { label: '留样', value: 'retained' },
   { label: '已处置', value: 'disposed' },
 ]
 
@@ -44,7 +44,7 @@ async function fetchTimeline() {
 async function handleStatusChange(newStatus: string) {
   const label = statusSteps.find(s => s.value === newStatus)?.label ?? newStatus
   await ElMessageBox.confirm(`确认将状态变更为"${label}"？`, '提示', { type: 'warning' })
-  await changeSampleStatus(sampleId.value, { status: newStatus })
+  await changeSampleStatus(sampleId.value, { new_status: newStatus })
   ElMessage.success('状态变更成功')
   fetchDetail()
   fetchTimeline()
@@ -76,7 +76,7 @@ async function handleDispose() {
 
 function statusTagType(status: string) {
   const map: Record<string, string> = {
-    pending: 'info', testing: 'warning', tested: 'success', retention: '', disposed: 'danger',
+    pending: 'info', testing: 'warning', tested: 'success', retained: '', disposed: 'danger',
   }
   return map[status] ?? 'info'
 }
@@ -108,13 +108,13 @@ onMounted(() => { fetchDetail(); fetchTimeline() })
       <template #extra>
         <el-button :icon="Printer" @click="handlePrintLabel">打印标签</el-button>
         <el-button
-          v-if="nextStatus && detail.status !== 'retention'"
+          v-if="nextStatus && detail.status !== 'retained'"
           type="primary"
           @click="handleStatusChange(nextStatus.value)"
         >
           变更为「{{ nextStatus.label }}」
         </el-button>
-        <el-button v-if="detail.status === 'retention'" type="danger" @click="openDisposeDialog">
+        <el-button v-if="detail.status === 'retained'" type="danger" @click="openDisposeDialog">
           样品处置
         </el-button>
       </template>
