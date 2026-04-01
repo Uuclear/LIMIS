@@ -252,6 +252,11 @@ class OriginalRecordViewSet(BaseModelViewSet):
         return OriginalRecordSerializer
 
     def perform_create(self, serializer) -> None:
+        task = serializer.validated_data['task']
+        if not serializer.validated_data.get('record_data'):
+            serializer.validated_data['record_data'] = (
+                services.build_initial_record_data_from_task(task.pk)
+            )
         if self.request.user.is_authenticated:
             serializer.save(
                 recorder=self.request.user,

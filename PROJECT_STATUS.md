@@ -56,6 +56,7 @@
 | 报告防伪 | 公开接口 `GET /api/v1/reports/public/verify/<id>/`；前端路由 `/verify/report/:id`（免登录）；`REPORT_VERIFICATION_URL` 默认指向本地 Vite 防伪页。 |
 | 模板库联动 | 检测任务详情 →「模板库 / 合并预览」；`/quality/record-templates?task_id=` 自动拉合并结构预览。 |
 | Wiki 同步 | `wiki/` 经 **`.github/workflows/wiki-sync.yml`** 推送至 GitHub **`.wiki.git`**；详见 `wiki/03-development/07-github-wiki-sync.md`（建议配置 `WIKI_SYNC_TOKEN`）。 |
+| CI（构建类） | Docker/前后端 **构建类 GitHub Actions 已移除**（开发阶段以本机命令为准）；**Wiki 同步** workflow 仍保留。 |
 
 ---
 
@@ -235,7 +236,7 @@
 - [ ] 历史数据迁移工具
 
 #### 6.2.5 检测原始记录（产品深化）
-- [ ] 原始记录 **创建/保存** 时直接使用 **merged-record-schema** 结果填充 `record_data`（与当前单 `template` FK 策略统一）
+- [x] 原始记录 **创建** 时若未传 `record_data`，用 **`build_merged_record_schema_for_task`** 生成初始结构（`merged_schema` + `values` 占位；仍保留单 `template` FK）
 - [x] 模板库与「检测任务」页面联动（任务详情「模板库 / 合并预览」→ `record-templates?task_id=` 自动合并结构预览）
 
 ### 6.3 低优先级 - 优化与扩展
@@ -247,6 +248,7 @@
 - [ ] HTTPS 配置
 
 #### 6.3.2 代码质量
+- [x] GitHub Actions：构建/镜像类 workflow 已移除（与「开发阶段本机跑通」策略一致；Wiki 同步 workflow 保留）
 - [ ] 单元测试覆盖率提升
 - [x] API 接口文档（Swagger：`/api/docs/` + drf-spectacular）
 - [x] 代码规范检查与 lint（`frontend/eslint.config.mjs` + `npm run lint` 使用 `--quiet` 保证零 error；存量 warning 可逐步收紧）

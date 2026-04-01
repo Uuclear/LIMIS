@@ -41,6 +41,15 @@
 
 **请求示例**：`GET /api/v1/testing/tasks/{id}/merged-record-schema/`
 
+### 3.1 创建原始记录时的 `record_data`
+
+创建 **OriginalRecord** 时若请求体 **未带 `record_data` 或为空**，后端会调用 **`build_initial_record_data_from_task`**（`services.py`），用合并结果写入：
+
+- `merged_schema`：与 `merged-record-schema` 接口一致的合并结构；
+- `values`：按 `merged_fields.fields` 中各 `name` 生成的占位（初始 `null`）。
+
+仍保留模型上的 **`template` 外键**；上述逻辑仅统一「首次落库」时的数据结构。
+
 ## 4. 与资质/模板的约束
 
 同文件中可见与 **`QualificationProfile`**、**`allowed_record_templates`** 相关的过滤（具体以 `views.py` 查询为准），用于限制某类任务可选模板范围。
@@ -63,8 +72,19 @@
 
 ## 7. 相关路径
 
-- `backend/apps/testing/services.py`（`build_merged_record_schema_for_task`）
+- `backend/apps/testing/services.py`（`build_merged_record_schema_for_task`、`build_initial_record_data_from_task`）
 - `backend/apps/testing/views.py`
-- `backend/apps/testing/models/record.py`（`RecordTemplate`、`Record`）
+- `backend/apps/testing/models/record.py`（`RecordTemplate`、`OriginalRecord`）
 - `frontend/src/views/testing/tasks/TaskDetail.vue`
 - `frontend/src/views/testing/records/RecordForm.vue`
+
+---
+
+## 变更记录
+
+| 日期 | 版本 | 作者 | 摘要 |
+|------|------|------|------|
+| 2026-04-01 | 1.0 | Wiki | 初版 |
+| 2026-04-01 | 1.1 | Wiki | 增补创建时 record_data 与 `build_initial_record_data_from_task` |
+
+返回：[Wiki 首页](../README.md)

@@ -456,3 +456,22 @@ def build_merged_record_schema_for_task(task_id: int) -> dict:
         'sections': sections,
         'merged_fields': {'fields': merged_field_list},
     }
+
+
+def build_initial_record_data_from_task(task_id: int) -> dict[str, Any]:
+    """
+    创建原始记录时，用 merged-record-schema 的合并结果生成初始 record_data，
+    便于与「单 template FK」并存：values 为各字段名占位，merged_schema 为完整合并结构。
+    """
+    merged = build_merged_record_schema_for_task(task_id)
+    fields = merged.get('merged_fields', {}).get('fields', [])
+    values: dict[str, Any] = {}
+    for f in fields:
+        if isinstance(f, dict):
+            name = f.get('name')
+            if name:
+                values[str(name)] = None
+    return {
+        'merged_schema': merged,
+        'values': values,
+    }
