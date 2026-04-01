@@ -1,0 +1,59 @@
+# 将仓库内 wiki/ 目录推送到 GitHub Wiki（https://github.com/<owner>/<repo>.wiki.git）
+# 需仓库 Settings → Secrets → Actions 中配置 WIKI_SYNC_TOKEN（PAT，勾选 repo；若 GITHUB_TOKEN 可写 Wiki 则可不配置）
+name: Sync Wiki
+
+on:
+  push:
+    branches:
+      - main
+      - airport-site-lab-lims-741d
+    paths:
+      - 'wiki/**'
+      - '.github/workflows/wiki-sync.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wiki-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Push wiki/ to GitHub Wiki
+        env:
+          WIKI_SYNC_TOKEN: ${{ secrets.WIKI_SYNC_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TOKEN="${WIKI_SYNC_TOKEN:-$GITHUB_TOKEN}"
+          if [ -z "${TOKEN}" ]; then
+            echo "::error::No token available. Set repository secret WIKI_SYNC_TOKEN (PAT with repo scope)."
+            exit 1
+          fi
+
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+          rm -rf .wiki-clone
+          git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" .wiki-clone
+
+          cd .wiki-clone
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          cp -a "${GITHUB_WORKSPACE}/wiki"/. .
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Wiki: no changes to commit."
+            exit 0
+          fi
+
+          git commit -m "docs(wiki): sync from ${GITHUB_REPOSITORY}@${GITHUB_SHA:0:7}"
+          git push origin HEAD

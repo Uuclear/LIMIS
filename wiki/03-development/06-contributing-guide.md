@@ -1,7 +1,7 @@
 # 贡献指南
 
 1. 在 Issue 中讨论 **需求与边界**，避免大范围静默重构。
-2. 提交前自测；**Wiki** 同步更新 API 或行为变更（见 [README 维护约定](../README.md#维护约定)）。
+2. 提交前自测；**Wiki** 同步更新 API 或行为变更（见 [README 维护约定](../README.md#维护约定)）。合并至 **`main`** 后，**`wiki/`** 会由 CI 推送到 [GitHub Wiki](07-github-wiki-sync.md)。
 3. 代码审查关注：权限、SQL 性能、敏感信息泄露。
 
 ---

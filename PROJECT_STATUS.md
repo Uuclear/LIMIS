@@ -1,6 +1,6 @@
 # Limis 实验室信息管理系统 - 项目状态文档（详细分层版）
 
-**更新时间**：2026年4月1日（三次修订）  
+**更新时间**：2026年4月1日（四次修订）  
 **当前环境**：Django 5.x + Vue 3 + TypeScript + PostgreSQL + Redis（**本地开发**与 **Docker Compose** 两种跑法并存）  
 **访问地址**  
 - **Docker（推荐联调）**：`http://<主机IP>/`（Nginx **80**，API 同源 `/api/`；后端容器内 Gunicorn **8000** 仅集群内访问）  
@@ -55,6 +55,7 @@
 | 前端规范 | ESLint 9 flat + `npm run lint`（`--quiet`）。 |
 | 报告防伪 | 公开接口 `GET /api/v1/reports/public/verify/<id>/`；前端路由 `/verify/report/:id`（免登录）；`REPORT_VERIFICATION_URL` 默认指向本地 Vite 防伪页。 |
 | 模板库联动 | 检测任务详情 →「模板库 / 合并预览」；`/quality/record-templates?task_id=` 自动拉合并结构预览。 |
+| Wiki 同步 | `wiki/` 经 **`.github/workflows/wiki-sync.yml`** 推送至 GitHub **`.wiki.git`**；详见 `wiki/03-development/07-github-wiki-sync.md`（建议配置 `WIKI_SYNC_TOKEN`）。 |
 
 ---
 
@@ -74,6 +75,7 @@
 | 侧栏菜单 | `frontend/src/components/Layout/Sidebar.vue` |
 | 统计多维接口 | `backend/apps/statistics/views.py`（`tasks-by-project` / `tasks-by-method`）、`frontend/src/api/statistics.ts` |
 | 报告防伪（公开） | `backend/apps/reports/views.py`（`PublicReportVerifyView`）、`frontend/src/views/reports/ReportVerifyPage.vue` |
+| Wiki 与 GitHub Wiki 同步 | 仓库 `wiki/`；`.github/workflows/wiki-sync.yml` → `https://github.com/<owner>/<repo>.wiki.git`（需配置 Secret `WIKI_SYNC_TOKEN` 时更稳妥） |
 
 ---
 
@@ -274,6 +276,7 @@
 3. **文档维护**
    - 本文件为多 Agent 协同开发的「主要状态源」
    - 建议每周更新一次整体状态
+   - **知识库**：`wiki/` 目录为正文来源；合并至 **`main`** 且变更 `wiki/**` 时，**GitHub Actions** 会同步到 **GitHub Wiki**（`.wiki.git`）；详见 `wiki/03-development/07-github-wiki-sync.md`
 
 ---
 

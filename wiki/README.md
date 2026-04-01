@@ -8,21 +8,26 @@
 
 ## 文档统计与完整目录
 
-**共计正文文档 42 篇**（不含本 `README.md` 首页），按 9 个一级分类组织如下。
+**共计正文文档 44 篇**（不含本 `README.md` 首页与 Wiki 门户页 `Home.md`），按 **10** 个一级分类组织如下。
 
 | 分类 | 目录 | 篇数 | 内容侧重 |
 |------|------|------|----------|
 | 入门与概念 | [`01-getting-started/`](01-getting-started/) | **5** | 系统概览、术语、环境、首次登录、界面导航 |
 | 架构 | [`02-architecture/`](02-architecture/) | **5** | 前后端架构、领域模型、集成边界 |
-| 研发 | [`03-development/`](03-development/) | **6** | 本地开发、规范、测试、Git、调试、贡献 |
+| 研发 | [`03-development/`](03-development/) | **7** | 本地开发、规范、测试、Git、调试、贡献、**GitHub Wiki 同步** |
 | 部署 | [`04-deployment/`](04-deployment/) | **5** | 部署形态、配置、代理、备份恢复 |
 | API 与对接 | [`05-api-and-integration/`](05-api-and-integration/) | **4** | JWT、REST 约定、错误码、前端请求信封 |
 | 用户功能指南 | [`06-user-guide/`](06-user-guide/) | **6** | 委托/检测/报告/质量/资源/系统管理界面 |
 | 常见问题（FAQ） | [`07-faq/`](07-faq/) | **3** | 登录与会话、业务流程、运维 |
 | 安全与合规 | [`08-security-compliance/`](08-security-compliance/) | **4** | 授权模型、审计、数据安全、标准元数据爬取 |
 | 运维专题 | [`09-operations-maintenance/`](09-operations-maintenance/) | **4** | 巡检清单、日志监控、数据库、事件响应 |
+| 项目状态摘要 | [`10-project-status-snapshot.md`](10-project-status-snapshot.md) | **1** | 与主仓库 `PROJECT_STATUS.md` 对齐的速览 |
 
-**合计**：5 + 5 + 6 + 5 + 4 + 6 + 3 + 4 + 4 = **42**。
+**合计**：5 + 5 + 7 + 5 + 4 + 6 + 3 + 4 + 4 + 1 = **44**。
+
+> **GitHub Wiki 门户页**：根目录 [`Home.md`](Home.md) 为 Wiki 默认首页；完整索引仍以本 `README.md` 为准。
+
+> **CI 同步**：向 `main` 等分支推送且变更 `wiki/**` 时，由主仓库工作流 [wiki-sync.yml](https://github.com/Uuclear/limis/blob/main/.github/workflows/wiki-sync.yml) 将本目录同步至 **`https://github.com/Uuclear/limis.wiki.git`**，详见 [GitHub Wiki 同步说明](03-development/07-github-wiki-sync.md)。
 
 ### 完整文档列表（含相对链接）
 
@@ -42,7 +47,7 @@
 9. [核心业务对象与数据域](02-architecture/04-domain-model-overview.md)
 10. [外部系统集成点](02-architecture/05-integration-points.md)
 
-#### `03-development/`（6）
+#### `03-development/`（7）
 
 11. [本地开发环境搭建](03-development/01-local-development-setup.md)
 12. [编码规范与工程约定](03-development/02-coding-style-and-conventions.md)
@@ -50,6 +55,7 @@
 14. [Git 分支与协作流程](03-development/04-git-workflow.md)
 15. [调试手册（前后端）](03-development/05-debugging-playbook.md)
 16. [贡献指南](03-development/06-contributing-guide.md)
+17. [GitHub Wiki 同步（CI → `.wiki.git`）](03-development/07-github-wiki-sync.md)
 
 #### `04-deployment/`（5）
 
@@ -94,6 +100,10 @@
 40. [日志与监控](09-operations-maintenance/02-logs-and-monitoring.md)
 41. [数据库运维](09-operations-maintenance/03-database-operations.md)
 42. [事件响应与通报](09-operations-maintenance/04-incident-handling.md)
+
+#### 项目状态（1）
+
+44. [项目状态摘要（与 `PROJECT_STATUS.md` 对齐）](10-project-status-snapshot.md)
 
 ---
 
@@ -199,7 +209,7 @@
 
 | 文档类型 | 最低更新频率 | 触发条件 |
 |----------|----------------|----------|
-| 本 `README.md` 目录索引 | 随文档增删改即时 | 新增/重命名/删除任意正文文档 |
+| 本 `README.md` 目录索引 | 随文档增删改即时 | 新增/重命名/删除任意正文文档；合并 `main` 后 CI 同步至 GitHub Wiki |
 | FAQ（`07-faq/`） | 每季度复盘，或每 10 条同类工单 | 重复咨询 ≥3 次即评估入库 |
 | 部署与运维（`04-deployment/`、`09-operations-maintenance/`） | 每次发版或基础设施变更后 | 配置项、端口、备份策略变化 |
 | API 与前端信封（`05-api-and-integration/`） | 每次公共 API 契约变更 | 认证方式、统一响应结构、字段命名变更 |
