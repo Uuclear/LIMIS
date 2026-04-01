@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *.so
 venv/
+# 临时/误建的本地虚拟环境目录名，避免与 backend/venv 混用
+backend/.venv-native/
+.venv-native/
 *.egg-info/
 dist/
 build/
