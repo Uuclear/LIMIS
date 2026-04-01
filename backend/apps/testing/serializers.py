@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from core.serializers import BaseModelSerializer
+from core.serializers import BaseModelSerializer, safe_related_attr
 
 from .models import (
     JudgmentRule,
@@ -45,9 +45,7 @@ class TestParameterSerializer(BaseModelSerializer):
 
 
 class TestMethodSerializer(BaseModelSerializer):
-    category_name = serializers.CharField(
-        source='category.name', read_only=True,
-    )
+    category_name = serializers.SerializerMethodField()
 
     class Meta:
         model = TestMethod
@@ -58,6 +56,10 @@ class TestMethodSerializer(BaseModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
+    def get_category_name(self, obj: TestMethod) -> str:
+        c = safe_related_attr(obj, 'category')
+        return getattr(c, 'name', '') if c else ''
+
 
 class TestMethodDetailSerializer(TestMethodSerializer):
     parameters = TestParameterSerializer(many=True, read_only=True)
@@ -67,9 +69,13 @@ class TestMethodDetailSerializer(TestMethodSerializer):
 
 
 class TestTaskListSerializer(BaseModelSerializer):
-    sample_name = serializers.CharField(source='sample.name', read_only=True)
-    sample_no = serializers.CharField(source='sample.sample_no', read_only=True)
-    method_name = serializers.CharField(source='test_method.name', read_only=True)
+    sample_name = serializers.SerializerMethodField()
+    sample_no = serializers.SerializerMethodField()
+    method_name = serializers.SerializerMethodField()
+    commission_no = serializers.SerializerMethodField()
+    standard_no = serializers.SerializerMethodField()
+    started_at = serializers.SerializerMethodField()
+    completed_at = serializers.SerializerMethodField()
     tester_name = serializers.SerializerMethodField()
     status_display = serializers.CharField(
         source='get_status_display', read_only=True,
@@ -83,7 +89,8 @@ class TestTaskListSerializer(BaseModelSerializer):
             'commission', 'test_method', 'method_name',
             'assigned_tester', 'tester_name',
             'planned_date', 'actual_date', 'status', 'status_display',
-            'age_days', 'is_overdue', 'created_at',
+            'age_days', 'is_overdue', 'commission_no', 'standard_no',
+            'started_at', 'completed_at', 'created_at',
         ]
         read_only_fields = ['id', 'task_no', 'created_at']
 
@@ -94,6 +101,32 @@ class TestTaskListSerializer(BaseModelSerializer):
                 or str(obj.assigned_tester)
             )
         return ''
+
+    def get_sample_name(self, obj: TestTask) -> str:
+        sample = safe_related_attr(obj, 'sample')
+        return getattr(sample, 'name', '') if sample else ''
+
+    def get_sample_no(self, obj: TestTask) -> str:
+        sample = safe_related_attr(obj, 'sample')
+        return getattr(sample, 'sample_no', '') if sample else ''
+
+    def get_method_name(self, obj: TestTask) -> str:
+        method = safe_related_attr(obj, 'test_method')
+        return getattr(method, 'name', '') if method else ''
+
+    def get_commission_no(self, obj: TestTask) -> str:
+        commission = safe_related_attr(obj, 'commission')
+        return getattr(commission, 'commission_no', '') if commission else ''
+
+    def get_standard_no(self, obj: TestTask) -> str:
+        method = safe_related_attr(obj, 'test_method')
+        return getattr(method, 'standard_no', '') if method else ''
+
+    def get_started_at(self, obj: TestTask):
+        return obj.created_at
+
+    def get_completed_at(self, obj: TestTask):
+        return obj.actual_date
 
 
 class TestTaskDetailSerializer(TestTaskListSerializer):
@@ -115,37 +148,91 @@ class TestTaskAssignSerializer(serializers.Serializer):
 
 
 class RecordTemplateSerializer(BaseModelSerializer):
-    method_name = serializers.CharField(
-        source='test_method.name', read_only=True,
+    method_name = serializers.SerializerMethodField()
+    parameter_name = serializers.SerializerMethodField()
+    test_parameters = serializers.PrimaryKeyRelatedField(
+        queryset=TestParameter.objects.all(), many=True, required=False,
     )
-    parameter_name = serializers.CharField(
-        source='test_parameter.name', read_only=True, default='',
-    )
+    parameter_names = serializers.SerializerMethodField()
+    word_template_url = serializers.SerializerMethodField()
+    template_kind = serializers.SerializerMethodField()
 
     class Meta:
         model = RecordTemplate
         fields = [
             'id', 'name', 'code', 'test_method', 'method_name',
-            'test_parameter', 'parameter_name',
-            'version', 'schema', 'is_active',
+            'test_parameter', 'parameter_name', 'test_parameters', 'parameter_names',
+            'version', 'schema', 'word_template', 'word_template_url', 'template_kind', 'is_active',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_method_name(self, obj: RecordTemplate) -> str:
+        m = safe_related_attr(obj, 'test_method')
+        return getattr(m, 'name', '') if m else ''
+
+    def get_parameter_name(self, obj: RecordTemplate) -> str:
+        p = safe_related_attr(obj, 'test_parameter')
+        return getattr(p, 'name', '') if p else ''
+
+    def get_parameter_names(self, obj: RecordTemplate) -> list[str]:
+        rows = list(obj.test_parameters.values_list('name', flat=True))
+        tp = safe_related_attr(obj, 'test_parameter')
+        name = getattr(tp, 'name', '') if tp else ''
+        if name and name not in rows:
+            rows.insert(0, name)
+        return rows
+
+    def get_template_kind(self, obj: RecordTemplate) -> str:
+        return 'document' if obj.word_template else 'form'
+
+    def get_word_template_url(self, obj: RecordTemplate) -> str:
+        if not obj.word_template:
+            return ''
+        req = self.context.get('request')
+        url = obj.word_template.url
+        return req.build_absolute_uri(url) if req else url
 
     def validate(self, attrs: dict) -> dict:
         method = attrs.get('test_method')
         if method is None and getattr(self, 'instance', None):
             method = self.instance.test_method
-        param = attrs.get('test_parameter', serializers.empty)
-        if param is serializers.empty and getattr(self, 'instance', None):
-            param = self.instance.test_parameter
-        if 'test_parameter' in attrs and attrs['test_parameter'] is None:
-            param = None
-        if method is not None and param is not None and param.method_id != method.id:
-            raise serializers.ValidationError(
-                {'test_parameter': '检测参数必须属于所选检测方法'},
-            )
+        multi = attrs.get('test_parameters', None)
+        if multi:
+            base_method = multi[0].method
+            wrong = [p.id for p in multi if p.method_id != base_method.id]
+            if wrong:
+                raise serializers.ValidationError(
+                    {'test_parameters': '关联检测参数必须属于同一检测方法'},
+                )
+            if method is not None and method.id != base_method.id:
+                raise serializers.ValidationError(
+                    {'test_method': '检测方法与关联参数不一致'},
+                )
+            attrs['test_method'] = base_method
+            attrs['test_parameter'] = None
+        else:
+            if method is None:
+                raise serializers.ValidationError(
+                    {'test_method': '未选择关联参数时，检测方法为必填'},
+                )
+            attrs['test_parameter'] = None
         return attrs
+
+    def create(self, validated_data: dict) -> RecordTemplate:
+        multi = validated_data.pop('test_parameters', [])
+        validated_data.pop('test_parameter', None)
+        obj = super().create(validated_data)
+        obj.test_parameters.set(multi)
+        return obj
+
+    def update(self, instance: RecordTemplate, validated_data: dict) -> RecordTemplate:
+        multi = validated_data.pop('test_parameters', None)
+        validated_data.pop('test_parameter', None)
+        obj = super().update(instance, validated_data)
+        if multi is not None:
+            obj.test_parameters.set(multi)
+        return obj
 
 
 class RecordRevisionSerializer(serializers.ModelSerializer):
@@ -169,7 +256,7 @@ class RecordRevisionSerializer(serializers.ModelSerializer):
 
 
 class OriginalRecordSerializer(BaseModelSerializer):
-    task_no = serializers.CharField(source='task.task_no', read_only=True)
+    task_no = serializers.SerializerMethodField()
     status_display = serializers.CharField(
         source='get_status_display', read_only=True,
     )
@@ -193,6 +280,10 @@ class OriginalRecordSerializer(BaseModelSerializer):
             'review_comment', 'created_at', 'updated_at',
         ]
 
+    def get_task_no(self, obj: OriginalRecord) -> str:
+        t = safe_related_attr(obj, 'task')
+        return getattr(t, 'task_no', '') if t else ''
+
     def get_recorder_name(self, obj: OriginalRecord) -> str:
         if obj.recorder:
             return obj.recorder.get_full_name() or str(obj.recorder)
@@ -215,9 +306,7 @@ class OriginalRecordCreateSerializer(BaseModelSerializer):
 
 
 class TestResultSerializer(BaseModelSerializer):
-    parameter_name = serializers.CharField(
-        source='parameter.name', read_only=True,
-    )
+    parameter_name = serializers.SerializerMethodField()
     judgment_display = serializers.CharField(
         source='get_judgment_display', read_only=True,
     )
@@ -233,6 +322,10 @@ class TestResultSerializer(BaseModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
+    def get_parameter_name(self, obj: TestResult) -> str:
+        p = safe_related_attr(obj, 'parameter')
+        return getattr(p, 'name', '') if p else ''
+
 
 class TestResultCreateSerializer(BaseModelSerializer):
     class Meta:
@@ -246,9 +339,7 @@ class TestResultCreateSerializer(BaseModelSerializer):
 
 
 class JudgmentRuleSerializer(BaseModelSerializer):
-    parameter_name = serializers.CharField(
-        source='test_parameter.name', read_only=True,
-    )
+    parameter_name = serializers.SerializerMethodField()
 
     class Meta:
         model = JudgmentRule
@@ -258,3 +349,7 @@ class JudgmentRuleSerializer(BaseModelSerializer):
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_parameter_name(self, obj: JudgmentRule) -> str:
+        p = safe_related_attr(obj, 'test_parameter')
+        return getattr(p, 'name', '') if p else ''

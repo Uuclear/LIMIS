@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getTestTask, assignTask, startTask, completeTask, getTestResults } from '@/api/testing'
+import { getTestTask, assignTask, completeTask, getTestResults, returnTask, getTaskTimeline } from '@/api/testing'
 import { getAssignableTesters } from '@/api/staff'
 import type { TestTask, TestResult } from '@/types/testing'
 import { useActionLock } from '@/composables/useActionLock'
@@ -15,19 +15,18 @@ const router = useRouter()
 const loading = ref(false)
 const task = ref<TestTask | null>(null)
 const results = ref<TestResult[]>([])
+const timeline = ref<Array<{ time: string; label: string; actor: string; detail: string }>>([])
 
 const taskId = computed(() => Number(route.params.id))
 
 const statusMap: Record<string, string> = {
   unassigned: '待分配',
-  assigned: '待检',
   in_progress: '检测中',
   completed: '已完成',
 }
 
 const statusTagType: Record<string, string> = {
   unassigned: 'info',
-  assigned: 'warning',
   in_progress: '',
   completed: 'success',
 }
@@ -49,6 +48,15 @@ async function fetchResults() {
     const res: any = await getTestResults({ task_id: taskId.value })
     results.value = res.results ?? res.list ?? res ?? []
   } catch { /* ignore */ }
+}
+
+async function fetchTimeline() {
+  try {
+    const res: any = await getTaskTimeline(taskId.value)
+    timeline.value = Array.isArray(res) ? res : (res?.data ?? res ?? [])
+  } catch {
+    timeline.value = []
+  }
 }
 
 const assignDialogVisible = ref(false)
@@ -96,18 +104,6 @@ async function fetchTesterOptions(methodId?: number) {
   }
 }
 
-async function handleStart() {
-  if (!task.value) return
-  await runLocked(`start_task_${task.value.id}`, async () => {
-    try {
-      await ElMessageBox.confirm('确认开始检测？', '提示')
-      await startTask(task.value!.id)
-      ElMessage.success('已开始检测')
-      fetchTask()
-    } catch { /* cancelled */ }
-  })
-}
-
 async function handleComplete() {
   if (!task.value) return
   await runLocked(`complete_task_${task.value.id}`, async () => {
@@ -116,6 +112,30 @@ async function handleComplete() {
       await completeTask(task.value!.id)
       ElMessage.success('检测已完成')
       fetchTask()
+    } catch { /* cancelled */ }
+  })
+}
+
+async function handleReturn() {
+  if (!task.value) return
+  let value = ''
+  try {
+    const prompt = await ElMessageBox.prompt('请输入退回原因（至少4个字符）', '退回待分配', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputPattern: /^.{4,}$/,
+      inputErrorMessage: '原因至少4个字符',
+    })
+    value = prompt.value
+  } catch {
+    return
+  }
+  await runLocked(`return_task_${task.value.id}`, async () => {
+    try {
+      await returnTask(task.value!.id, { reason: value })
+      ElMessage.success('已退回待分配')
+      fetchTask()
+      fetchTimeline()
     } catch { /* cancelled */ }
   })
 }
@@ -131,6 +151,7 @@ function goBack() {
 onMounted(() => {
   fetchTask()
   fetchResults()
+  fetchTimeline()
 })
 </script>
 
@@ -215,7 +236,7 @@ onMounted(() => {
             <span>检测结果</span>
             <el-button
               v-if="task.status === 'in_progress'"
-              v-permission="'testing:create'"
+              v-permission="'task:create'"
               type="primary"
               size="small"
               @click="goRecord"
@@ -257,24 +278,15 @@ onMounted(() => {
       <div class="action-bar">
         <el-button
           v-if="task.status === 'unassigned'"
-          v-permission="'testing:edit'"
+          v-permission="'task:edit'"
           type="primary"
           @click="openAssignDialog"
         >
           分配人员
         </el-button>
         <el-button
-          v-if="task.status === 'assigned'"
-          v-permission="'testing:edit'"
-          type="warning"
-          :loading="isLocked(`start_task_${task.id}`)"
-          @click="handleStart"
-        >
-          开始检测
-        </el-button>
-        <el-button
           v-if="task.status === 'in_progress'"
-          v-permission="'testing:edit'"
+          v-permission="'task:edit'"
           type="success"
           :loading="isLocked(`complete_task_${task.id}`)"
           @click="handleComplete"
@@ -283,12 +295,32 @@ onMounted(() => {
         </el-button>
         <el-button
           v-if="task.status === 'in_progress'"
-          v-permission="'testing:create'"
+          v-permission="'task:edit'"
+          type="danger"
+          :loading="isLocked(`return_task_${task.id}`)"
+          @click="handleReturn"
+        >
+          退回待分配
+        </el-button>
+        <el-button
+          v-if="task.status === 'in_progress'"
+          v-permission="'task:create'"
           @click="goRecord"
         >
           填写原始记录
         </el-button>
       </div>
+
+      <el-card shadow="never" style="margin-top: 16px">
+        <template #header><span>流程时间线</span></template>
+        <el-timeline v-if="timeline.length">
+          <el-timeline-item v-for="(n, i) in timeline" :key="`${n.time}-${i}`" :timestamp="n.time" placement="top">
+            <div>{{ n.label }} <span style="color:#999"> {{ n.actor ? `（${n.actor}）` : '' }}</span></div>
+            <div v-if="n.detail" style="color:#666; margin-top:4px">{{ n.detail }}</div>
+          </el-timeline-item>
+        </el-timeline>
+        <el-empty v-else description="暂无流程记录" :image-size="56" />
+      </el-card>
     </template>
 
     <!-- Assign Dialog -->
@@ -315,7 +347,7 @@ onMounted(() => {
       <template #footer>
         <el-button @click="assignDialogVisible = false">取消</el-button>
         <el-button
-          v-permission="'testing:edit'"
+          v-permission="'task:edit'"
           type="primary"
           :loading="task ? isLocked(`assign_task_${task.id}`) : false"
           @click="handleAssign"

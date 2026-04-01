@@ -12,6 +12,7 @@ import {
   getTestMethods,
   getTestParameters,
   getTestTaskList,
+  getRecordTemplateWordPreview,
 } from '@/api/testing'
 
 /** 与 GB/T 50081-2019 立方体抗压试验原始记录常见项对齐（字段名供 record_data / 合并结构使用） */
@@ -51,12 +52,15 @@ const methodOptions = ref<{ id: number; name: string }[]>([])
 const paramOptions = ref<{ id: number; name: string; code: string }[]>([])
 
 const dialogVisible = ref(false)
+const createMode = ref<'form' | 'document'>('form')
 const form = reactive({
   id: 0,
   name: '',
   code: '',
   test_method: null as number | null,
-  test_parameter: null as number | null,
+  test_parameters: [] as number[],
+  word_file: null as File | null,
+  word_template_url: '',
   version: '1.0',
   schema_text: JSON.stringify({ fields: [] as any[] }, null, 2),
   is_active: true,
@@ -86,8 +90,32 @@ const previewTaskId = ref<number | null>(null)
 const taskOptions = ref<{ id: number; task_no: string; label: string }[]>([])
 const previewJson = ref('')
 const previewLoading = ref(false)
+const wordPreviewJson = ref('')
+const wordPreviewLoading = ref(false)
+const previewTemplate = ref<any | null>(null)
+const syncingFormState = ref(false)
 
 const route = useRoute()
+
+const previewTemplateSchema = computed<Record<string, any>>(() => {
+  const raw = previewTemplate.value?.schema
+  if (raw && typeof raw === 'object') return raw
+  return { fields: [] }
+})
+
+const previewTemplateFields = computed<any[]>(() => {
+  const f = previewTemplateSchema.value?.fields
+  return Array.isArray(f) ? f : []
+})
+
+const previewTemplateIsDocument = computed<boolean>(() => {
+  return previewTemplate.value?.template_kind === 'document' || !!previewTemplate.value?.word_template_url
+})
+
+const previewTemplatePdfUrl = computed<string>(() => {
+  const url = String(previewTemplate.value?.word_template_url || '')
+  return /\.pdf(\?|$)/i.test(url) ? url : ''
+})
 
 async function loadMethods() {
   const res: any = await getTestMethods({ page_size: 500 })
@@ -123,7 +151,8 @@ async function loadRecentTasks() {
 watch(
   () => form.test_method,
   (id) => {
-    form.test_parameter = null
+    if (syncingFormState.value) return
+    form.test_parameters = []
     loadParamsForMethod(id)
   },
 )
@@ -225,25 +254,64 @@ async function fetchList() {
   try {
     const params: any = { ...query }
     if (params.test_method === '' || params.test_method === null) delete params.test_method
+    // #region agent log
+    fetch('http://127.0.0.1:7490/ingest/c75af6f2-90e9-47e0-a350-bab47c84a284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'66f994'},body:JSON.stringify({sessionId:'66f994',runId:'initial',hypothesisId:'H4',location:'RecordTemplateLibrary.vue:fetchList:before',message:'record_template_list_request',data:{params},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const res: any = await getRecordTemplates(params)
     tableData.value = res.results ?? res.list ?? []
+    if (previewTemplate.value?.id) {
+      previewTemplate.value = tableData.value.find((x: any) => x.id === previewTemplate.value.id) || null
+    }
+    // #region agent log
+    fetch('http://127.0.0.1:7490/ingest/c75af6f2-90e9-47e0-a350-bab47c84a284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'66f994'},body:JSON.stringify({sessionId:'66f994',runId:'initial',hypothesisId:'H4',location:'RecordTemplateLibrary.vue:fetchList:after',message:'record_template_list_response',data:{count:tableData.value.length,first:tableData.value[0]||null},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     total.value = res.total ?? res.count ?? 0
   } finally {
     loading.value = false
   }
 }
 
-function openCreate() {
+function handleTemplatePreview(row: any) {
+  previewTemplate.value = row
+}
+
+function openCreateDocument() {
+  createMode.value = 'document'
+  syncingFormState.value = true
   Object.assign(form, {
     id: 0,
     name: '',
     code: '',
     test_method: null,
-    test_parameter: null,
+    test_parameters: [],
+    word_file: null,
+    word_template_url: '',
+    version: '1.0',
+    schema_text: JSON.stringify({ layout: 'a4-portrait', title: '文档模板', fields: [] }, null, 2),
+    is_active: true,
+  })
+  syncingFormState.value = false
+  paramOptions.value = []
+  schemaEditTab.value = 'json'
+  dialogVisible.value = true
+}
+
+function openCreate() {
+  createMode.value = 'form'
+  syncingFormState.value = true
+  Object.assign(form, {
+    id: 0,
+    name: '',
+    code: '',
+    test_method: null,
+    test_parameters: [],
+    word_file: null,
+    word_template_url: '',
     version: '1.0',
     schema_text: JSON.stringify(DEFAULT_CONCRETE_COMPRESSIVE, null, 2),
     is_active: true,
   })
+  syncingFormState.value = false
   paramOptions.value = []
   recordTitle.value = DEFAULT_CONCRETE_COMPRESSIVE.title
   fieldRows.value = DEFAULT_CONCRETE_COMPRESSIVE.fields.map((x) => ({ ...x }))
@@ -252,16 +320,23 @@ function openCreate() {
 }
 
 function openEdit(row: any) {
+  createMode.value = row?.template_kind === 'document' || !!row?.word_template_url ? 'document' : 'form'
+  syncingFormState.value = true
   Object.assign(form, {
     id: row.id,
     name: row.name,
     code: row.code,
     test_method: row.test_method ?? null,
-    test_parameter: row.test_parameter ?? null,
+    test_parameters: Array.isArray(row.test_parameters)
+      ? row.test_parameters
+      : (row.test_parameter ? [row.test_parameter] : []),
+    word_file: null,
+    word_template_url: row.word_template_url || '',
     version: row.version ?? '1.0',
     schema_text: JSON.stringify(row.schema ?? { fields: [] }, null, 2),
     is_active: row.is_active !== false,
   })
+  syncingFormState.value = false
   if (form.test_method) loadParamsForMethod(form.test_method)
   schemaEditTab.value = 'visual'
   loadFieldRowsFromSchemaText()
@@ -281,24 +356,28 @@ async function handleSubmit() {
     syncFieldRowsToSchemaText()
   }
   const schema = parseSchema()
-  if (!schema || !Array.isArray((schema as any).fields)) {
+  if (createMode.value === 'form' && (!schema || !Array.isArray((schema as any).fields))) {
     ElMessage.warning('表单定义需包含 fields 数组；可切换到「可视化」修正')
     return
   }
-  const payload: any = {
-    name: form.name.trim(),
-    code: form.code.trim(),
-    test_method: form.test_method,
-    test_parameter: form.test_parameter || null,
-    version: form.version || '1.0',
-    schema,
-    is_active: form.is_active,
+  if (createMode.value === 'document' && !form.id && !form.word_file) {
+    ElMessage.warning('文档模板请上传文件')
+    return
   }
+  const fd = new FormData()
+  fd.append('name', form.name.trim())
+  fd.append('code', form.code.trim())
+  fd.append('test_method', String(form.test_method))
+  for (const pid of form.test_parameters || []) fd.append('test_parameters', String(pid))
+  fd.append('version', form.version || '1.0')
+  fd.append('schema', JSON.stringify(schema || { layout: 'a4-portrait', title: '文档模板', fields: [] }))
+  fd.append('is_active', form.is_active ? 'true' : 'false')
+  if (form.word_file) fd.append('word_template', form.word_file)
   if (form.id) {
-    await updateRecordTemplate(form.id, payload)
+    await updateRecordTemplate(form.id, fd)
     ElMessage.success('更新成功')
   } else {
-    await createRecordTemplate(payload)
+    await createRecordTemplate(fd)
     ElMessage.success('创建成功')
   }
   dialogVisible.value = false
@@ -310,6 +389,27 @@ async function handleDelete(row: any) {
   await deleteRecordTemplate(row.id)
   ElMessage.success('已删除')
   fetchList()
+}
+
+
+
+async function handlePreviewWordTemplate(row: any) {
+  const tid = previewTaskId.value
+  if (!tid) {
+    ElMessage.warning('请先选择下方检测任务后再预览占位符')
+    return
+  }
+  wordPreviewLoading.value = true
+  try {
+    const data: any = await getRecordTemplateWordPreview(row.id, tid)
+    wordPreviewJson.value = JSON.stringify(data, null, 2)
+    ElMessage.success('已生成占位符预览')
+  } catch (e: any) {
+    const msg = e?.response?.data?.message || e?.message || '预览失败'
+    ElMessage.error(String(msg))
+  } finally {
+    wordPreviewLoading.value = false
+  }
 }
 
 async function handlePreviewMerged() {
@@ -353,7 +453,7 @@ onMounted(async () => {
       <div>
         <h2 class="record-tpl-title">原始记录模板</h2>
         <p class="record-tpl-desc">
-          依赖「项目参数库」中已维护的<strong>检测方法</strong>；可为每个<strong>检测参数</strong>配置字段表。版式按<strong>竖版 A4</strong>预览；检测任务会按参数将多模板<strong>合并</strong>为可填结构。
+          依赖「项目参数库」中已维护的<strong>检测方法</strong>；可为每个模板配置<strong>关联参数（多选）</strong>。版式按<strong>竖版 A4</strong>预览；检测任务会按参数将多模板<strong>合并</strong>为可填结构。
         </p>
       </div>
       <router-link class="record-tpl-link" to="/quality/foundation">← 检测基础配置</router-link>
@@ -373,7 +473,7 @@ onMounted(async () => {
 
     <el-alert type="info" :closable="false" show-icon class="record-tpl-alert">
       <template #title>
-        未指定检测参数时为<strong>方法通用模板</strong>；指定参数时优先匹配该参数模板。合并预览请选择一条真实检测任务。
+        未指定关联参数时为<strong>方法通用模板</strong>；指定关联参数时优先匹配参数模板。合并预览请选择一条真实检测任务。
       </template>
     </el-alert>
 
@@ -398,16 +498,29 @@ onMounted(async () => {
       <template #header>
         <div class="card-header">
           <span>原始记录模板</span>
-          <el-button v-permission="'testing:create'" type="primary" :icon="Plus" @click="openCreate">新增模板</el-button>
+          <el-space>
+            <el-button v-permission="'testing:create'" type="primary" :icon="Plus" @click="openCreate">新增模板</el-button>
+            <el-button v-permission="'testing:create'" type="success" :icon="Document" @click="openCreateDocument">新增文档模板</el-button>
+          </el-space>
         </div>
       </template>
 
       <el-table v-loading="loading" :data="tableData" stripe border>
         <el-table-column prop="code" label="模板编号" width="140" />
         <el-table-column prop="name" label="模板名称" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="method_name" label="检测方法" min-width="200" show-overflow-tooltip />
-        <el-table-column label="检测参数" width="140">
-          <template #default="{ row }">{{ row.parameter_name || '（通用）' }}</template>
+        <el-table-column label="模板类型" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.template_kind === 'document' ? 'warning' : 'success'" size="small">{{ row.template_kind === 'document' ? '文档' : '表单' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="关联参数" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">{{ (row.parameter_names && row.parameter_names.length) ? row.parameter_names.join('、') : (row.parameter_name || '（通用）') }}</template>
+        </el-table-column>
+        <el-table-column label="文档文件" min-width="140" show-overflow-tooltip>
+          <template #default="{ row }">
+            <a v-if="row.word_template_url" :href="row.word_template_url" target="_blank" rel="noopener">查看文件</a>
+            <span v-else>—</span>
+          </template>
         </el-table-column>
         <el-table-column prop="version" label="版本" width="80" />
         <el-table-column label="启用" width="80" align="center">
@@ -415,9 +528,11 @@ onMounted(async () => {
             <el-tag :type="row.is_active ? 'success' : 'info'" size="small">{{ row.is_active ? '是' : '否' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
+            <el-button v-permission="'testing:view'" link type="primary" @click="handleTemplatePreview(row)">预览</el-button>
             <el-button v-permission="'testing:edit'" link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button v-permission="'testing:view'" link type="success" :loading="wordPreviewLoading" @click="handlePreviewWordTemplate(row)">占位预览</el-button>
             <el-button v-permission="'testing:delete'" link type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -435,6 +550,53 @@ onMounted(async () => {
         @current-change="(p: number) => { query.page = p; fetchList() }"
         @size-change="(s: number) => { query.page_size = s; query.page = 1; fetchList() }"
       />
+      <el-input
+        v-if="wordPreviewJson"
+        v-model="wordPreviewJson"
+        type="textarea"
+        :rows="10"
+        readonly
+        class="merge-json"
+      />
+    </el-card>
+
+    <el-card shadow="never" style="margin-top: 16px">
+      <template #header>
+        <span>中间预览窗口</span>
+      </template>
+      <el-empty v-if="!previewTemplate" description="请在模板列表点击“预览”" />
+      <template v-else-if="!previewTemplateIsDocument">
+        <div class="merge-hint" style="margin-bottom: 10px">
+          表单模板：{{ previewTemplate.name }}（{{ previewTemplate.code }}）
+        </div>
+        <el-table :data="previewTemplateFields" stripe border size="small">
+          <el-table-column type="index" width="50" label="#" />
+          <el-table-column prop="label" label="显示标签" min-width="180" />
+          <el-table-column prop="name" label="字段名" min-width="150" />
+          <el-table-column prop="type" label="类型" width="110" />
+          <el-table-column label="必填" width="90" align="center">
+            <template #default="{ row }">{{ row.required ? '是' : '否' }}</template>
+          </el-table-column>
+        </el-table>
+      </template>
+      <template v-else>
+        <div class="merge-hint" style="margin-bottom: 10px">
+          文档模板：{{ previewTemplate.name }}（{{ previewTemplate.code }}）
+        </div>
+        <iframe
+          v-if="previewTemplatePdfUrl"
+          :src="previewTemplatePdfUrl"
+          style="width: 100%; height: 560px; border: 1px solid var(--el-border-color-light); border-radius: 8px"
+        />
+        <el-alert v-else type="warning" :closable="false" show-icon>
+          <template #title>
+            当前文档不是 PDF，暂不支持内嵌预览。请通过
+            <a v-if="previewTemplate.word_template_url" :href="previewTemplate.word_template_url" target="_blank" rel="noopener">查看文件</a>
+            <span v-else>已上传文件</span>
+            打开。
+          </template>
+        </el-alert>
+      </template>
     </el-card>
 
     <el-card shadow="never" style="margin-top: 16px">
@@ -470,6 +632,14 @@ onMounted(async () => {
         readonly
         class="merge-json"
       />
+      <el-input
+        v-if="wordPreviewJson"
+        v-model="wordPreviewJson"
+        type="textarea"
+        :rows="10"
+        readonly
+        class="merge-json"
+      />
     </el-card>
 
     <el-dialog
@@ -500,10 +670,23 @@ onMounted(async () => {
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="检测参数">
-              <el-select v-model="form.test_parameter" placeholder="不选则为通用模板" clearable filterable style="width: 100%">
-                <el-option v-for="p in paramOptions" :key="p.id" :label="`${p.name} (${p.code})`" :value="p.id" />
+            <el-form-item label="关联参数">
+              <el-select v-model="form.test_parameters" multiple clearable filterable placeholder="可不选；不选则为方法通用模板" style="width:100%">
+                <el-option v-for="p in paramOptions" :key="`m_${p.id}`" :label="`${p.name} (${p.code})`" :value="p.id" />
               </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="24">
+            <el-form-item label="Word模板">
+              <el-upload :auto-upload="false" :show-file-list="false" accept=".doc,.docx,.xls,.xlsx,.pdf" :on-change="(f:any)=>{form.word_file=f.raw}">
+                <el-button>选择Word文件</el-button>
+              </el-upload>
+              <span style="margin-left:8px;color:var(--el-text-color-secondary);font-size:12px;">{{ form.word_file ? form.word_file.name : (form.word_template_url ? '已上传' : '未上传') }}</span>
+            </el-form-item>
+          </el-col>
+          <el-col :span="24">
+            <el-form-item label="占位符">
+              <el-text type="info">支持：%工程名称%、%委托编号%、%样品编号%、%样品名称%、%规格型号%（Word/Excel/PDF 文档模板同样可用）</el-text>
             </el-form-item>
           </el-col>
           <el-col :span="8">
@@ -518,7 +701,7 @@ onMounted(async () => {
           </el-col>
         </el-row>
 
-        <el-tabs v-model="schemaEditTab" class="schema-tabs">
+        <el-tabs v-if="createMode === 'form'" v-model="schemaEditTab" class="schema-tabs">
           <el-tab-pane label="可视化字段表" name="visual">
             <div class="visual-toolbar">
               <el-input v-model="recordTitle" placeholder="原始记录标题（页眉）" style="max-width: 420px" />

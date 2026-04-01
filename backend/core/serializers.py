@@ -5,6 +5,22 @@ from typing import Any
 from rest_framework import serializers
 
 
+def safe_related_attr(obj: Any, *path: str) -> Any:
+    """
+    安全读取一层或多层外键/属性，避免软删除导致默认管理器取不到关联对象时抛
+    RelatedObjectDoesNotExist 进而在序列化阶段变成 500。
+    """
+    cur: Any = obj
+    try:
+        for name in path:
+            cur = getattr(cur, name)
+            if cur is None:
+                return None
+        return cur
+    except Exception:
+        return None
+
+
 class CreatedByMixin:
     """Mixin for views: auto-sets created_by from request.user on create."""
 

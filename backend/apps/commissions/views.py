@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.request import Request
@@ -22,12 +24,13 @@ from .serializers import (
 
 class CommissionViewSet(BaseModelViewSet):
     queryset = Commission.objects.select_related(
-        'project', 'sub_project', 'witness', 'reviewer', 'created_by',
-    ).prefetch_related('items')
+        'project', 'sub_project', 'witness', 'sampler', 'reviewer', 'created_by',
+    ).prefetch_related('items', 'samples')
     lims_module = 'commission'
     lims_action_map = {
         'submit': 'edit',
         'review': 'approve',
+        'terminate': 'edit',
     }
     filterset_class = CommissionFilter
     search_fields = ['commission_no', 'construction_part']
@@ -41,6 +44,25 @@ class CommissionViewSet(BaseModelViewSet):
         if self.action in ('update', 'partial_update'):
             return CommissionUpdateSerializer
         return CommissionDetailSerializer
+
+    def list(self, request: Request, *args, **kwargs) -> Response:
+        # region agent log
+        try:
+            os.makedirs('/opt/limis/.cursor', exist_ok=True)
+            with open('/opt/limis/.cursor/debug-66f994.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': '66f994',
+                    'runId': 'initial',
+                    'hypothesisId': 'H2',
+                    'location': 'commissions/views.py:CommissionViewSet.list',
+                    'message': 'commission_list_api_entry',
+                    'data': {'query_params': dict(request.query_params)},
+                    'timestamp': int(__import__('time').time() * 1000),
+                }, ensure_ascii=False) + os.linesep)
+        except Exception:
+            pass
+        # endregion
+        return super().list(request, *args, **kwargs)
 
     def perform_create(self, serializer) -> None:
         commission_no = services.generate_commission_no(
@@ -75,6 +97,24 @@ class CommissionViewSet(BaseModelViewSet):
             'message': '评审完成',
             'data': CommissionDetailSerializer(commission).data,
         })
+
+    @action(detail=True, methods=['post'], url_path='terminate')
+    def terminate(self, request: Request, pk: str = None) -> Response:
+        reason = (request.data.get('reason') or '').strip()
+        commission = services.terminate_commission(int(pk), request.user, reason)
+        return Response({
+            'code': 200,
+            'message': '委托已终止',
+            'data': CommissionDetailSerializer(commission).data,
+        })
+
+    def destroy(self, request: Request, *args, **kwargs) -> Response:
+        instance = self.get_object()
+        services.cascade_soft_delete_commission(instance.pk)
+        return Response(
+            {'code': 200, 'message': '删除成功'},
+            status=status.HTTP_200_OK,
+        )
 
 
 class CommissionItemViewSet(BaseModelViewSet):

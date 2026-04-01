@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from core.serializers import BaseModelSerializer
+from core.serializers import BaseModelSerializer, safe_related_attr
 
 from .models import Commission, CommissionItem, ContractReview
 
@@ -42,21 +42,20 @@ class ContractReviewSerializer(BaseModelSerializer):
 
 
 class CommissionListSerializer(BaseModelSerializer):
-    project_name = serializers.CharField(
-        source='project.name', read_only=True,
-    )
+    project_name = serializers.SerializerMethodField()
     status_display = serializers.CharField(
         source='get_status_display', read_only=True,
     )
     item_count = serializers.IntegerField(
         source='items.count', read_only=True,
     )
+    sample_names = serializers.SerializerMethodField()
 
     class Meta:
         model = Commission
         fields = [
             'id', 'commission_no', 'project', 'project_name',
-            'construction_part', 'commission_date', 'client_unit',
+            'construction_part', 'sample_names', 'commission_date', 'client_unit',
             'is_witnessed', 'status', 'status_display', 'item_count',
             'created_at', 'created_by', 'created_by_name',
         ]
@@ -64,15 +63,27 @@ class CommissionListSerializer(BaseModelSerializer):
             'id', 'commission_no', 'created_at', 'created_by',
         ]
 
+    def get_project_name(self, obj: Commission) -> str:
+        p = safe_related_attr(obj, 'project')
+        return getattr(p, 'name', '') if p else ''
+
+    def get_sample_names(self, obj: Commission) -> str:
+        samples = list(obj.samples.all())
+        if not samples:
+            return ''
+        names = [s.name for s in samples[:12]]
+        if len(samples) > 12:
+            return '、'.join(names) + ' 等'
+        return '、'.join(names)
+
 
 class CommissionDetailSerializer(BaseModelSerializer):
     items = CommissionItemSerializer(many=True, read_only=True)
     contract_review = ContractReviewSerializer(read_only=True)
-    project_name = serializers.CharField(
-        source='project.name', read_only=True,
-    )
+    project_name = serializers.SerializerMethodField()
     sub_project_name = serializers.SerializerMethodField()
     witness_name = serializers.SerializerMethodField()
+    sampler_name = serializers.SerializerMethodField()
     status_display = serializers.CharField(
         source='get_status_display', read_only=True,
     )
@@ -84,7 +95,8 @@ class CommissionDetailSerializer(BaseModelSerializer):
             'id', 'commission_no', 'project', 'project_name',
             'sub_project', 'sub_project_name', 'construction_part', 'commission_date',
             'client_unit', 'client_contact', 'client_phone',
-            'witness', 'witness_name', 'is_witnessed', 'status', 'status_display',
+            'witness', 'witness_name', 'sampler', 'sampler_name',
+            'is_witnessed', 'status', 'status_display',
             'reviewer', 'reviewer_name', 'review_date', 'review_comment',
             'remark', 'items', 'contract_review',
             'created_at', 'updated_at', 'created_by', 'created_by_name',
@@ -95,20 +107,29 @@ class CommissionDetailSerializer(BaseModelSerializer):
             'created_at', 'updated_at', 'created_by',
         ]
 
+    def get_project_name(self, obj: Commission) -> str:
+        p = safe_related_attr(obj, 'project')
+        return getattr(p, 'name', '') if p else ''
+
     def get_reviewer_name(self, obj: Commission) -> str:
         if obj.reviewer:
             return obj.reviewer.get_full_name() or str(obj.reviewer)
         return ''
 
     def get_sub_project_name(self, obj: Commission) -> str:
-        if obj.sub_project_id and obj.sub_project:
-            return obj.sub_project.name
-        return ''
+        sp = safe_related_attr(obj, 'sub_project')
+        return getattr(sp, 'name', '') if sp else ''
 
     def get_witness_name(self, obj: Commission) -> str:
         if obj.witness_id and obj.witness:
             return obj.witness.name
         return ''
+
+    def get_sampler_name(self, obj: Commission) -> str:
+        if obj.sampler_id and obj.sampler:
+            return obj.sampler.name
+        return ''
+
 
 
 class _NestedItemSerializer(serializers.ModelSerializer):
@@ -131,7 +152,7 @@ class CommissionCreateSerializer(BaseModelSerializer):
         fields = [
             'id', 'project', 'sub_project', 'construction_part',
             'commission_date', 'client_unit', 'client_contact',
-            'client_phone', 'witness', 'is_witnessed', 'remark', 'items',
+            'client_phone', 'witness', 'sampler', 'is_witnessed', 'remark', 'items',
         ]
         read_only_fields = ['id']
 
@@ -144,6 +165,12 @@ class CommissionCreateSerializer(BaseModelSerializer):
             )
         return commission
 
+    def validate(self, attrs: dict) -> dict:
+        if attrs.get('is_witnessed') is False:
+            attrs['witness'] = None
+            attrs['sampler'] = None
+        return attrs
+
 
 class CommissionUpdateSerializer(BaseModelSerializer):
     class Meta:
@@ -151,10 +178,13 @@ class CommissionUpdateSerializer(BaseModelSerializer):
         fields = [
             'sub_project', 'construction_part', 'commission_date',
             'client_unit', 'client_contact', 'client_phone',
-            'witness', 'is_witnessed', 'remark',
+            'witness', 'sampler', 'is_witnessed', 'remark',
         ]
 
     def validate(self, attrs: dict) -> dict:
         if self.instance and self.instance.status != 'draft':
             raise serializers.ValidationError('只有草稿状态的委托单可以编辑')
+        if attrs.get('is_witnessed') is False:
+            attrs['witness'] = None
+            attrs['sampler'] = None
         return attrs

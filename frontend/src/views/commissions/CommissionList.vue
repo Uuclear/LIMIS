@@ -3,7 +3,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh } from '@element-plus/icons-vue'
-import { getCommissionList, deleteCommission, submitCommission } from '@/api/commissions'
+import { getCommissionList, deleteCommission, submitCommission, terminateCommission } from '@/api/commissions'
 import type { Commission } from '@/types/commission'
 import { useActionLock } from '@/composables/useActionLock'
 
@@ -21,7 +21,6 @@ const query = reactive({
 const statusTabs = [
   { label: '全部', value: '' },
   { label: '草稿', value: 'draft' },
-  { label: '待提交', value: 'pending_review' },
   { label: '已提交', value: 'reviewed' },
   { label: '已退回', value: 'rejected' },
 ]
@@ -29,8 +28,18 @@ const statusTabs = [
 async function fetchList() {
   loading.value = true
   try {
-    const res: any = await getCommissionList({ ...query, status: activeStatus.value || undefined })
-    tableData.value = res.results ?? res.list ?? []
+    const statusParam = activeStatus.value === 'draft' ? undefined : (activeStatus.value || undefined)
+    // #region agent log
+    fetch('http://127.0.0.1:7490/ingest/c75af6f2-90e9-47e0-a350-bab47c84a284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'66f994'},body:JSON.stringify({sessionId:'66f994',runId:'initial',hypothesisId:'H2',location:'CommissionList.vue:fetchList:before',message:'commission_list_request',data:{activeStatus:activeStatus.value,statusParam},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    const res: any = await getCommissionList({ ...query, status: statusParam })
+    const rows = (res.results ?? res.list ?? []) as Commission[]
+    tableData.value = activeStatus.value === 'draft'
+      ? rows.filter((r: any) => r.status === 'draft' || r.status === 'rejected')
+      : rows
+    // #region agent log
+    fetch('http://127.0.0.1:7490/ingest/c75af6f2-90e9-47e0-a350-bab47c84a284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'66f994'},body:JSON.stringify({sessionId:'66f994',runId:'initial',hypothesisId:'H2',location:'CommissionList.vue:fetchList:after',message:'commission_list_statuses',data:{rows:tableData.value.map((r:any)=>({id:r.id,status:r.status}))},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     total.value = res.total ?? res.count ?? 0
   } finally {
     loading.value = false
@@ -57,40 +66,57 @@ function goCreate() {
   router.push('/entrustment/create')
 }
 
-function goDetail(row: Commission) {
-  router.push(`/entrustment/${row.id}`)
-}
-
 function goEdit(row: Commission) {
   router.push(`/entrustment/${row.id}/edit`)
 }
 
 async function handleSubmitReview(row: Commission) {
   await runLocked(`commission_submit_${row.id}`, async () => {
-    await ElMessageBox.confirm('确认提交评审？提交后不可编辑。', '提示', { type: 'warning' })
+    await ElMessageBox.confirm('确认提交？提交后不可编辑。', '提示', { type: 'warning' })
     await submitCommission(row.id)
-    ElMessage.success('已提交评审')
+    ElMessage.success('已提交')
     fetchList()
   })
 }
 
 async function handleDelete(row: Commission) {
-  await ElMessageBox.confirm('确认删除该委托？', '提示', { type: 'warning' })
+  await ElMessageBox.confirm('确认删除该草稿委托？删除后将级联移除关联数据。', '提示', { type: 'warning' })
   await deleteCommission(row.id)
   ElMessage.success('删除成功')
   fetchList()
 }
 
+async function handleTerminate(row: Commission) {
+  await runLocked(`commission_terminate_${row.id}`, async () => {
+    let reason = ''
+    try {
+      const prompt = await ElMessageBox.prompt('可选填终止原因', '终止委托', {
+        confirmButtonText: '确定终止',
+        cancelButtonText: '取消',
+        inputPlaceholder: '例如：客户撤单、项目取消',
+      })
+      reason = String(prompt.value || '').trim()
+    } catch {
+      return
+    }
+    await terminateCommission(row.id, reason ? { reason } : {})
+    ElMessage.success('委托已终止')
+    fetchList()
+  })
+}
+
 function statusTagType(status: string) {
   const map: Record<string, string> = {
     draft: 'info', pending_review: 'warning', reviewed: 'success', rejected: 'danger',
+    cancelled: 'info',
   }
   return map[status] ?? 'info'
 }
 
 function statusLabel(status: string) {
   const map: Record<string, string> = {
-    draft: '草稿', pending_review: '待提交', reviewed: '已提交', rejected: '已退回',
+    draft: '草稿', pending_review: '待评审', reviewed: '已提交', rejected: '已退回',
+    cancelled: '已终止',
   }
   return map[status] ?? status
 }
@@ -103,7 +129,7 @@ onMounted(fetchList)
     <el-card shadow="never">
       <el-form inline @submit.prevent="handleSearch">
         <el-form-item label="关键词">
-          <el-input v-model="query.search" placeholder="委托编号/工程名称/施工部位" clearable style="width: 220px" />
+          <el-input v-model="query.search" placeholder="委托编号/工程名称/工程部位" clearable style="width: 220px" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
@@ -127,25 +153,18 @@ onMounted(fetchList)
       <el-table v-loading="loading" :data="tableData" stripe border style="margin-top: 8px">
         <el-table-column prop="commission_no" label="委托编号" width="180" />
         <el-table-column prop="project_name" label="工程名称" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="construction_part" label="施工部位" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="sample_names" label="样品名称" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="construction_part" label="工程部位" min-width="140" show-overflow-tooltip />
         <el-table-column prop="commission_date" label="委托日期" width="120" />
-        <el-table-column label="见证取样" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="(row as any).is_witnessed ? 'success' : 'info'" size="small">
-              {{ (row as any).is_witnessed ? '是' : '否' }}
-            </el-tag>
-          </template>
-        </el-table-column>
         <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button v-permission="'commission:view'" link type="primary" @click="goDetail(row)">查看</el-button>
             <el-button
-              v-if="row.status === 'draft'"
+              v-if="row.status === 'draft' || row.status === 'rejected' || row.status === 'pending_review'"
               v-permission="'commission:edit'"
               link
               type="primary"
@@ -154,14 +173,14 @@ onMounted(fetchList)
               编辑
             </el-button>
             <el-button
-              v-if="row.status === 'draft'"
+              v-if="row.status === 'draft' || row.status === 'rejected'"
               v-permission="'commission:edit'"
               link
               type="success"
               :loading="isLocked(`commission_submit_${row.id}`)"
               @click="handleSubmitReview(row)"
             >
-              提交评审
+              提交
             </el-button>
             <el-button
               v-if="row.status === 'draft'"
@@ -171,6 +190,16 @@ onMounted(fetchList)
               @click="handleDelete(row)"
             >
               删除
+            </el-button>
+            <el-button
+              v-if="row.status === 'pending_review' || row.status === 'reviewed' || row.status === 'rejected'"
+              v-permission="'commission:edit'"
+              link
+              type="warning"
+              :loading="isLocked(`commission_terminate_${row.id}`)"
+              @click="handleTerminate(row)"
+            >
+              终止
             </el-button>
           </template>
         </el-table-column>

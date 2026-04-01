@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from core.serializers import BaseModelSerializer
+from core.serializers import BaseModelSerializer, safe_related_attr
 
 from . import services
 from .models import Sample, SampleDisposal, SampleGroup
@@ -54,9 +54,7 @@ class SampleListSerializer(BaseModelSerializer):
         source='get_status_display', read_only=True,
     )
     project_name = serializers.SerializerMethodField()
-    commission_no = serializers.CharField(
-        source='commission.commission_no', read_only=True, default='',
-    )
+    commission_no = serializers.SerializerMethodField()
 
     class Meta:
         model = Sample
@@ -70,8 +68,12 @@ class SampleListSerializer(BaseModelSerializer):
         read_only_fields = ('id', 'created_at')
 
     def get_project_name(self, obj: Sample) -> str:
-        project = obj.project
-        return project.name if project else ''
+        project = safe_related_attr(obj, 'commission', 'project')
+        return getattr(project, 'name', '') if project else ''
+
+    def get_commission_no(self, obj: Sample) -> str:
+        c = safe_related_attr(obj, 'commission')
+        return getattr(c, 'commission_no', '') if c else ''
 
 
 # ───────────────────── Sample Detail ─────────────────────
@@ -82,9 +84,7 @@ class SampleDetailSerializer(BaseModelSerializer):
         source='get_status_display', read_only=True,
     )
     project_name = serializers.SerializerMethodField()
-    commission_no = serializers.CharField(
-        source='commission.commission_no', read_only=True, default='',
-    )
+    commission_no = serializers.SerializerMethodField()
     group_info = SampleGroupSerializer(source='group', read_only=True)
     disposals = SampleDisposalSerializer(many=True, read_only=True)
     is_overdue_retention = serializers.BooleanField(read_only=True)
@@ -107,8 +107,12 @@ class SampleDetailSerializer(BaseModelSerializer):
         )
 
     def get_project_name(self, obj: Sample) -> str:
-        project = obj.project
-        return project.name if project else ''
+        project = safe_related_attr(obj, 'commission', 'project')
+        return getattr(project, 'name', '') if project else ''
+
+    def get_commission_no(self, obj: Sample) -> str:
+        c = safe_related_attr(obj, 'commission')
+        return getattr(c, 'commission_no', '') if c else ''
 
     def get_timeline(self, obj: Sample) -> list:
         return services.get_sample_timeline(obj.pk)

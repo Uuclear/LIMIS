@@ -2,18 +2,14 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from core.serializers import BaseModelSerializer
+from core.serializers import BaseModelSerializer, safe_related_attr
 
 from .models import Report, ReportApproval, ReportDistribution, ReportTemplate
 
 
 class ReportTemplateSerializer(BaseModelSerializer):
-    test_method_name = serializers.CharField(
-        source='test_method.name', read_only=True,
-    )
-    test_parameter_name = serializers.CharField(
-        source='test_parameter.name', read_only=True,
-    )
+    test_method_name = serializers.SerializerMethodField()
+    test_parameter_name = serializers.SerializerMethodField()
 
     class Meta:
         model = ReportTemplate
@@ -25,6 +21,14 @@ class ReportTemplateSerializer(BaseModelSerializer):
             'created_at', 'updated_at', 'created_by', 'created_by_name',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
+
+    def get_test_method_name(self, obj: ReportTemplate) -> str:
+        m = safe_related_attr(obj, 'test_method')
+        return getattr(m, 'name', '') if m else ''
+
+    def get_test_parameter_name(self, obj: ReportTemplate) -> str:
+        p = safe_related_attr(obj, 'test_parameter')
+        return getattr(p, 'name', '') if p else ''
 
 
 class ReportApprovalSerializer(BaseModelSerializer):
@@ -67,9 +71,7 @@ class ReportListSerializer(BaseModelSerializer):
     status_display = serializers.CharField(
         source='get_status_display', read_only=True,
     )
-    commission_no = serializers.CharField(
-        source='commission.commission_no', read_only=True,
-    )
+    commission_no = serializers.SerializerMethodField()
     compiler_name = serializers.SerializerMethodField()
     approval_summary = serializers.SerializerMethodField()
 
@@ -85,6 +87,10 @@ class ReportListSerializer(BaseModelSerializer):
         read_only_fields = [
             'id', 'report_no', 'created_at', 'created_by',
         ]
+
+    def get_commission_no(self, obj: Report) -> str:
+        c = safe_related_attr(obj, 'commission')
+        return getattr(c, 'commission_no', '') if c else ''
 
     def get_compiler_name(self, obj: Report) -> str:
         if obj.compiler:
@@ -107,9 +113,7 @@ class ReportDetailSerializer(BaseModelSerializer):
     status_display = serializers.CharField(
         source='get_status_display', read_only=True,
     )
-    commission_no = serializers.CharField(
-        source='commission.commission_no', read_only=True,
-    )
+    commission_no = serializers.SerializerMethodField()
     compiler_name = serializers.SerializerMethodField()
     auditor_name = serializers.SerializerMethodField()
     approver_name = serializers.SerializerMethodField()
@@ -135,6 +139,10 @@ class ReportDetailSerializer(BaseModelSerializer):
             'pdf_file', 'qr_code',
             'created_at', 'updated_at', 'created_by',
         ]
+
+    def get_commission_no(self, obj: Report) -> str:
+        c = safe_related_attr(obj, 'commission')
+        return getattr(c, 'commission_no', '') if c else ''
 
     def get_compiler_name(self, obj: Report) -> str:
         if obj.compiler:

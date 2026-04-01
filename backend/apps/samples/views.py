@@ -88,6 +88,14 @@ class SampleViewSet(BaseModelViewSet):
             return SampleDetailSerializer
         return SampleDetailSerializer
 
+    def destroy(self, request: Request, *args, **kwargs) -> Response:
+        instance = self.get_object()
+        services.cascade_soft_delete_sample(instance.pk)
+        return Response(
+            {'code': 200, 'message': '删除成功'},
+            status=status.HTTP_200_OK,
+        )
+
     @action(detail=True, methods=['post'], url_path='change-status')
     def change_status(self, request: Request, pk: str = None) -> Response:
         sample = self.get_object()

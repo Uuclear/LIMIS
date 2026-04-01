@@ -4,9 +4,9 @@ from django.db.models import Count
 from django.utils import timezone
 from rest_framework import serializers
 
-from core.serializers import BaseModelSerializer
+from core.serializers import BaseModelSerializer, safe_related_attr
 
-from .models import Contract, Organization, Project, SubProject, Witness
+from .models import Contract, Organization, Project, Sampler, SubProject, Witness
 
 
 # ───────────────────── Organization ─────────────────────
@@ -74,9 +74,7 @@ class ContractSerializer(BaseModelSerializer):
 
 
 class WitnessSerializer(BaseModelSerializer):
-    organization_name = serializers.CharField(
-        source='organization.name', read_only=True, default='',
-    )
+    organization_name = serializers.SerializerMethodField()
 
     id_type_display = serializers.CharField(
         source='get_id_type_display', read_only=True,
@@ -93,6 +91,34 @@ class WitnessSerializer(BaseModelSerializer):
         read_only_fields = (
             'id', 'project', 'created_at', 'updated_at', 'created_by',
         )
+
+    def get_organization_name(self, obj: Witness) -> str:
+        o = safe_related_attr(obj, 'organization')
+        return getattr(o, 'name', '') if o else ''
+
+
+class SamplerSerializer(BaseModelSerializer):
+    organization_name = serializers.SerializerMethodField()
+    id_type_display = serializers.CharField(
+        source='get_id_type_display', read_only=True,
+    )
+
+    class Meta:
+        model = Sampler
+        fields = [
+            'id', 'project', 'name', 'id_type', 'id_type_display', 'id_number', 'organization',
+            'organization_name', 'phone', 'certificate_no', 'is_active',
+            'created_at', 'updated_at', 'created_by', 'created_by_name',
+        ]
+        read_only_fields = (
+            'id', 'project', 'created_at', 'updated_at', 'created_by',
+        )
+
+    def get_organization_name(self, obj: Sampler) -> str:
+        o = safe_related_attr(obj, 'organization')
+        return getattr(o, 'name', '') if o else ''
+
+
 
 
 # ───────────────────── Project ─────────────────────
@@ -132,6 +158,7 @@ class ProjectDetailSerializer(BaseModelSerializer):
     sub_projects = serializers.SerializerMethodField()
     contracts = ContractSerializer(many=True, read_only=True)
     witnesses = WitnessSerializer(many=True, read_only=True)
+    samplers = SamplerSerializer(many=True, read_only=True)
 
     class Meta:
         model = Project
@@ -140,7 +167,7 @@ class ProjectDetailSerializer(BaseModelSerializer):
             'project_type', 'project_type_display',
             'status', 'status_display',
             'start_date', 'end_date', 'description',
-            'organizations', 'sub_projects', 'contracts', 'witnesses',
+            'organizations', 'sub_projects', 'contracts', 'witnesses', 'samplers',
             'created_at', 'updated_at', 'created_by', 'created_by_name',
         ]
         read_only_fields = ('id', 'created_at', 'updated_at', 'created_by')

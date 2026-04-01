@@ -448,3 +448,57 @@ def dispose_sample(
         },
     )
     return disposal
+
+
+@transaction.atomic
+def cascade_soft_delete_sample(sample_id: int) -> None:
+    """
+    软删除样品及其检测任务链，保持与委托侧数据一致。
+
+    若该样品所属委托下存在已发放或已归档报告，则禁止删除样品。
+    """
+    from apps.reports.models import Report
+    from apps.testing.models import OriginalRecord, TestResult, TestTask
+
+    sample = Sample.objects.select_related('commission').get(pk=sample_id)
+    if sample.commission and sample.commission.status != 'draft':
+        raise ValidationError(
+            '仅草稿委托下的样品可删除；已提交的委托不可删除样品，请在委托侧使用「终止」。',
+        )
+    if Report.objects.filter(
+        commission_id=sample.commission_id,
+        status__in=['issued', 'archived'],
+        is_deleted=False,
+    ).exists():
+        raise ValidationError(
+            '该委托下存在已发放或已归档的检测报告，无法删除样品。',
+        )
+
+    now = timezone.now()
+    task_ids = list(
+        TestTask.objects.filter(
+            sample_id=sample_id,
+            is_deleted=False,
+        ).values_list('id', flat=True),
+    )
+    if task_ids:
+        TestResult.objects.filter(
+            task_id__in=task_ids,
+            is_deleted=False,
+        ).update(is_deleted=True, updated_at=now)
+        OriginalRecord.objects.filter(
+            task_id__in=task_ids,
+            is_deleted=False,
+        ).update(is_deleted=True, updated_at=now)
+        TestTask.objects.filter(pk__in=task_ids).update(
+            is_deleted=True, updated_at=now,
+        )
+
+    SampleDisposal.objects.filter(
+        sample_id=sample_id,
+        is_deleted=False,
+    ).update(is_deleted=True, updated_at=now)
+
+    Sample.objects.filter(pk=sample_id).update(
+        is_deleted=True, updated_at=now,
+    )
