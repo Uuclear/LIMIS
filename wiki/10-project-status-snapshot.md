@@ -12,16 +12,16 @@
 - **权限**：用户权限短时缓存 `USER_PERMISSIONS_CACHE_SECONDS`；侧栏按路由 `meta.permission` 过滤。
 - **工具链**：前端 `npm run typecheck`、`npm run lint`（ESLint `--quiet`）。
 - **Wiki**：`wiki/` 经 **GitHub Actions**（仅 **wiki-sync**）同步至 GitHub Wiki；**Docker/前后端构建类 Actions 已移除**（本机跑通为主）。
-- **通知**：站内信后端写入（委托/报告/任务）；日志轮转见运维 Wiki。
+- **通知**：顶栏拉取站内信 API；后端在委托/报告/任务等节点写入 `Notification`；**审核/批准人分流**待后续迭代（见主仓库 §6.3.3）。
 - **部署文档**：`wiki/04-deployment/` 已补充 **HTTPS / `REPORT_VERIFICATION_URL`** 与 **PostgreSQL 备份恢复** 要点（与 `PROJECT_STATUS.md` §6.3.1 对应）。
 
 ---
 
 ## 仍待产品化（节选）
 
-- 报告 **Word** 版式导出、复杂 **审批链** 与电子签章。
-- 委托/样品 **Excel 模板**批量导入等。
-- 通知中心 **后端** 与顶栏示例数据替换。
+- 报告 **Word** 版式导出、复杂 **审批链** 与 UI 完全一致、电子签章。
+- 历史数据迁移工具、报告批量导出。
+- 通知按审核/批准等角色**精准分流**（当前为权限码广播为主）。
 
 详细勾选清单请直接阅读主仓库 **`PROJECT_STATUS.md`** §6。
 
@@ -31,6 +31,7 @@
 
 | 日期 | 版本 | 作者 | 摘要 |
 |------|------|------|------|
+| 2026-04-01 | 1.2 | Wiki | 与 PROJECT_STATUS 八次修订对齐：站内信 API、待办分流 |
 | 2026-04-01 | 1.1 | Wiki | 部署 wiki 与 §6.3.1 文档对齐说明 |
 | 2026-04-01 | 1.0 | Wiki | 初版：与 PROJECT_STATUS 对齐的 Wiki 摘要 |
 

@@ -1,6 +1,6 @@
 # Limis 实验室信息管理系统 - 项目状态文档（详细分层版）
 
-**更新时间**：2026年4月1日（七次修订）  
+**更新时间**：2026年4月1日（八次修订）  
 **当前环境**：Django 5.x + Vue 3 + TypeScript + PostgreSQL + Redis（**本地开发**与 **Docker Compose** 两种跑法并存）  
 **访问地址**  
 - **Docker（推荐联调）**：`http://<主机IP>/`（Nginx **80**，API 同源 `/api/`；后端容器内 Gunicorn **8000** 仅集群内访问）  
@@ -14,7 +14,7 @@
 
 | 维度 | 要点 |
 |------|------|
-| **技术栈** | Django REST + JWT；Vue3 + Vite + TS + Element Plus + Pinia；业务信封：仅当响应 JSON 的 **`code` 为数字** 时解包 `data`（见 `frontend/src/utils/request.ts`）。 |
+| **技术栈** | Django REST + JWT；Vue3 + Vite + TS + Element Plus + Pinia；业务信封：`code` 为 **数字** 或 **纯数字字符串**（如 `"200"`）时解包 `data`，避免网关改类型（见 `frontend/src/utils/request.ts`）。 |
 | **权限** | 后端 `LimsModulePermission` + 各 `ViewSet.lims_module`；`User.has_lims_permission`；权限表种子 `system/migrations/0002_seed_permissions.py`。 |
 | **易踩坑** | 业务对象上的字段名 **`code`**（如项目编号）勿与统一响应 **`code: 200`** 混淆——已通过「数字型 code」判断规避。 |
 | **待迁库** | 若拉取最新代码：`migrate` **system**（权限种子）、**testing**（`RecordTemplate.test_parameter`，见 `testing/migrations/0002_*.py`）、**standards**（`replaced_case` 等，以仓库为准）。 |
@@ -38,7 +38,7 @@
 
 | 方向 | 说明 |
 |------|------|
-| 顶栏铃铛 | `Header.vue`：`el-popover` 点击展开消息列表（当前为示例数据 + 路由跳转）；非静默角标。 |
+| 顶栏铃铛 | `Header.vue`：`el-popover` 拉取 **`/api/v1/system/notifications/`** 列表与未读数，点击跳转 `link_path`；已读标记走 API。 |
 | 用户管理 | API 增加 **`real_name`**（读写映射到 `first_name`）；**`role_ids`** 映射 `roles`；列表支持 **`real_name` 查询**；重置密码字段为 **`password`**；前端编辑只提交干净 payload。 |
 | 仪器设备 | 列表行 **`manage_no`/`model_no`/`next_calibration_date`** 与表单字段 **`equipment_no`/`model`** 的映射与规范化，避免编辑时 `manage_no` 空值导致唯一约束 422；列表支持 **删除**；后端加强 **`manage_no`** 校验。 |
 | 标准规范 | 列表 **删除** + `deleteStandard` API。 |
@@ -261,6 +261,7 @@
 
 #### 6.3.3 高级功能
 - [x] 通知中心（**站内信**：顶栏已接 API；关键业务事件写入 `Notification`—委托待评审、报告待审核/待批准、任务分配、报告已发放；邮件/微信仍待对接）
+- [ ] 通知按「审核 / 批准」等角色**精准分流**（当前多为按权限码广播；与 §6.2.1 审批链细化一并迭代）
 - [ ] 工作流引擎（更复杂的审批流）
 - [ ] 移动端 H5 / 小程序适配
 - [ ] AI 辅助检测结果分析（未来）
@@ -287,7 +288,7 @@
 
 ---
 
-**当前系统可正常启动并局域网访问**，已具备核心业务闭环能力；近期已覆盖 **权限与信封修复、用户/设备/标准关键交互、参数级原始记录模板与合并预览**。中长期仍建议优先完善 **报告审批与 Word 版式**、**多维度统计与报表**、**原始记录保存与合并策略统一**。
+**当前系统可正常启动并局域网访问**，已具备核心业务闭环能力；近期已覆盖 **权限与信封修复、用户/设备/标准关键交互、参数级原始记录模板与合并预览、站内信关键事件写入**。中长期仍建议优先完善 **报告审批与 Word 版式**、**审批/通知分流**、**原始记录保存与合并策略统一**。
 
 ---
 
@@ -295,7 +296,7 @@
 
 1. **数据库**：`python manage.py migrate`（**system**、**testing**、**standards** 等以仓库迁移为准）。
 2. **测试**：用户姓名/角色保存、设备编辑保存、标准/设备删除、模板库 CRUD、`merged-record-schema` 与任务 ID。
-3. **产品**：报告审批链与 Word 导出、多维度统计、通知后端接口替换顶栏示例数据。
+3. **产品**：报告 **Word** 版式、审批链与界面完全一致；通知分流（审核/批准人区分）；历史迁移与报告批量导出等按 §6 优先级推进。
 
 ---
 
