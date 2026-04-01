@@ -130,6 +130,9 @@ CACHES = {
     }
 }
 
+# 已登录用户权限列表短时缓存（秒）；与 JWT session_version 组合键，踢下线会自然失效
+USER_PERMISSIONS_CACHE_SECONDS = int(os.environ.get('USER_PERMISSIONS_CACHE_SECONDS', '120'))
+
 # Celery
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL

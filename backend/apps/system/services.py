@@ -119,15 +119,25 @@ def create_user(data: dict[str, Any], created_by: User | None = None) -> User:
 
 
 def get_user_permissions(user: User) -> list[str]:
+    """权限码列表；短时缓存减轻 /me 与鉴权路径上的重复查询（按用户与会话版本键）。"""
+    if not user.is_authenticated:
+        return []
+    sv = int(getattr(user, 'session_version', 0) or 0)
+    cache_key = f'lims:user_permissions:{user.pk}:{sv}'
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return list(cached)
     if user.is_superuser:
-        return list(
-            Permission.objects.values_list('code', flat=True)
+        codes = list(Permission.objects.values_list('code', flat=True))
+    else:
+        codes = list(
+            Permission.objects.filter(
+                roles__users=user,
+            ).distinct().values_list('code', flat=True)
         )
-    return list(
-        Permission.objects.filter(
-            roles__users=user,
-        ).distinct().values_list('code', flat=True)
-    )
+    timeout = int(getattr(settings, 'USER_PERMISSIONS_CACHE_SECONDS', 120))
+    cache.set(cache_key, codes, timeout=timeout)
+    return codes
 
 
 def has_permission(user: User, module: str, action: str) -> bool:

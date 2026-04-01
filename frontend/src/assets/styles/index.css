@@ -101,3 +101,31 @@ a {
 .fade-leave-to {
   opacity: 0;
 }
+
+/* 打印：隐藏侧栏/顶栏与进度条，主内容全宽 */
+@media print {
+  .layout-sidebar,
+  .header,
+  #nprogress {
+    display: none !important;
+  }
+
+  .layout-main {
+    margin-left: 0 !important;
+    width: 100% !important;
+    min-height: auto !important;
+  }
+
+  .layout-content {
+    padding: 12px !important;
+    overflow: visible !important;
+  }
+
+  .page-container {
+    padding: 0 !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+}

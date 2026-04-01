@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   Document, List, Notebook, WarningFilled,
 } from '@element-plus/icons-vue'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
-import { BarChart, PieChart } from 'echarts/charts'
+import { BarChart, PieChart, LineChart } from 'echarts/charts'
 import {
   GridComponent, TooltipComponent, LegendComponent, TitleComponent,
 } from 'echarts/components'
@@ -14,12 +15,18 @@ import {
   getDashboardData,
   getTestVolume,
   getQualificationRate,
+  getStrengthCurve,
   getCycleAnalysis,
   getWorkload,
   getEquipmentUsage,
 } from '@/api/statistics'
 
-use([BarChart, PieChart, GridComponent, TooltipComponent, LegendComponent, TitleComponent, CanvasRenderer])
+use([
+  BarChart, PieChart, LineChart,
+  GridComponent, TooltipComponent, LegendComponent, TitleComponent, CanvasRenderer,
+])
+
+const router = useRouter()
 
 interface StatCard {
   title: string
@@ -46,6 +53,7 @@ const kpi = ref({
 })
 
 const recentTasks = ref<any[]>([])
+const strengthRows = ref<{ age_days: number; avg_strength: number }[]>([])
 
 async function fetchDashboard() {
   try {
@@ -70,6 +78,19 @@ async function fetchQualRate() {
     const res: any = await getQualificationRate()
     qualData.value = res?.items ?? res ?? []
   } catch { /* ignore */ }
+}
+
+async function fetchStrength() {
+  try {
+    const res: any = await getStrengthCurve()
+    const raw = Array.isArray(res) ? res : []
+    strengthRows.value = raw.map((r: any) => ({
+      age_days: Number(r.age_days ?? 0),
+      avg_strength: Number(r.avg_strength ?? 0),
+    }))
+  } catch {
+    strengthRows.value = []
+  }
 }
 
 async function fetchKpi() {
@@ -124,6 +145,24 @@ const pieOption = computed(() => ({
   }],
 }))
 
+const strengthLineOption = computed(() => ({
+  tooltip: { trigger: 'axis' },
+  grid: { left: 50, right: 20, top: 20, bottom: 30 },
+  xAxis: {
+    type: 'category',
+    name: '龄期(天)',
+    data: strengthRows.value.map((r) => String(r.age_days)),
+  },
+  yAxis: { type: 'value', name: '强度' },
+  series: [{
+    type: 'line',
+    smooth: true,
+    data: strengthRows.value.map((r) => r.avg_strength),
+    itemStyle: { color: '#67c23a' },
+    areaStyle: { color: 'rgba(103, 194, 58, 0.12)' },
+  }],
+}))
+
 const taskStatusMap: Record<string, string> = {
   unassigned: '待分配',
   assigned: '待检',
@@ -151,6 +190,7 @@ onMounted(() => {
   fetchDashboard()
   fetchVolume()
   fetchQualRate()
+  fetchStrength()
   fetchKpi()
 })
 </script>
@@ -195,6 +235,17 @@ onMounted(() => {
     </el-row>
 
     <el-row :gutter="20" class="chart-row">
+      <el-col :span="24">
+        <el-card shadow="hover">
+          <template #header>
+            <div class="card-header"><span>强度发展曲线（按龄期均值）</span></div>
+          </template>
+          <v-chart :option="strengthLineOption" style="height: 260px; width: 100%" autoresize />
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="20" class="chart-row">
       <el-col :span="8">
         <el-card shadow="hover">
           <template #header><div class="card-header"><span>平均流转周期</span></div></template>
@@ -222,7 +273,7 @@ onMounted(() => {
       <template #header>
         <div class="card-header">
           <span>最近检测任务</span>
-          <el-button type="primary" text>查看全部</el-button>
+          <el-button type="primary" text @click="router.push('/testing/tasks')">查看全部</el-button>
         </div>
       </template>
       <el-table :data="recentTasks" stripe>
