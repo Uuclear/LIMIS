@@ -1,0 +1,66 @@
+name: Deploy Wiki to GitHub Pages
+
+on:
+  push:
+    branches:
+      - limis-ali
+    paths:
+      - 'wiki/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      
+      - name: Prepare Wiki Content
+        run: |
+          mkdir -p _site
+          cp wiki/README.md _site/index.md
+          cp -r wiki/* _site/
+          
+          # 处理文件名
+          cd _site
+          for dir in */; do
+            cd "$dir"
+            for file in *.md; do
+              newname=$(echo "$file" | sed 's/^[0-9]*-//')
+              [ "$file" != "$newname" ] && mv "$file" "$newname"
+            done
+            cd ..
+          done
+          
+          # 重命名目录
+          mv "01-系统概述" "系统概述" 2>/dev/null || true
+          mv "02-用户指南" "用户指南" 2>/dev/null || true
+          mv "03-管理员指南" "管理员指南" 2>/dev/null || true
+          mv "04-功能详解" "功能详解" 2>/dev/null || true
+          mv "05-API文档" "API文档" 2>/dev/null || true
+          mv "06-扩展开发" "扩展开发" 2>/dev/null || true
+          mv "07-常见问题" "常见问题" 2>/dev/null || true
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+      
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
