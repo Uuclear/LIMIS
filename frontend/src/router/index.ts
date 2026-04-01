@@ -32,6 +32,12 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true, title: '登录' },
   },
   {
+    path: '/verify/report/:id',
+    name: 'ReportVerify',
+    component: () => import('@/views/reports/ReportVerifyPage.vue'),
+    meta: { public: true, title: '报告防伪查询' },
+  },
+  {
     path: '/',
     component: () => import('@/components/Layout/MainLayout.vue'),
     redirect: '/dashboard',
@@ -66,12 +72,10 @@ const router = createRouter({
   routes,
 })
 
-const PUBLIC_ROUTES = ['/login']
-
 router.beforeEach(async (to, _from, next) => {
   NProgress.start()
 
-  if (PUBLIC_ROUTES.includes(to.path)) {
+  if (to.matched.some((r) => r.meta.public)) {
     next()
     return
   }

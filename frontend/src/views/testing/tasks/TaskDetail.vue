@@ -147,9 +147,19 @@ onMounted(() => {
         <template #header>
           <div class="card-header">
             <span>任务信息</span>
-            <el-tag :type="statusTagType[task.status]" effect="dark">
-              {{ statusMap[task.status] ?? task.status }}
-            </el-tag>
+            <div class="task-header-actions">
+              <el-button
+                v-permission="'quality:view'"
+                type="primary"
+                link
+                @click="router.push({ path: '/quality/record-templates', query: { task_id: String(taskId) } })"
+              >
+                模板库 / 合并预览
+              </el-button>
+              <el-tag :type="statusTagType[task.status]" effect="dark">
+                {{ statusMap[task.status] ?? task.status }}
+              </el-tag>
+            </div>
           </div>
         </template>
         <el-descriptions :column="3" border>
@@ -333,6 +343,12 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.task-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .action-bar {

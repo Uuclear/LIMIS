@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from django.http import FileResponse, HttpResponse
-from rest_framework import status
+from rest_framework import permissions, status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from core.audit import log_sensitive_audit
 from core.views import BaseModelViewSet
@@ -19,6 +20,33 @@ from .serializers import (
     ReportListSerializer,
     ReportTemplateSerializer,
 )
+
+
+class PublicReportVerifyView(APIView):
+    """无需登录：扫码或打开链接核对报告真伪（仅返回非敏感摘要）。"""
+
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def get(self, request: Request, pk: int) -> Response:
+        try:
+            report = Report.objects.get(pk=pk, is_deleted=False)
+        except Report.DoesNotExist:
+            return Response(
+                {'code': 404, 'message': '报告不存在或已删除'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response({
+            'code': 200,
+            'data': {
+                'report_no': report.report_no,
+                'status': report.status,
+                'status_display': report.get_status_display(),
+                'compile_date': report.compile_date,
+                'issue_date': report.issue_date,
+                'has_cma': report.has_cma,
+            },
+        })
 
 
 class ReportViewSet(BaseModelViewSet):

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, Document } from '@element-plus/icons-vue'
 import {
@@ -85,6 +86,8 @@ const previewTaskId = ref<number | null>(null)
 const taskOptions = ref<{ id: number; task_no: string; label: string }[]>([])
 const previewJson = ref('')
 const previewLoading = ref(false)
+
+const route = useRoute()
 
 async function loadMethods() {
   const res: any = await getTestMethods({ page_size: 500 })
@@ -329,10 +332,18 @@ async function handlePreviewMerged() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  const q = route.query.task_id
+  const tid = q ? Number(Array.isArray(q) ? q[0] : q) : NaN
+  if (Number.isFinite(tid) && tid > 0) {
+    previewTaskId.value = tid
+  }
   fetchList()
-  loadMethods()
-  loadRecentTasks()
+  await loadMethods()
+  await loadRecentTasks()
+  if (Number.isFinite(tid) && tid > 0) {
+    await handlePreviewMerged()
+  }
 })
 </script>
 
@@ -347,6 +358,18 @@ onMounted(() => {
       </div>
       <router-link class="record-tpl-link" to="/quality/foundation">← 检测基础配置</router-link>
     </div>
+
+    <el-alert
+      v-if="route.query.task_id"
+      type="success"
+      :closable="false"
+      show-icon
+      class="record-tpl-alert"
+    >
+      <template #title>
+        已从检测任务跳转（task_id={{ route.query.task_id }}），已尝试加载<strong>合并结构</strong>预览；亦可改选下方任务后重新预览。
+      </template>
+    </el-alert>
 
     <el-alert type="info" :closable="false" show-icon class="record-tpl-alert">
       <template #title>

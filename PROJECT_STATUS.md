@@ -1,6 +1,6 @@
 # Limis 实验室信息管理系统 - 项目状态文档（详细分层版）
 
-**更新时间**：2026年4月1日（二次修订）  
+**更新时间**：2026年4月1日（三次修订）  
 **当前环境**：Django 5.x + Vue 3 + TypeScript + PostgreSQL + Redis（**本地开发**与 **Docker Compose** 两种跑法并存）  
 **访问地址**  
 - **Docker（推荐联调）**：`http://<主机IP>/`（Nginx **80**，API 同源 `/api/`；后端容器内 Gunicorn **8000** 仅集群内访问）  
@@ -53,6 +53,8 @@
 | 多维统计 API | `tasks-by-project` / `tasks-by-method`；Dashboard 增加项目/方法任务数图；合格率饼图与后端 `category` 字段对齐。 |
 | 样品标签 | 列表多选 + 批量打印二维码标签（print-js）。 |
 | 前端规范 | ESLint 9 flat + `npm run lint`（`--quiet`）。 |
+| 报告防伪 | 公开接口 `GET /api/v1/reports/public/verify/<id>/`；前端路由 `/verify/report/:id`（免登录）；`REPORT_VERIFICATION_URL` 默认指向本地 Vite 防伪页。 |
+| 模板库联动 | 检测任务详情 →「模板库 / 合并预览」；`/quality/record-templates?task_id=` 自动拉合并结构预览。 |
 
 ---
 
@@ -71,6 +73,7 @@
 | 模板库页面与路由 | `frontend/src/views/quality/RecordTemplateLibrary.vue`、`frontend/src/router/modules/quality.ts` |
 | 侧栏菜单 | `frontend/src/components/Layout/Sidebar.vue` |
 | 统计多维接口 | `backend/apps/statistics/views.py`（`tasks-by-project` / `tasks-by-method`）、`frontend/src/api/statistics.ts` |
+| 报告防伪（公开） | `backend/apps/reports/views.py`（`PublicReportVerifyView`）、`frontend/src/views/reports/ReportVerifyPage.vue` |
 
 ---
 
@@ -208,12 +211,12 @@
 - [ ] Word 模板引擎（Word 版式导出）
 - [ ] 报告审批流（审核 → 技术负责人 → 授权签字人）与 UI 完全一致
 - [ ] 电子签章与数字签名集成
-- [ ] 报告预览页面（含二维码）
+- [x] 报告预览页面（含二维码）（`ReportDetail` 生成/预览 PDF；二维码指向 `REPORT_VERIFICATION_URL` + `/verify/report/<id>`）
 - [ ] 报告批量生成与导出
 
 #### 6.2.2 打印与移动支持
 - [x] 样品二维码批量打印功能（列表多选 + `getSampleLabel` + print-js；单次最多 30 条）
-- [ ] 报告二维码防伪验证
+- [x] 报告二维码防伪验证（公开 `GET .../reports/public/verify/<id>/` + 免登录防伪页；生成 PDF 时写入 `qr_code` 链接）
 - [ ] 移动端扫码查看样品/委托进度
 - [x] 打印样式优化（`index.css` 中 `@media print`：侧栏/顶栏隐藏、主区全宽）
 
@@ -226,12 +229,12 @@
 #### 6.2.4 数据导入导出
 - [ ] Excel 模板下载与批量导入（委托、样品）
 - [x] 标准规范数据初始化脚本（`manage.py seed_site_lab_commercial_pack` 等含 `Standard` 与检测方法/参数种子；按需选用）
-- [ ] 耗材入库/出库记录与库存预警
+- [x] 耗材入库/出库记录与库存预警（入库/出库接口 + `low-stock` 与列表预警展示）
 - [ ] 历史数据迁移工具
 
 #### 6.2.5 检测原始记录（产品深化）
 - [ ] 原始记录 **创建/保存** 时直接使用 **merged-record-schema** 结果填充 `record_data`（与当前单 `template` FK 策略统一）
-- [ ] 模板库与「检测任务」页面联动（从任务跳转预览/录入）
+- [x] 模板库与「检测任务」页面联动（任务详情「模板库 / 合并预览」→ `record-templates?task_id=` 自动合并结构预览）
 
 ### 6.3 低优先级 - 优化与扩展
 

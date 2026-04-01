@@ -78,9 +78,10 @@ service.interceptors.response.use(
     return resData as unknown as AxiosResponse
   },
   (error) => {
+    const cfg = error.config as (InternalAxiosRequestConfig & { skipGlobalError?: boolean }) | undefined
     if (error.response?.status === 401) {
       handleUnauthorized()
-    } else {
+    } else if (!cfg?.skipGlobalError) {
       const msg = error.response?.data?.detail
         || error.response?.data?.message
         || error.message

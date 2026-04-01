@@ -133,6 +133,12 @@ CACHES = {
 # 已登录用户权限列表短时缓存（秒）；与 JWT session_version 组合键，踢下线会自然失效
 USER_PERMISSIONS_CACHE_SECONDS = int(os.environ.get('USER_PERMISSIONS_CACHE_SECONDS', '120'))
 
+# 报告 PDF 二维码中的防伪查询链接前缀（需与前端路由 /verify/report/<id> 一致；生产请改为 HTTPS 公网地址）
+REPORT_VERIFICATION_URL = os.environ.get(
+    'REPORT_VERIFICATION_URL',
+    'http://127.0.0.1:3000/verify/report/',
+)
+
 # Celery
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL

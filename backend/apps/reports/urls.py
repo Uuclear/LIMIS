@@ -16,6 +16,11 @@ distribution_router.register(
 )
 
 urlpatterns = [
+    path(
+        'public/verify/<int:pk>/',
+        views.PublicReportVerifyView.as_view(),
+        name='public-report-verify',
+    ),
     path('templates/', include(template_router.urls)),
     path('', include(router.urls)),
     path(

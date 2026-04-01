@@ -12,3 +12,6 @@ export const voidReport = (id: number, data: any) => request.post(`/v1/reports/$
 export const previewReport = (id: number) => request.get(`/v1/reports/${id}/preview/`, { responseType: 'blob' } as any)
 export const downloadReport = (id: number) => request.get(`/v1/reports/${id}/download/`, { responseType: 'blob' } as any)
 export const verifyReport = (id: number) => request.get(`/v1/reports/${id}/verify/`)
+/** 无需登录：公开防伪查询（与二维码 URL 一致） */
+export const verifyReportPublic = (id: number) =>
+  request.get(`/v1/reports/public/verify/${id}/`, { skipGlobalError: true } as Record<string, unknown>)
