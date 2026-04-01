@@ -1,10 +1,17 @@
 from __future__ import annotations
 
-from rest_framework import status
+import json
+from io import BytesIO
+
+from django.http import HttpResponse
+from rest_framework import permissions, status
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from core.permissions import SampleCreateOrEditPermission
 from core.utils.export import export_to_excel
 from core.views import BaseModelViewSet
 
@@ -13,6 +20,7 @@ from .filters import SampleFilter
 from .models import Sample, SampleGroup
 from .serializers import (
     SampleBatchCreateSerializer,
+    SampleBatchRowSerializer,
     SampleCreateSerializer,
     SampleDetailSerializer,
     SampleDisposalSerializer,
@@ -20,6 +28,41 @@ from .serializers import (
     SampleListSerializer,
     SampleStatusChangeSerializer,
 )
+
+
+class PublicSampleVerifyView(APIView):
+    """无需登录：扫码或打开链接查看样品/委托进度摘要（仅返回非敏感字段）。"""
+
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def get(self, request: Request, sample_no: str | None = None, pk: int | None = None) -> Response:
+        qs = Sample.objects.select_related('commission', 'commission__project')
+        try:
+            if pk is not None:
+                sample = qs.get(pk=pk)
+            else:
+                sample = qs.get(sample_no=sample_no)
+        except Sample.DoesNotExist:
+            return Response(
+                {'code': 404, 'message': '样品不存在'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        project_name = ''
+        if sample.commission_id and sample.commission.project_id:
+            project_name = sample.commission.project.name
+        commission_no = sample.commission.commission_no if sample.commission_id else ''
+        return Response({
+            'code': 200,
+            'data': {
+                'sample_no': sample.sample_no,
+                'name': sample.name,
+                'status': sample.status,
+                'status_display': sample.get_status_display(),
+                'commission_no': commission_no,
+                'project_name': project_name,
+            },
+        })
 
 
 class SampleViewSet(BaseModelViewSet):
@@ -153,6 +196,136 @@ class SampleViewSet(BaseModelViewSet):
                 '取样日期', '收样日期', '委托单号',
             ],
             filename='样品台账.xlsx',
+        )
+
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='import-template',
+        permission_classes=[permissions.IsAuthenticated, SampleCreateOrEditPermission],
+    )
+    def import_template(self, request: Request) -> HttpResponse:
+        wb = services.build_import_template_workbook()
+        buf = BytesIO()
+        wb.save(buf)
+        response = HttpResponse(
+            buf.getvalue(),
+            content_type=(
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            ),
+        )
+        response['Content-Disposition'] = 'attachment; filename="sample_import_template.xlsx"'
+        return response
+
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='batch-import',
+        parser_classes=[MultiPartParser, FormParser],
+        permission_classes=[permissions.IsAuthenticated, SampleCreateOrEditPermission],
+    )
+    def batch_import(self, request: Request) -> Response:
+        raw_cid = request.POST.get('commission_id')
+        if raw_cid is None or str(raw_cid).strip() == '':
+            return Response(
+                {
+                    'code': 400,
+                    'message': '请选择委托单',
+                    'data': {
+                        'success_count': 0,
+                        'errors': [{'row': 0, 'message': '缺少 commission_id'}],
+                    },
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            cid = int(raw_cid)
+        except (TypeError, ValueError):
+            return Response(
+                {
+                    'code': 400,
+                    'message': '委托单 ID 无效',
+                    'data': {
+                        'success_count': 0,
+                        'errors': [{'row': 0, 'message': 'commission_id 必须为整数'}],
+                    },
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from apps.commissions.models import Commission
+        if not Commission.objects.filter(pk=cid).exists():
+            return Response(
+                {
+                    'code': 400,
+                    'message': '委托单不存在',
+                    'data': {
+                        'success_count': 0,
+                        'errors': [{'row': 0, 'message': '委托单不存在'}],
+                    },
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        upload = request.FILES.get('file')
+        if not upload:
+            return Response(
+                {
+                    'code': 400,
+                    'message': '请上传 Excel 文件',
+                    'data': {
+                        'success_count': 0,
+                        'errors': [{'row': 0, 'message': '缺少 file'}],
+                    },
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        raw_rows, parse_errors = services.parse_samples_import_excel(upload)
+        if parse_errors:
+            return Response(
+                {
+                    'code': 400,
+                    'message': '文件解析失败',
+                    'data': {'success_count': 0, 'errors': parse_errors},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        row_errors: list[dict[str, str | int]] = []
+        validated_rows: list[dict] = []
+        for excel_row_idx, row in raw_rows:
+            ser = SampleBatchRowSerializer(data=row)
+            if not ser.is_valid():
+                row_errors.append({
+                    'row': excel_row_idx,
+                    'message': json.dumps(ser.errors, ensure_ascii=False),
+                })
+            else:
+                validated_rows.append(ser.validated_data)
+
+        if row_errors:
+            return Response(
+                {
+                    'code': 400,
+                    'message': '数据校验未通过',
+                    'data': {'success_count': 0, 'errors': row_errors},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        samples = services.create_samples_from_rows(cid, validated_rows)
+        return Response(
+            {
+                'code': 201,
+                'message': f'成功导入 {len(samples)} 条样品',
+                'data': {
+                    'success_count': len(samples),
+                    'errors': [],
+                    'samples': SampleListSerializer(samples, many=True).data,
+                },
+            },
+            status=status.HTTP_201_CREATED,
         )
 
 

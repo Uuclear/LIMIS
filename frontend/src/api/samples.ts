@@ -20,3 +20,22 @@ export function createTestingTasksForSample(id: number) {
 export function exportSamples(params?: any) {
   return request.get(`${S}/export/`, { params, responseType: 'blob' } as any)
 }
+
+/** GET：批量登记 Excel 模板（表头与 batch-register 行字段一致） */
+export function downloadSampleImportTemplate() {
+  return request.get(`${S}/import-template/`, { responseType: 'blob' } as any)
+}
+
+/** POST：multipart，字段 commission_id + file（.xlsx） */
+export function batchImportSamples(commissionId: number, file: File) {
+  const fd = new FormData()
+  fd.append('commission_id', String(commissionId))
+  fd.append('file', file)
+  return request.post(`${S}/batch-import/`, fd, { skipGlobalError: true } as any)
+}
+
+/** 无需登录：公开样品/委托进度查询（与标签二维码 `/verify/sample/<no>` 一致） */
+export const verifySamplePublic = (sampleNo: string) =>
+  request.get(`${S}/public/verify/${encodeURIComponent(sampleNo)}/`, {
+    skipGlobalError: true,
+  } as Record<string, unknown>)

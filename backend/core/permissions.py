@@ -54,6 +54,24 @@ class LimsModulePermission(BasePermission):
         return False
 
 
+class SampleCreateOrEditPermission(BasePermission):
+    """样品批量导入/模板下载：允许 `sample:create` 或 `sample:edit` 任一。"""
+
+    message = '无此模块操作权限'
+
+    def has_permission(self, request: Request, view: APIView) -> bool:
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if getattr(request.user, 'is_superuser', False):
+            return True
+        if hasattr(request.user, 'has_lims_permission'):
+            return bool(
+                request.user.has_lims_permission('sample', 'create')
+                or request.user.has_lims_permission('sample', 'edit')
+            )
+        return False
+
+
 class IsAuthenticated(BasePermission):
     message = '请先登录'
 

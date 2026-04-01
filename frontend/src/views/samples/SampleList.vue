@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import type { UploadFile, UploadInstance } from 'element-plus'
 import printJS from 'print-js'
-import { Search, Refresh, Plus, Download, Printer } from '@element-plus/icons-vue'
-import { getSampleList, exportSamples, getSampleLabel } from '@/api/samples'
+import { Search, Refresh, Plus, Download, Printer, Upload } from '@element-plus/icons-vue'
+import { getSampleList, exportSamples, getSampleLabel, downloadSampleImportTemplate, batchImportSamples } from '@/api/samples'
+import { getCommissionList } from '@/api/commissions'
+import { hasPermission } from '@/utils/permission'
 import type { Sample } from '@/types/sample'
 
 const router = useRouter()
@@ -17,6 +20,17 @@ const total = ref(0)
 const query = reactive({
   page: 1, page_size: 20, keyword: '', status: '', date_range: [] as string[],
 })
+
+const canBatchImport = computed(
+  () => hasPermission('sample:create') || hasPermission('sample:edit'),
+)
+
+const importDialogVisible = ref(false)
+const importCommissionId = ref<number | null>(null)
+const importFile = ref<File | null>(null)
+const importSubmitting = ref(false)
+const importUploadRef = ref<UploadInstance>()
+const commissionOptions = ref<{ id: number; commission_no: string; project_name: string }[]>([])
 
 const statusOptions = [
   { label: '待检', value: 'pending' },
@@ -73,6 +87,67 @@ async function handleExport() {
   a.download = '样品列表.xlsx'
   a.click()
   window.URL.revokeObjectURL(url)
+}
+
+async function handleDownloadTemplate() {
+  const res: any = await downloadSampleImportTemplate()
+  const url = window.URL.createObjectURL(new Blob([res]))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = '样品批量导入模板.xlsx'
+  a.click()
+  window.URL.revokeObjectURL(url)
+}
+
+async function openImportDialog() {
+  importCommissionId.value = null
+  importFile.value = null
+  importUploadRef.value?.clearFiles()
+  importDialogVisible.value = true
+  try {
+    const res: any = await getCommissionList({ page_size: 500, status: 'reviewed' })
+    commissionOptions.value = res.results ?? res.list ?? []
+  } catch {
+    commissionOptions.value = []
+  }
+}
+
+function onImportFileChange(uploadFile: UploadFile) {
+  importFile.value = uploadFile.raw ?? null
+}
+
+async function submitBatchImport() {
+  if (!importCommissionId.value) {
+    ElMessage.warning('请选择委托单')
+    return
+  }
+  if (!importFile.value) {
+    ElMessage.warning('请选择要导入的 Excel 文件')
+    return
+  }
+  importSubmitting.value = true
+  try {
+    await batchImportSamples(importCommissionId.value, importFile.value)
+    ElMessage.success('导入成功')
+    importDialogVisible.value = false
+    fetchList()
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { message?: string; data?: { errors?: { row: number; message: string }[] } } } }
+    const d = err.response?.data
+    const msg = d?.message ?? '导入失败'
+    const errs = d?.data?.errors
+    if (Array.isArray(errs) && errs.length) {
+      const preview = errs
+        .slice(0, 5)
+        .map((x) => (x.row ? `第${x.row}行: ${x.message}` : x.message))
+        .join('；')
+      ElMessage.error(`${msg}（${preview}${errs.length > 5 ? '…' : ''}）`)
+    } else {
+      ElMessage.error(msg)
+    }
+  } finally {
+    importSubmitting.value = false
+  }
 }
 
 function onSelectionChange(rows: Sample[]) {
@@ -178,6 +253,10 @@ onMounted(fetchList)
               @click="batchPrintLabels"
             >批量打印标签</el-button>
             <el-button v-permission="'sample:view'" :icon="Download" @click="handleExport">导出</el-button>
+            <template v-if="canBatchImport">
+              <el-button :icon="Download" @click="handleDownloadTemplate">下载模板</el-button>
+              <el-button type="primary" plain :icon="Upload" @click="openImportDialog">批量导入</el-button>
+            </template>
             <el-button v-permission="'sample:create'" type="primary" :icon="Plus" @click="goRegister">样品登记</el-button>
           </div>
         </div>
@@ -221,5 +300,44 @@ onMounted(fetchList)
         @size-change="(s: number) => { query.page_size = s; query.page = 1; fetchList() }"
       />
     </el-card>
+
+    <el-dialog v-model="importDialogVisible" title="批量导入样品" width="520px" destroy-on-close>
+      <el-form label-width="100px">
+        <el-form-item label="委托单" required>
+          <el-select
+            v-model="importCommissionId"
+            placeholder="请选择已评审的委托"
+            filterable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="c in commissionOptions"
+              :key="c.id"
+              :label="`${c.commission_no} - ${c.project_name}`"
+              :value="c.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Excel 文件" required>
+          <el-upload
+            ref="importUploadRef"
+            :auto-upload="false"
+            :limit="1"
+            accept=".xlsx,.xls"
+            :on-change="onImportFileChange"
+            :on-exceed="() => ElMessage.warning('一次只能上传一个文件')"
+          >
+            <el-button type="primary">选择文件</el-button>
+            <template #tip>
+              <div class="el-upload__tip">请先下载模板，按表头填写后上传（.xlsx）</div>
+            </template>
+          </el-upload>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="importDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="importSubmitting" @click="submitBatchImport">开始导入</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>

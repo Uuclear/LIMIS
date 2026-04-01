@@ -1,6 +1,6 @@
 # Limis 实验室信息管理系统 - 项目状态文档（详细分层版）
 
-**更新时间**：2026年4月1日（五次修订）  
+**更新时间**：2026年4月1日（六次修订）  
 **当前环境**：Django 5.x + Vue 3 + TypeScript + PostgreSQL + Redis（**本地开发**与 **Docker Compose** 两种跑法并存）  
 **访问地址**  
 - **Docker（推荐联调）**：`http://<主机IP>/`（Nginx **80**，API 同源 `/api/`；后端容器内 Gunicorn **8000** 仅集群内访问）  
@@ -57,6 +57,7 @@
 | 模板库联动 | 检测任务详情 →「模板库 / 合并预览」；`/quality/record-templates?task_id=` 自动拉合并结构预览。 |
 | Wiki 同步 | `wiki/` 经 **`.github/workflows/wiki-sync.yml`** 推送至 GitHub **`.wiki.git`**；详见 `wiki/03-development/07-github-wiki-sync.md`（建议配置 `WIKI_SYNC_TOKEN`）。 |
 | CI（构建类） | Docker/前后端 **构建类 GitHub Actions 已移除**（开发阶段以本机命令为准）；**Wiki 同步** workflow 仍保留。 |
+| 样品导入 / 核验 | 模板下载与 `batch-import`；公开核验页与 API（与二维码 `LIMIS:SAMPLE:` 场景衔接）。 |
 
 ---
 
@@ -76,6 +77,7 @@
 | 侧栏菜单 | `frontend/src/components/Layout/Sidebar.vue` |
 | 统计多维接口 | `backend/apps/statistics/views.py`（`tasks-by-project` / `tasks-by-method`）、`frontend/src/api/statistics.ts` |
 | 报告防伪（公开） | `backend/apps/reports/views.py`（`PublicReportVerifyView`）、`frontend/src/views/reports/ReportVerifyPage.vue` |
+| 样品防伪（公开） | `backend/apps/samples/views.py`（`PublicSampleVerifyView`）、`frontend/src/views/samples/SampleVerifyPage.vue` |
 | Wiki 与 GitHub Wiki 同步 | 仓库 `wiki/`；`.github/workflows/wiki-sync.yml` → `https://github.com/<owner>/<repo>.wiki.git`（需配置 Secret `WIKI_SYNC_TOKEN` 时更稳妥） |
 
 ---
@@ -220,7 +222,7 @@
 #### 6.2.2 打印与移动支持
 - [x] 样品二维码批量打印功能（列表多选 + `getSampleLabel` + print-js；单次最多 30 条）
 - [x] 报告二维码防伪验证（公开 `GET .../reports/public/verify/<id>/` + 免登录防伪页；生成 PDF 时写入 `qr_code` 链接）
-- [ ] 移动端扫码查看样品/委托进度
+- [x] 移动端扫码查看样品/委托进度（公开 `GET .../samples/public/verify/<sample_no>/` 与 `/verify/sample/:sampleNo`；委托编号/项目名摘要）
 - [x] 打印样式优化（`index.css` 中 `@media print`：侧栏/顶栏隐藏、主区全宽）
 
 #### 6.2.3 数据统计与可视化
@@ -230,7 +232,7 @@
 - [x] 数据导出为 Excel（样品列表等已有导出；其它模块按需扩展）
 
 #### 6.2.4 数据导入导出
-- [ ] Excel 模板下载与批量导入（委托、样品）
+- [x] Excel 模板下载与批量导入（**样品**：`import-template` + `batch-import`；委托侧仍可按需扩展）
 - [x] 标准规范数据初始化脚本（`manage.py seed_site_lab_commercial_pack` 等含 `Standard` 与检测方法/参数种子；按需选用）
 - [x] 耗材入库/出库记录与库存预警（入库/出库接口 + `low-stock` 与列表预警展示）
 - [ ] 历史数据迁移工具
@@ -244,8 +246,8 @@
 #### 6.3.1 部署与运维
 - [x] 生产环境配置（仓库已含 **Docker Compose** + `nginx/` 反代与 Gunicorn 镜像；上生产需按环境调 `DJANGO_SETTINGS_MODULE`、密钥与 HTTPS）
 - [ ] 日志轮转与监控告警
-- [ ] 数据库备份策略与恢复流程
-- [ ] HTTPS 配置
+- [x] 数据库备份策略与恢复流程（**文档已覆盖**：`wiki/04-deployment/05-backup-and-recovery.md`；自动化调度仍待现场）
+- [x] HTTPS 配置（**文档已覆盖**：`wiki/04-deployment/04-reverse-proxy-and-tls.md`；证书与网关仍待现场落地）
 
 #### 6.3.2 代码质量
 - [x] GitHub Actions：构建/镜像类 workflow 已移除（与「开发阶段本机跑通」策略一致；Wiki 同步 workflow 保留）
@@ -274,6 +276,7 @@
    - 每次修改前请先更新本文件对应状态
    - 完成一个子任务后在 `[ ]` 改为 `[x]` 并注明完成时间
    - 重大 Bug 修复后在此文档中增加「已知问题已解决」说明
+   - **Git**：日常在 **`main`** 上开发，`git pull` 后修改，**`git push origin main`** 同步远程
 
 3. **文档维护**
    - 本文件为多 Agent 协同开发的「主要状态源」

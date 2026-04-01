@@ -3,8 +3,8 @@ from __future__ import annotations
 import base64
 import random
 import string
-from datetime import datetime
-from typing import Any
+from datetime import date, datetime
+from typing import Any, BinaryIO
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -78,6 +78,194 @@ def create_samples_from_commission(commission_id: int) -> list[Sample]:
             )
             samples.append(sample)
 
+    return samples
+
+
+SAMPLE_IMPORT_TEMPLATE_COLUMNS: tuple[str, ...] = (
+    'name',
+    'specification',
+    'grade',
+    'quantity',
+    'unit',
+    'sampling_date',
+    'received_date',
+    'production_date',
+    'sampling_location',
+    'remark',
+)
+
+# openpyxl 表头别名（列名不区分大小写，去首尾空格）
+_SAMPLE_HEADER_ALIASES: dict[str, frozenset[str]] = {
+    'name': frozenset({'name', '样品名称'}),
+    'specification': frozenset({'specification', '规格型号'}),
+    'grade': frozenset({'grade', '设计强度', '设计等级', '等级'}),
+    'quantity': frozenset({'quantity', '数量'}),
+    'unit': frozenset({'unit', '单位'}),
+    'sampling_date': frozenset({'sampling_date', '取样日期'}),
+    'received_date': frozenset({'received_date', '收样日期', '接收日期'}),
+    'production_date': frozenset({'production_date', '生产成型日期', '生产日期'}),
+    'sampling_location': frozenset({'sampling_location', '取样地点'}),
+    'remark': frozenset({'remark', '备注'}),
+}
+
+
+def _normalize_excel_header(cell: Any) -> str:
+    s = str(cell or '').strip()
+    if not s:
+        return ''
+    for field, aliases in _SAMPLE_HEADER_ALIASES.items():
+        if s in aliases:
+            return field
+        low = s.lower()
+        if low in aliases:
+            return field
+    return s.strip().lower().replace(' ', '_')
+
+
+def _cell_to_date(val: Any):
+    if val is None or val == '':
+        return None
+    if isinstance(val, datetime):
+        return val.date()
+    if isinstance(val, date):
+        return val
+    if isinstance(val, str):
+        from django.utils.dateparse import parse_date
+        p = parse_date(val.strip())
+        return p
+    return None
+
+
+def _cell_to_int(val: Any, default: int = 1) -> int:
+    if val is None or val == '':
+        return default
+    if isinstance(val, bool):
+        return int(val)
+    if isinstance(val, int):
+        return val
+    if isinstance(val, float):
+        return int(val)
+    try:
+        return int(str(val).strip())
+    except ValueError:
+        return default
+
+
+def build_import_template_workbook():
+    """返回 openpyxl Workbook（仅表头，与批量登记字段一致）。"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'samples'
+    header_font = Font(bold=True)
+    for col_idx, key in enumerate(SAMPLE_IMPORT_TEMPLATE_COLUMNS, 1):
+        cell = ws.cell(row=1, column=col_idx, value=key)
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+    return wb
+
+
+def parse_samples_import_excel(
+    file_obj: BinaryIO,
+) -> tuple[list[tuple[int, dict[str, Any]]], list[dict[str, Any]]]:
+    """
+    解析批量导入 xlsx。
+    返回 (rows, errors)；rows 为 (excel_row_index_1based, row_dict)；
+    errors 元素为 {row, message}，row 为 Excel 行号（1-based）或 0 表示整表。
+    """
+    from openpyxl import load_workbook
+
+    rows_out: list[tuple[int, dict[str, Any]]] = []
+    errors: list[dict[str, Any]] = []
+
+    try:
+        wb = load_workbook(file_obj, read_only=True, data_only=True)
+    except Exception as e:  # noqa: BLE001 — 用户文件可能损坏
+        return [], [{'row': 0, 'message': f'无法读取 Excel 文件: {e}'}]
+
+    try:
+        ws = wb.active
+        header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), None)
+        if not header_row:
+            return [], [{'row': 1, 'message': '空表或缺少表头'}]
+
+        col_index: dict[str, int] = {}
+        for idx, cell in enumerate(header_row):
+            field = _normalize_excel_header(cell)
+            if not field:
+                continue
+            if field not in SAMPLE_IMPORT_TEMPLATE_COLUMNS:
+                continue
+            if field not in col_index:
+                col_index[field] = idx
+
+        required_headers = {'name', 'sampling_date', 'received_date'}
+        missing = required_headers - set(col_index.keys())
+        if missing:
+            return [], [{
+                'row': 1,
+                'message': f'表头缺少必填列: {", ".join(sorted(missing))}',
+            }]
+
+        for excel_row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            if row is None:
+                continue
+            if not any(v not in (None, '') for v in row):
+                continue
+
+            raw = {}
+            for field, cidx in col_index.items():
+                val = row[cidx] if cidx < len(row) else None
+                raw[field] = val
+
+            entry: dict[str, Any] = {
+                'name': str(raw.get('name') or '').strip(),
+                'specification': str(raw.get('specification') or '').strip(),
+                'grade': str(raw.get('grade') or '').strip(),
+                'quantity': _cell_to_int(raw.get('quantity'), 1),
+                'unit': str(raw.get('unit') or '个').strip() or '个',
+                'sampling_date': _cell_to_date(raw.get('sampling_date')),
+                'received_date': _cell_to_date(raw.get('received_date')),
+                'production_date': _cell_to_date(raw.get('production_date')),
+                'sampling_location': str(raw.get('sampling_location') or '').strip(),
+                'remark': str(raw.get('remark') or '').strip(),
+            }
+            rows_out.append((excel_row_idx, entry))
+    finally:
+        wb.close()
+
+    if not rows_out:
+        return [], [{'row': 0, 'message': '没有可导入的数据行（请从第2行填写）'}]
+
+    return rows_out, errors
+
+
+@transaction.atomic
+def create_samples_from_rows(commission_id: int, rows: list[dict[str, Any]]) -> list[Sample]:
+    from apps.commissions.models import Commission
+
+    commission = Commission.objects.select_related('project').get(pk=commission_id)
+    samples: list[Sample] = []
+    for row in rows:
+        prod = row.get('production_date')
+        sample = Sample.objects.create(
+            sample_no=generate_sample_no(commission),
+            blind_no=generate_blind_no(),
+            commission=commission,
+            name=row['name'],
+            specification=row.get('specification', ''),
+            grade=row.get('grade', ''),
+            quantity=row.get('quantity', 1),
+            unit=row.get('unit', '个'),
+            sampling_date=row['sampling_date'],
+            received_date=row['received_date'],
+            production_date=prod,
+            sampling_location=row.get('sampling_location', ''),
+            remark=row.get('remark', ''),
+        )
+        samples.append(sample)
     return samples
 
 
@@ -174,6 +362,7 @@ def generate_sample_label(sample_id: int) -> dict[str, Any]:
         'commission', 'commission__project',
     ).get(pk=sample_id)
 
+    # 移动端可解析 `LIMIS:SAMPLE:{sample_no}` 后打开前端公开页 `/verify/sample/<sample_no>` 核对进度。
     qr_data = f'LIMIS:SAMPLE:{sample.sample_no}'
     qr_bytes = generate_qrcode(qr_data, size=200)
     qr_base64 = base64.b64encode(qr_bytes).decode('ascii')

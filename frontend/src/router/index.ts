@@ -38,6 +38,12 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true, title: '报告防伪查询' },
   },
   {
+    path: '/verify/sample/:sampleNo',
+    name: 'SampleVerify',
+    component: () => import('@/views/samples/SampleVerifyPage.vue'),
+    meta: { public: true, title: '样品进度查询' },
+  },
+  {
     path: '/',
     component: () => import('@/components/Layout/MainLayout.vue'),
     redirect: '/dashboard',

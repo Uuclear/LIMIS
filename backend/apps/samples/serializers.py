@@ -138,8 +138,33 @@ class SampleCreateSerializer(BaseModelSerializer):
 # ───────────────────── Sample Batch Create ─────────────────────
 
 
+class SampleBatchRowSerializer(serializers.Serializer):
+    """与样品登记表格行、Excel 导入列一致。"""
+
+    name = serializers.CharField(max_length=200)
+    specification = serializers.CharField(
+        max_length=200, allow_blank=True, required=False, default='',
+    )
+    grade = serializers.CharField(
+        max_length=100, allow_blank=True, required=False, default='',
+    )
+    quantity = serializers.IntegerField(min_value=1, default=1)
+    unit = serializers.CharField(max_length=20, required=False, default='个')
+    sampling_date = serializers.DateField()
+    received_date = serializers.DateField()
+    production_date = serializers.DateField(required=False, allow_null=True)
+    sampling_location = serializers.CharField(
+        max_length=200, allow_blank=True, required=False, default='',
+    )
+    remark = serializers.CharField(allow_blank=True, required=False, default='')
+
+
 class SampleBatchCreateSerializer(serializers.Serializer):
     commission_id = serializers.IntegerField(help_text='委托单ID')
+    samples = SampleBatchRowSerializer(
+        many=True, required=False, allow_null=True,
+        help_text='有值时按行创建；省略或空列表时从委托项目批量生成',
+    )
 
     def validate_commission_id(self, value: int) -> int:
         from apps.commissions.models import Commission
@@ -148,9 +173,11 @@ class SampleBatchCreateSerializer(serializers.Serializer):
         return value
 
     def create(self, validated_data: dict) -> list[Sample]:
-        return services.create_samples_from_commission(
-            validated_data['commission_id'],
-        )
+        cid = validated_data['commission_id']
+        samples = validated_data.get('samples')
+        if samples is None or len(samples) == 0:
+            return services.create_samples_from_commission(cid)
+        return services.create_samples_from_rows(cid, samples)
 
 
 # ───────────────────── Sample Status Change ─────────────────────
