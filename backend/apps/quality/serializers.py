@@ -18,7 +18,7 @@ from .models import (
 )
 
 from apps.standards.models import Standard
-from apps.testing.models import RecordTemplate, TestMethod
+from apps.testing.models import RecordTemplate, TestParameter
 
 
 # ───────────────────── Audit ─────────────────────
@@ -266,8 +266,8 @@ class QualificationProfileSerializer(BaseModelSerializer):
         many=True,
         required=False,
     )
-    allowed_test_methods = serializers.PrimaryKeyRelatedField(
-        queryset=TestMethod.objects.all(),
+    allowed_parameters = serializers.PrimaryKeyRelatedField(
+        queryset=TestParameter.objects.all(),
         many=True,
         required=False,
     )
@@ -287,7 +287,7 @@ class QualificationProfileSerializer(BaseModelSerializer):
             'valid_to',
             'attachment',
             'allowed_standards',
-            'allowed_test_methods',
+            'allowed_parameters',
             'allowed_record_templates',
             'created_at',
             'updated_at',

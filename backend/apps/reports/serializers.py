@@ -8,23 +8,17 @@ from .models import Report, ReportApproval, ReportDistribution, ReportTemplate
 
 
 class ReportTemplateSerializer(BaseModelSerializer):
-    test_method_name = serializers.SerializerMethodField()
     test_parameter_name = serializers.SerializerMethodField()
 
     class Meta:
         model = ReportTemplate
         fields = [
             'id', 'name', 'code', 'report_type',
-            'test_method', 'test_method_name',
             'test_parameter', 'test_parameter_name',
             'version', 'schema', 'is_active',
             'created_at', 'updated_at', 'created_by', 'created_by_name',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
-
-    def get_test_method_name(self, obj: ReportTemplate) -> str:
-        m = safe_related_attr(obj, 'test_method')
-        return getattr(m, 'name', '') if m else ''
 
     def get_test_parameter_name(self, obj: ReportTemplate) -> str:
         p = safe_related_attr(obj, 'test_parameter')

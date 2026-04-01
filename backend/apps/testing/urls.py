@@ -5,7 +5,6 @@ from . import views
 
 router = DefaultRouter()
 router.register('categories', views.TestCategoryViewSet, basename='test-category')
-router.register('methods', views.TestMethodViewSet, basename='test-method')
 router.register('parameters', views.TestParameterViewSet, basename='test-parameter')
 router.register('tasks', views.TestTaskViewSet, basename='test-task')
 router.register('templates', views.RecordTemplateViewSet, basename='record-template')

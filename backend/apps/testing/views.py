@@ -20,7 +20,6 @@ from . import judgment, services
 from .filters import (
     OriginalRecordFilter,
     RecordTemplateFilter,
-    TestMethodFilter,
     TestResultFilter,
     TestTaskFilter,
 )
@@ -29,7 +28,6 @@ from .models import (
     OriginalRecord,
     RecordTemplate,
     TestCategory,
-    TestMethod,
     TestParameter,
     TestResult,
     TestTask,
@@ -40,8 +38,6 @@ from .serializers import (
     OriginalRecordSerializer,
     RecordTemplateSerializer,
     TestCategorySerializer,
-    TestMethodDetailSerializer,
-    TestMethodSerializer,
     TestParameterSerializer,
     TestResultCreateSerializer,
     TestResultSerializer,
@@ -84,35 +80,12 @@ class TestCategoryViewSet(BaseModelViewSet):
     search_fields = ['name', 'code']
 
 
-class TestMethodViewSet(BaseModelViewSet):
-    queryset = TestMethod.objects.select_related('category')
-    lims_module = 'testing'
-    filterset_class = TestMethodFilter
-    search_fields = ['name', 'standard_no', 'standard_name']
-
-    def get_serializer_class(self) -> type:
-        if self.action == 'retrieve':
-            return TestMethodDetailSerializer
-        return TestMethodSerializer
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        scope = (self.request.query_params.get('scope') or '').strip().lower()
-        if scope == 'all':
-            return qs
-        if self.action in ('list', 'retrieve'):
-            profile = get_active_qualification_profile()
-            if profile:
-                allowed_ids = profile.allowed_test_methods.values_list('id', flat=True)
-                qs = qs.filter(id__in=allowed_ids)
-        return qs
-
-
 class TestParameterViewSet(BaseModelViewSet):
-    queryset = TestParameter.objects.select_related('method')
+    queryset = TestParameter.objects.select_related('category', 'standard')
     serializer_class = TestParameterSerializer
     lims_module = 'testing'
-    filterset_fields = ['method']
+    search_fields = ['name', 'code', 'standard_no', 'standard_name']
+    filterset_fields = ['category', 'standard_no', 'is_active']
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -122,14 +95,14 @@ class TestParameterViewSet(BaseModelViewSet):
         if self.action in ('list', 'retrieve'):
             profile = get_active_qualification_profile()
             if profile:
-                allowed_method_ids = profile.allowed_test_methods.values_list('id', flat=True)
-                qs = qs.filter(method_id__in=allowed_method_ids)
+                allowed_ids = profile.allowed_parameters.values_list('id', flat=True)
+                qs = qs.filter(id__in=allowed_ids)
         return qs
 
 
 class TestTaskViewSet(BaseModelViewSet):
     queryset = TestTask.objects.select_related(
-        'sample', 'commission', 'test_method',
+        'sample', 'commission',
         'test_parameter', 'assigned_tester',
     )
     lims_module = 'task'
@@ -151,44 +124,11 @@ class TestTaskViewSet(BaseModelViewSet):
         return TestTaskListSerializer
 
     def dispatch(self, request: Request, *args, **kwargs):
-        # region agent log
-        try:
-            os.makedirs('/opt/limis/.cursor', exist_ok=True)
-            with open('/opt/limis/.cursor/debug-66f994.log', 'a', encoding='utf-8') as _f:
-                _f.write(json.dumps({
-                    'sessionId': '66f994',
-                    'runId': 'initial',
-                    'hypothesisId': 'H3',
-                    'location': 'testing/views.py:TestTaskViewSet.dispatch',
-                    'message': 'task_dispatch_entry',
-                    'data': {'method': request.method, 'path': request.path},
-                    'timestamp': int(time.time() * 1000),
-                }, ensure_ascii=False) + os.linesep)
-        except Exception:
-            pass
-        # endregion
         try:
             return super().dispatch(request, *args, **kwargs)
         except Exception as exc:
             logger.exception('TestTaskViewSet.dispatch')
-            # region agent log
-            try:
-                with open('/opt/limis/.cursor/debug-66f994.log', 'a', encoding='utf-8') as _f:
-                    _f.write(json.dumps({
-                        'sessionId': '66f994',
-                        'runId': 'initial',
-                        'hypothesisId': 'H3',
-                        'location': 'testing/views.py:TestTaskViewSet.dispatch:exc',
-                        'message': 'task_dispatch_error',
-                        'data': {'error': str(exc), 'traceback': traceback.format_exc()},
-                        'timestamp': int(time.time() * 1000),
-                    }, ensure_ascii=False) + os.linesep)
-            except Exception:
-                pass
-            # endregion
             raise
-
-
 
     @action(detail=True, methods=['get'], url_path='word-preview')
     def word_preview(self, request: Request, pk: str = None) -> Response:
@@ -226,41 +166,10 @@ class TestTaskViewSet(BaseModelViewSet):
         }})
 
     def list(self, request: Request, *args, **kwargs) -> Response:
-        # region agent log
-        try:
-            os.makedirs('/opt/limis/.cursor', exist_ok=True)
-            with open('/opt/limis/.cursor/debug-66f994.log', 'a', encoding='utf-8') as _f:
-                _f.write(json.dumps({
-                    'sessionId': '66f994',
-                    'runId': 'initial',
-                    'hypothesisId': 'H3',
-                    'location': 'testing/views.py:TestTaskViewSet.list:entry',
-                    'message': 'task_list_api_entry',
-                    'data': {'query_params': dict(request.query_params)},
-                    'timestamp': int(time.time() * 1000),
-                }, ensure_ascii=False) + os.linesep)
-        except Exception:
-            pass
-        # endregion
         try:
             return super().list(request, *args, **kwargs)
         except Exception as exc:
             logger.exception('TestTaskViewSet.list')
-            # region agent log
-            try:
-                with open('/opt/limis/.cursor/debug-66f994.log', 'a', encoding='utf-8') as _f:
-                    _f.write(json.dumps({
-                        'sessionId': '66f994',
-                        'runId': 'initial',
-                        'hypothesisId': 'H3',
-                        'location': 'testing/views.py:TestTaskViewSet.list:error',
-                        'message': 'task_list_api_error',
-                        'data': {'error': str(exc), 'traceback': traceback.format_exc()},
-                        'timestamp': int(time.time() * 1000),
-                    }, ensure_ascii=False) + os.linesep)
-            except Exception:
-                pass
-            # endregion
             raise
 
     def perform_create(self, serializer) -> None:
@@ -272,40 +181,10 @@ class TestTaskViewSet(BaseModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='merged-record-schema')
     def merged_record_schema(self, request: Request, pk: str = None) -> Response:
-        # region agent log
-        try:
-            with open('/opt/limis/.cursor/debug-66f994.log', 'a', encoding='utf-8') as _f:
-                _f.write(json.dumps({
-                    'sessionId': '66f994',
-                    'runId': 'initial',
-                    'hypothesisId': 'H6',
-                    'location': 'testing/views.py:TestTaskViewSet.merged_record_schema:entry',
-                    'message': 'merged_schema_request',
-                    'data': {'pk': pk},
-                    'timestamp': int(time.time() * 1000),
-                }, ensure_ascii=False) + os.linesep)
-        except Exception:
-            pass
-        # endregion
         task = self.get_object()
         try:
             data = services.build_merged_record_schema_for_task(task.id)
         except TestTask.DoesNotExist:
-            # region agent log
-            try:
-                with open('/opt/limis/.cursor/debug-66f994.log', 'a', encoding='utf-8') as _f:
-                    _f.write(json.dumps({
-                        'sessionId': '66f994',
-                        'runId': 'initial',
-                        'hypothesisId': 'H6',
-                        'location': 'testing/views.py:TestTaskViewSet.merged_record_schema:not_found',
-                        'message': 'merged_schema_task_not_found',
-                        'data': {'pk': pk},
-                        'timestamp': int(time.time() * 1000),
-                    }, ensure_ascii=False) + os.linesep)
-            except Exception:
-                pass
-            # endregion
             raise NotFound('任务不存在或已删除')
         return Response({'code': 200, 'data': data})
 
@@ -335,7 +214,6 @@ class TestTaskViewSet(BaseModelViewSet):
             'message': '任务已退回待分配',
             'data': TestTaskDetailSerializer(task).data,
         })
-
 
     @action(detail=True, methods=['post'], url_path='return-commission')
     def return_commission(self, request: Request, pk: str = None) -> Response:
@@ -422,7 +300,7 @@ class TestTaskViewSet(BaseModelViewSet):
 
 class RecordTemplateViewSet(BaseModelViewSet):
     queryset = RecordTemplate.objects.select_related(
-        'test_method', 'test_parameter',
+        'test_parameter',
     ).prefetch_related('test_parameters')
     serializer_class = RecordTemplateSerializer
     lims_module = 'testing'
@@ -431,10 +309,7 @@ class RecordTemplateViewSet(BaseModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        # 模板管理页应可见全部模板（否则新建模板会因资质映射未同步而“消失”）。
         return qs
-
-
 
     @action(detail=True, methods=['get'], url_path='word-preview')
     def word_preview(self, request: Request, pk: str = None) -> Response:
@@ -472,22 +347,6 @@ class RecordTemplateViewSet(BaseModelViewSet):
         }})
 
     def list(self, request: Request, *args, **kwargs) -> Response:
-        # region agent log
-        try:
-            os.makedirs('/opt/limis/.cursor', exist_ok=True)
-            with open('/opt/limis/.cursor/debug-66f994.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({
-                    'sessionId': '66f994',
-                    'runId': 'initial',
-                    'hypothesisId': 'H4',
-                    'location': 'testing/views.py:RecordTemplateViewSet.list',
-                    'message': 'record_template_list_api_entry',
-                    'data': {'query_params': dict(request.query_params)},
-                    'timestamp': int(__import__('time').time() * 1000),
-                }, ensure_ascii=False) + os.linesep)
-        except Exception:
-            pass
-        # endregion
         return super().list(request, *args, **kwargs)
 
 

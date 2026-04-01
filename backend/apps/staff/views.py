@@ -61,23 +61,26 @@ class StaffProfileViewSet(BaseModelViewSet):
     @action(detail=False, methods=['get'], url_path='assignable-testers')
     def assignable_testers(self, request: Request) -> Response:
         """
-        按检测方法过滤可分配检测员：
+        按检测参数过滤可分配检测员：
         - 人员需存在有效授权（Authorization.is_active=True）
         - 授权方式满足其一：
-          1) 直接授权了该 test_method
-          2) 授权了该方法所属 test_category
+          1) 直接授权了该 parameter
+          2) 授权了该参数所属 test_category
         """
-        method_id = request.query_params.get('method_id')
+        parameter_id = request.query_params.get('parameter_id')
+        # Backward compat: also accept method_id
+        if not parameter_id:
+            parameter_id = request.query_params.get('method_id')
         qs = self.get_queryset()
-        if method_id:
+        if parameter_id:
             try:
-                from apps.testing.models import TestMethod
-                method = TestMethod.objects.select_related('category').get(pk=int(method_id))
+                from apps.testing.models import TestParameter
+                param = TestParameter.objects.select_related('category').get(pk=int(parameter_id))
                 qs = qs.filter(
                     authorizations__is_active=True,
                 ).filter(
-                    Q(authorizations__test_methods=method)
-                    | Q(authorizations__test_category=method.category),
+                    Q(authorizations__parameters=param)
+                    | Q(authorizations__test_category=param.category),
                 )
             except Exception:
                 qs = qs.none()

@@ -36,7 +36,7 @@ class AuthorizationAdmin(admin.ModelAdmin):
     ]
     list_filter = ['is_active']
     raw_id_fields = ['staff', 'authorized_by']
-    filter_horizontal = ['test_methods']
+    filter_horizontal = ['parameters']
 
 
 @admin.register(Training)

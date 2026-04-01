@@ -1,20 +1,14 @@
 from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.db import models
 
 from core.models import BaseModel
 
-from .method import TestMethod
 from .task import TestTask
 
 
 class RecordTemplate(BaseModel):
     name = models.CharField(max_length=200, verbose_name='模板名称')
     code = models.CharField(max_length=50, unique=True, verbose_name='模板编号')
-    test_method = models.ForeignKey(
-        TestMethod, on_delete=models.CASCADE,
-        related_name='templates', verbose_name='检测方法',
-    )
     test_parameter = models.ForeignKey(
         'testing.TestParameter', null=True, blank=True,
         on_delete=models.CASCADE,
@@ -37,14 +31,6 @@ class RecordTemplate(BaseModel):
         verbose_name = '记录模板'
         verbose_name_plural = verbose_name
         ordering = ['-created_at']
-
-    def clean(self) -> None:
-        super().clean()
-        if self.test_parameter_id and self.test_method_id:
-            if self.test_parameter.method_id != self.test_method_id:
-                raise ValidationError(
-                    {'test_parameter': '检测参数必须属于所选检测方法'},
-                )
 
     def __str__(self) -> str:
         return f'{self.code} - {self.name} v{self.version}'

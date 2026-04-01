@@ -289,9 +289,9 @@ class ReportDistributionViewSet(BaseModelViewSet):
 
 class ReportTemplateViewSet(BaseModelViewSet):
     queryset = ReportTemplate.objects.select_related(
-        'test_method', 'test_parameter', 'created_by',
+        'test_parameter', 'created_by',
     )
     serializer_class = ReportTemplateSerializer
     lims_module = 'report'
     search_fields = ['name', 'code', 'report_type']
-    filterset_fields = ['is_active', 'report_type', 'test_method', 'test_parameter']
+    filterset_fields = ['is_active', 'report_type', 'test_parameter']

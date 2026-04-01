@@ -8,16 +8,34 @@ from .models import Commission, CommissionItem, ContractReview
 
 
 class CommissionItemSerializer(BaseModelSerializer):
+    parameter_name = serializers.SerializerMethodField()
+    standard_no = serializers.SerializerMethodField()
+    standard_name = serializers.SerializerMethodField()
+
     class Meta:
         model = CommissionItem
         fields = [
-            'id', 'commission', 'test_object', 'test_item',
+            'id', 'commission', 'test_parameter', 'parameter_name',
+            'standard_no', 'standard_name',
+            'test_object', 'test_item',
             'test_standard', 'test_method', 'specification',
             'grade', 'quantity', 'unit', 'remark',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
         extra_kwargs = {'commission': {'required': False}}
+
+    def get_parameter_name(self, obj: CommissionItem) -> str:
+        p = safe_related_attr(obj, 'test_parameter')
+        return getattr(p, 'name', '') if p else ''
+
+    def get_standard_no(self, obj: CommissionItem) -> str:
+        p = safe_related_attr(obj, 'test_parameter')
+        return getattr(p, 'standard_no', '') if p else ''
+
+    def get_standard_name(self, obj: CommissionItem) -> str:
+        p = safe_related_attr(obj, 'test_parameter')
+        return getattr(p, 'standard_name', '') if p else ''
 
 
 class ContractReviewSerializer(BaseModelSerializer):
@@ -138,7 +156,7 @@ class _NestedItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CommissionItem
         fields = [
-            'test_object', 'test_item', 'test_standard',
+            'test_parameter', 'test_object', 'test_item', 'test_standard',
             'test_method', 'specification', 'grade',
             'quantity', 'unit', 'remark',
         ]

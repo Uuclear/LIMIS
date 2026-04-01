@@ -22,13 +22,10 @@ class TestTask(BaseModel):
         'commissions.Commission', on_delete=models.CASCADE,
         related_name='tasks', verbose_name='委托单',
     )
-    test_method = models.ForeignKey(
-        'testing.TestMethod', on_delete=models.CASCADE,
-        verbose_name='检测方法',
-    )
     test_parameter = models.ForeignKey(
-        'testing.TestParameter', null=True, blank=True,
-        on_delete=models.SET_NULL, verbose_name='检测参数',
+        'testing.TestParameter',
+        on_delete=models.CASCADE,
+        verbose_name='检测参数',
     )
     assigned_tester = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True,
@@ -66,3 +63,11 @@ class TestTask(BaseModel):
         if not self.planned_date or self.status == 'completed':
             return False
         return timezone.now().date() > self.planned_date
+
+    @property
+    def standard_no(self) -> str:
+        return self.test_parameter.standard_no if self.test_parameter else ''
+
+    @property
+    def parameter_name(self) -> str:
+        return str(self.test_parameter) if self.test_parameter else ''

@@ -6,17 +6,10 @@ from .models import (
     RecordRevision,
     RecordTemplate,
     TestCategory,
-    TestMethod,
     TestParameter,
     TestResult,
     TestTask,
 )
-
-
-class TestParameterInline(admin.TabularInline):
-    model = TestParameter
-    extra = 0
-    fields = ['name', 'code', 'unit', 'precision', 'is_required']
 
 
 @admin.register(TestCategory)
@@ -27,25 +20,17 @@ class TestCategoryAdmin(admin.ModelAdmin):
     ordering = ['sort_order', 'code']
 
 
-@admin.register(TestMethod)
-class TestMethodAdmin(admin.ModelAdmin):
-    list_display = ['standard_no', 'name', 'category', 'is_active', 'created_at']
-    list_filter = ['category', 'is_active']
-    search_fields = ['name', 'standard_no', 'standard_name']
-    inlines = [TestParameterInline]
-
-
 @admin.register(TestParameter)
 class TestParameterAdmin(admin.ModelAdmin):
-    list_display = ['name', 'code', 'method', 'unit', 'precision', 'is_required']
-    list_filter = ['method', 'is_required']
-    search_fields = ['name', 'code']
+    list_display = ['name', 'code', 'standard_no', 'category', 'unit', 'precision', 'is_required', 'is_active']
+    list_filter = ['category', 'is_required', 'is_active']
+    search_fields = ['name', 'code', 'standard_no']
 
 
 @admin.register(TestTask)
 class TestTaskAdmin(admin.ModelAdmin):
     list_display = [
-        'task_no', 'sample', 'test_method',
+        'task_no', 'sample', 'test_parameter',
         'assigned_tester', 'planned_date', 'status', 'created_at',
     ]
     list_filter = ['status', 'planned_date']
@@ -62,8 +47,8 @@ class RecordRevisionInline(admin.TabularInline):
 
 @admin.register(RecordTemplate)
 class RecordTemplateAdmin(admin.ModelAdmin):
-    list_display = ['code', 'name', 'test_method', 'version', 'is_active']
-    list_filter = ['is_active', 'test_method']
+    list_display = ['code', 'name', 'test_parameter', 'version', 'is_active']
+    list_filter = ['is_active']
     search_fields = ['name', 'code']
 
 

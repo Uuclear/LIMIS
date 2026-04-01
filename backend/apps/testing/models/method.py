@@ -22,31 +22,19 @@ class TestCategory(BaseModel):
         return f'{self.code} - {self.name}'
 
 
-class TestMethod(BaseModel):
-    name = models.CharField(max_length=200, verbose_name='检测方法名称')
-    standard_no = models.CharField(max_length=100, verbose_name='标准号')
-    standard_name = models.CharField(max_length=300, verbose_name='标准名称')
-    category = models.ForeignKey(
-        TestCategory, on_delete=models.CASCADE,
-        related_name='methods', verbose_name='检测类别',
-    )
-    description = models.TextField(blank=True, verbose_name='方法描述')
-    is_active = models.BooleanField(default=True, verbose_name='是否有效')
-
-    class Meta:
-        verbose_name = '检测方法'
-        verbose_name_plural = verbose_name
-        ordering = ['-created_at']
-
-    def __str__(self) -> str:
-        return f'{self.standard_no} {self.name}'
-
-
 class TestParameter(BaseModel):
-    method = models.ForeignKey(
-        TestMethod, on_delete=models.CASCADE,
-        related_name='parameters', verbose_name='检测方法',
+    category = models.ForeignKey(
+        TestCategory, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='parameters', verbose_name='检测类别',
     )
+    standard = models.ForeignKey(
+        'standards.Standard', on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='parameters', verbose_name='依据标准',
+    )
+    standard_no = models.CharField(max_length=100, blank=True, verbose_name='标准号')
+    standard_name = models.CharField(max_length=300, blank=True, verbose_name='标准名称')
     name = models.CharField(max_length=100, verbose_name='参数名称')
     code = models.CharField(max_length=50, verbose_name='参数代码')
     unit = models.CharField(max_length=20, blank=True, verbose_name='单位')
@@ -60,12 +48,23 @@ class TestParameter(BaseModel):
         verbose_name='最大值',
     )
     is_required = models.BooleanField(default=True, verbose_name='是否必填')
+    is_active = models.BooleanField(default=True, verbose_name='是否有效')
+    description = models.TextField(blank=True, verbose_name='说明')
 
     class Meta:
         verbose_name = '检测参数'
         verbose_name_plural = verbose_name
-        ordering = ['method', 'code']
-        unique_together = [('method', 'code')]
+        ordering = ['category', 'code']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['code', 'standard_no'],
+                condition=models.Q(is_deleted=False),
+                name='unique_param_code_per_standard',
+            ),
+        ]
 
     def __str__(self) -> str:
-        return f'{self.name} ({self.unit})' if self.unit else self.name
+        label = f'{self.name} ({self.unit})' if self.unit else self.name
+        if self.standard_no:
+            label = f'{self.standard_no} - {label}'
+        return label

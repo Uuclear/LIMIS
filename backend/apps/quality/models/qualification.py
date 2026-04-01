@@ -31,11 +31,11 @@ class QualificationProfile(BaseModel):
         related_name='qualification_profiles',
         verbose_name='允许使用的标准规范',
     )
-    allowed_test_methods = models.ManyToManyField(
-        'testing.TestMethod',
+    allowed_parameters = models.ManyToManyField(
+        'testing.TestParameter',
         blank=True,
         related_name='qualification_profiles',
-        verbose_name='允许使用的检测方法',
+        verbose_name='允许使用的检测参数',
     )
     allowed_record_templates = models.ManyToManyField(
         'testing.RecordTemplate',

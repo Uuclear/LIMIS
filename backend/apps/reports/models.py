@@ -8,14 +8,6 @@ class ReportTemplate(BaseModel):
     name = models.CharField(max_length=200, verbose_name='模板名称')
     code = models.CharField(max_length=50, unique=True, verbose_name='模板编号')
     report_type = models.CharField(max_length=50, blank=True, verbose_name='报告类型')
-    test_method = models.ForeignKey(
-        'testing.TestMethod',
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name='report_templates',
-        verbose_name='关联检测方法',
-    )
     test_parameter = models.ForeignKey(
         'testing.TestParameter',
         null=True,

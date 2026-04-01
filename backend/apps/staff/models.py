@@ -81,8 +81,8 @@ class Authorization(BaseModel):
         'testing.TestCategory', on_delete=models.CASCADE,
         verbose_name='授权检测类别',
     )
-    test_methods = models.ManyToManyField(
-        'testing.TestMethod', blank=True, verbose_name='授权检测方法',
+    parameters = models.ManyToManyField(
+        'testing.TestParameter', blank=True, verbose_name='授权检测参数',
     )
     authorized_date = models.DateField(verbose_name='授权日期')
     authorized_by = models.ForeignKey(

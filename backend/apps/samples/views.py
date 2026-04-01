@@ -121,7 +121,7 @@ class SampleViewSet(BaseModelViewSet):
         样品状态为“检测中”但检测任务为空时：一键生成检测任务（unassigned），供用户继续分配/开始检测。
         """
         sample = self.get_object()
-        # 这里把 task 生成放在 testing/services：复用其 TestMethod/TestParameter 映射逻辑
+        # 这里把 task 生成放在 testing/services：复用其 TestParameter 映射逻辑
         from apps.testing import services as testing_services
         from apps.testing.serializers import TestTaskListSerializer
 

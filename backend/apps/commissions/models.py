@@ -92,8 +92,17 @@ class CommissionItem(BaseModel):
         related_name='items',
         verbose_name='委托单',
     )
-    test_object = models.CharField(max_length=100, verbose_name='检测对象')
-    test_item = models.CharField(max_length=200, verbose_name='检测项目')
+    test_parameter = models.ForeignKey(
+        'testing.TestParameter',
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='commission_items',
+        verbose_name='检测参数',
+    )
+    # --- kept temporarily for data migration; will be removed ---
+    test_object = models.CharField(max_length=100, blank=True, verbose_name='检测对象')
+    test_item = models.CharField(max_length=200, blank=True, verbose_name='检测项目')
     test_standard = models.CharField(
         max_length=200, blank=True, verbose_name='检测标准',
     )

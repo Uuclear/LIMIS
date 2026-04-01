@@ -35,7 +35,7 @@ class AuthorizationSerializer(BaseModelSerializer):
         model = Authorization
         fields = [
             'id', 'staff', 'test_category', 'test_category_name',
-            'test_methods', 'authorized_date', 'authorized_by',
+            'parameters', 'authorized_date', 'authorized_by',
             'is_active', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
