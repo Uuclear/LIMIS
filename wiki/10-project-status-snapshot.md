@@ -12,6 +12,7 @@
 - **权限**：用户权限短时缓存 `USER_PERMISSIONS_CACHE_SECONDS`；侧栏按路由 `meta.permission` 过滤。
 - **工具链**：前端 `npm run typecheck`、`npm run lint`（ESLint `--quiet`）。
 - **Wiki**：`wiki/` 经 **GitHub Actions**（仅 **wiki-sync**）同步至 GitHub Wiki；**Docker/前后端构建类 Actions 已移除**（本机跑通为主）。
+- **通知**：站内信后端写入（委托/报告/任务）；日志轮转见运维 Wiki。
 - **部署文档**：`wiki/04-deployment/` 已补充 **HTTPS / `REPORT_VERIFICATION_URL`** 与 **PostgreSQL 备份恢复** 要点（与 `PROJECT_STATUS.md` §6.3.1 对应）。
 
 ---

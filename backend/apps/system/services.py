@@ -148,3 +148,47 @@ def has_permission(user: User, module: str, action: str) -> bool:
         module=module,
         action=action,
     ).exists()
+
+
+def notify_user(
+    user_id: int,
+    notification_type: str,
+    title: str,
+    content: str = '',
+    link_path: str = '',
+) -> None:
+    """写入站内通知（顶栏消息中心数据源）。"""
+    from .models import Notification
+
+    Notification.objects.create(
+        recipient_id=user_id,
+        notification_type=notification_type,
+        title=title[:200],
+        content=content or '',
+        link_path=(link_path or '')[:200],
+    )
+
+
+def notify_users_by_permission_code(
+    permission_code: str,
+    notification_type: str,
+    title: str,
+    content: str = '',
+    link_path: str = '',
+) -> int:
+    """向拥有指定权限码的全部活跃用户各发一条通知。"""
+    ids = (
+        User.objects.filter(
+            is_active=True,
+            roles__permissions__code=permission_code,
+        )
+        .distinct()
+        .values_list('pk', flat=True)
+    )
+    n = 0
+    for uid in ids:
+        notify_user(
+            int(uid), notification_type, title, content, link_path,
+        )
+        n += 1
+    return n

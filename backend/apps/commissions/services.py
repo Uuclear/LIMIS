@@ -25,6 +25,16 @@ def submit_commission(commission_id: int, user) -> Commission:
 
     commission.status = 'pending_review'
     commission.save(update_fields=['status', 'updated_at'])
+
+    from apps.system.services import notify_users_by_permission_code
+
+    notify_users_by_permission_code(
+        'commission:approve',
+        'commission_review',
+        f'委托待评审：{commission.commission_no}',
+        f'项目：{commission.project.name}' if commission.project_id else '',
+        f'/entrustment/{commission.pk}',
+    )
     return commission
 
 

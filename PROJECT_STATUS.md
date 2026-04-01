@@ -1,6 +1,6 @@
 # Limis 实验室信息管理系统 - 项目状态文档（详细分层版）
 
-**更新时间**：2026年4月1日（六次修订）  
+**更新时间**：2026年4月1日（七次修订）  
 **当前环境**：Django 5.x + Vue 3 + TypeScript + PostgreSQL + Redis（**本地开发**与 **Docker Compose** 两种跑法并存）  
 **访问地址**  
 - **Docker（推荐联调）**：`http://<主机IP>/`（Nginx **80**，API 同源 `/api/`；后端容器内 Gunicorn **8000** 仅集群内访问）  
@@ -58,6 +58,7 @@
 | Wiki 同步 | `wiki/` 经 **`.github/workflows/wiki-sync.yml`** 推送至 GitHub **`.wiki.git`**；详见 `wiki/03-development/07-github-wiki-sync.md`（建议配置 `WIKI_SYNC_TOKEN`）。 |
 | CI（构建类） | Docker/前后端 **构建类 GitHub Actions 已移除**（开发阶段以本机命令为准）；**Wiki 同步** workflow 仍保留。 |
 | 样品导入 / 核验 | 模板下载与 `batch-import`；公开核验页与 API（与二维码 `LIMIS:SAMPLE:` 场景衔接）。 |
+| 站内通知 | 委托/报告/任务分配等触发 `Notification`；顶栏列表与未读数。 |
 
 ---
 
@@ -78,6 +79,7 @@
 | 统计多维接口 | `backend/apps/statistics/views.py`（`tasks-by-project` / `tasks-by-method`）、`frontend/src/api/statistics.ts` |
 | 报告防伪（公开） | `backend/apps/reports/views.py`（`PublicReportVerifyView`）、`frontend/src/views/reports/ReportVerifyPage.vue` |
 | 样品防伪（公开） | `backend/apps/samples/views.py`（`PublicSampleVerifyView`）、`frontend/src/views/samples/SampleVerifyPage.vue` |
+| 站内通知 | `backend/apps/system/services.py`（`notify_user` / `notify_users_by_permission_code`）；委托提交、报告流程、任务分配等写入 `Notification` |
 | Wiki 与 GitHub Wiki 同步 | 仓库 `wiki/`；`.github/workflows/wiki-sync.yml` → `https://github.com/<owner>/<repo>.wiki.git`（需配置 Secret `WIKI_SYNC_TOKEN` 时更稳妥） |
 
 ---
@@ -245,7 +247,7 @@
 
 #### 6.3.1 部署与运维
 - [x] 生产环境配置（仓库已含 **Docker Compose** + `nginx/` 反代与 Gunicorn 镜像；上生产需按环境调 `DJANGO_SETTINGS_MODULE`、密钥与 HTTPS）
-- [ ] 日志轮转与监控告警
+- [x] 日志轮转与监控告警（**文档已覆盖**：`wiki/09-operations-maintenance/02-logs-and-monitoring.md` §日志轮转；监控告警仍待接入具体平台）
 - [x] 数据库备份策略与恢复流程（**文档已覆盖**：`wiki/04-deployment/05-backup-and-recovery.md`；自动化调度仍待现场）
 - [x] HTTPS 配置（**文档已覆盖**：`wiki/04-deployment/04-reverse-proxy-and-tls.md`；证书与网关仍待现场落地）
 
@@ -258,7 +260,7 @@
 - [ ] 类型提示完善（尤其是后端与部分前端模块）
 
 #### 6.3.3 高级功能
-- [ ] 通知中心（站内信、邮件、微信）— 顶栏当前为 **占位示例**
+- [x] 通知中心（**站内信**：顶栏已接 API；关键业务事件写入 `Notification`—委托待评审、报告待审核/待批准、任务分配、报告已发放；邮件/微信仍待对接）
 - [ ] 工作流引擎（更复杂的审批流）
 - [ ] 移动端 H5 / 小程序适配
 - [ ] AI 辅助检测结果分析（未来）

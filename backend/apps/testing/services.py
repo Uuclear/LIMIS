@@ -199,6 +199,15 @@ def assign_task(
             'planned_date': str(planned_date) if planned_date else None,
         },
     )
+    from apps.system.services import notify_user
+
+    notify_user(
+        tester_id,
+        'task_assigned',
+        f'检测任务已分配：{task.task_no}',
+        '',
+        f'/testing/tasks/{task.pk}',
+    )
     return task
 
 

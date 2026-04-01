@@ -71,6 +71,15 @@ def submit_for_audit(report_id: int, user) -> Report:
         path=f'/api/v1/reports/reports/{report.pk}/submit_audit/',
         payload={'report_no': report.report_no, 'status': report.status},
     )
+    from apps.system.services import notify_users_by_permission_code
+
+    notify_users_by_permission_code(
+        'report:approve',
+        'report_audit',
+        f'报告待审核：{report.report_no}',
+        '',
+        f'/reports/{report.pk}',
+    )
     return report
 
 
@@ -111,6 +120,16 @@ def audit_report(
             'status': report.status,
         },
     )
+    if approved:
+        from apps.system.services import notify_users_by_permission_code
+
+        notify_users_by_permission_code(
+            'report:approve',
+            'report_approve',
+            f'报告待批准：{report.report_no}',
+            '',
+            f'/reports/{report.pk}',
+        )
     return report
 
 
@@ -174,6 +193,16 @@ def issue_report(report_id: int, user) -> Report:
         path=f'/api/v1/reports/reports/{report.pk}/issue/',
         payload={'report_no': report.report_no, 'issue_date': str(report.issue_date)},
     )
+    if report.compiler_id:
+        from apps.system.services import notify_user
+
+        notify_user(
+            report.compiler_id,
+            'system',
+            f'报告已发放：{report.report_no}',
+            '',
+            f'/reports/{report.pk}',
+        )
     return report
 
 
