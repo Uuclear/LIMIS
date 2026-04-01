@@ -27,7 +27,7 @@
 
 > **GitHub Wiki 门户页**：根目录 [`Home.md`](Home.md) 为 Wiki 默认首页；完整索引仍以本 `README.md` 为准。
 
-> **CI 同步**：向 `main` 等分支推送且变更 `wiki/**` 时，由主仓库工作流 [wiki-sync.yml](https://github.com/Uuclear/limis/blob/main/.github/workflows/wiki-sync.yml) 将本目录同步至 **`https://github.com/Uuclear/limis.wiki.git`**，详见 [GitHub Wiki 同步说明](03-development/07-github-wiki-sync.md)。
+> **CI 同步**：向 **`main`** 推送且变更 `wiki/**` 时，由主仓库工作流 [wiki-sync.yml](https://github.com/Uuclear/limis/blob/main/.github/workflows/wiki-sync.yml) 将本目录同步至 **`https://github.com/Uuclear/limis.wiki.git`**，详见 [GitHub Wiki 同步说明](03-development/07-github-wiki-sync.md)。
 
 ### 完整文档列表（含相对链接）
 

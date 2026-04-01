@@ -35,8 +35,8 @@
 
 ## Git 工作流
 
-- **默认开发分支**：`airport-site-lab-lims-741d`。在 Cursor 中的改动应提交并推送到该分支（勿默认推到 `main`，除非明确要做合并）。
-- 推送示例：`git push -u origin airport-site-lab-lims-741d`
+- **默认开发分支**：`main`。在 Cursor 中的改动应提交并推送到 `main`。
+- 推送示例：`git push -u origin main`
 
 ## 开发参考
 

@@ -6,7 +6,6 @@ on:
   push:
     branches:
       - main
-      - airport-site-lab-lims-741d
     paths:
       - 'wiki/**'
       - '.github/workflows/wiki-sync.yml'

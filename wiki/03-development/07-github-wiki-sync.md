@@ -8,7 +8,7 @@
 
 - 工作流文件（主仓库）：[`wiki-sync.yml`](https://github.com/Uuclear/limis/blob/main/.github/workflows/wiki-sync.yml)
 - 触发条件：
-  - 向 **`main`** 或 **`airport-site-lab-lims-741d`** 推送，且变更路径包含 `wiki/**` 或该工作流文件本身（`main` 为主集成分支，可按需在 YAML 中增删分支名）
+  - 向 **`main`** 分支推送，且变更路径包含 `wiki/**` 或该工作流文件本身
   - 手动运行：**Actions → Sync Wiki → Run workflow**
 
 ---
