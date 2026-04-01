@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Refresh, Plus, Download } from '@element-plus/icons-vue'
-import { getSampleList, exportSamples } from '@/api/samples'
+import { ElMessage } from 'element-plus'
+import printJS from 'print-js'
+import { Search, Refresh, Plus, Download, Printer } from '@element-plus/icons-vue'
+import { getSampleList, exportSamples, getSampleLabel } from '@/api/samples'
 import type { Sample } from '@/types/sample'
 
 const router = useRouter()
 const loading = ref(false)
+const printLoading = ref(false)
+const selectedRows = ref<Sample[]>([])
 const tableData = ref<Sample[]>([])
 const total = ref(0)
 
@@ -71,6 +75,52 @@ async function handleExport() {
   window.URL.revokeObjectURL(url)
 }
 
+function onSelectionChange(rows: Sample[]) {
+  selectedRows.value = rows
+}
+
+function escapeHtml(s: string) {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/"/g, '&quot;')
+}
+
+async function batchPrintLabels() {
+  const rows = selectedRows.value
+  if (!rows.length) {
+    ElMessage.warning('请先勾选要打印的样品')
+    return
+  }
+  if (rows.length > 30) {
+    ElMessage.warning('一次最多打印 30 条')
+    return
+  }
+  printLoading.value = true
+  try {
+    const blocks: string[] = []
+    for (const row of rows) {
+      const data: any = await getSampleLabel(row.id)
+      blocks.push(
+        `<div class="label-block" style="page-break-inside:avoid;border:1px solid #ddd;padding:12px;margin-bottom:12px;text-align:center;width:200px;display:inline-block;vertical-align:top;margin-right:12px;">
+          <div style="font-weight:600;font-size:14px;">${escapeHtml(String(data.sample_no ?? ''))}</div>
+          <div style="font-size:12px;color:#666;margin:4px 0;">${escapeHtml(String(data.name ?? ''))}</div>
+          <img src="${data.qr_code}" width="160" height="160" alt="" />
+        </div>`,
+      )
+    }
+    const html = `<div style="font-family:sans-serif;">${blocks.join('')}</div>`
+    printJS({
+      printable: html,
+      type: 'raw-html',
+      scanStyles: false,
+      style: '@page { margin: 12mm; } .label-block { box-sizing: border-box; }',
+    })
+  } finally {
+    printLoading.value = false
+  }
+}
+
 function statusTagType(status: string) {
   const map: Record<string, string> = {
     pending: 'info', testing: 'warning', tested: 'success', retained: 'warning', disposed: 'danger',
@@ -120,13 +170,27 @@ onMounted(fetchList)
         <div class="card-header">
           <span>样品管理</span>
           <div>
+            <el-button
+              v-permission="'sample:view'"
+              :icon="Printer"
+              :disabled="!selectedRows.length"
+              :loading="printLoading"
+              @click="batchPrintLabels"
+            >批量打印标签</el-button>
             <el-button v-permission="'sample:view'" :icon="Download" @click="handleExport">导出</el-button>
             <el-button v-permission="'sample:create'" type="primary" :icon="Plus" @click="goRegister">样品登记</el-button>
           </div>
         </div>
       </template>
 
-      <el-table v-loading="loading" :data="tableData" stripe border>
+      <el-table
+        v-loading="loading"
+        :data="tableData"
+        stripe
+        border
+        @selection-change="onSelectionChange"
+      >
+        <el-table-column type="selection" width="48" align="center" />
         <el-table-column prop="sample_no" label="样品编号" width="180" />
         <el-table-column prop="name" label="样品名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="specification" label="规格型号" width="140" show-overflow-tooltip />

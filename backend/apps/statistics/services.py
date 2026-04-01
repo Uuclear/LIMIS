@@ -209,3 +209,51 @@ def get_equipment_usage(start_date: date, end_date: date) -> list[dict[str, Any]
         'used_equipment': used.count(),
         'details': list(used[:20]),
     }
+
+
+def get_task_counts_by_project(
+    start_date: date, end_date: date, limit: int = 20,
+) -> list[dict[str, Any]]:
+    """按委托所属项目统计检测任务数（时间范围：任务创建日）。"""
+    from apps.testing.models import TestTask
+
+    qs = (
+        TestTask.objects.filter(
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date,
+        )
+        .values(project_name=F('commission__project__name'))
+        .annotate(count=Count('id'))
+        .order_by('-count')[:limit]
+    )
+    return [
+        {
+            'label': (r['project_name'] or '') or '（未关联项目）',
+            'count': r['count'],
+        }
+        for r in qs
+    ]
+
+
+def get_task_counts_by_method(
+    start_date: date, end_date: date, limit: int = 20,
+) -> list[dict[str, Any]]:
+    """按检测方法统计任务数（时间范围：任务创建日）。"""
+    from apps.testing.models import TestTask
+
+    qs = (
+        TestTask.objects.filter(
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date,
+        )
+        .values(method_name=F('test_method__name'))
+        .annotate(count=Count('id'))
+        .order_by('-count')[:limit]
+    )
+    return [
+        {
+            'label': (r['method_name'] or '') or '（未命名方法）',
+            'count': r['count'],
+        }
+        for r in qs
+    ]

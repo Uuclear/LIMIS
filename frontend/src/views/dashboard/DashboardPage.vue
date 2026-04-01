@@ -19,6 +19,8 @@ import {
   getCycleAnalysis,
   getWorkload,
   getEquipmentUsage,
+  getTaskByProject,
+  getTaskByMethod,
 } from '@/api/statistics'
 
 use([
@@ -54,6 +56,8 @@ const kpi = ref({
 
 const recentTasks = ref<any[]>([])
 const strengthRows = ref<{ age_days: number; avg_strength: number }[]>([])
+const projectDim = ref<{ label: string; count: number }[]>([])
+const methodDim = ref<{ label: string; count: number }[]>([])
 
 async function fetchDashboard() {
   try {
@@ -76,8 +80,26 @@ async function fetchVolume() {
 async function fetchQualRate() {
   try {
     const res: any = await getQualificationRate()
-    qualData.value = res?.items ?? res ?? []
+    const raw = res?.items ?? res ?? []
+    qualData.value = (Array.isArray(raw) ? raw : []).map((item: any) => ({
+      name: item.category ?? item.name ?? item.label ?? '—',
+      value: item.qualified ?? item.value ?? item.count ?? 0,
+    }))
   } catch { /* ignore */ }
+}
+
+async function fetchDimStats() {
+  try {
+    const [p, m]: any[] = await Promise.all([
+      getTaskByProject(),
+      getTaskByMethod(),
+    ])
+    projectDim.value = Array.isArray(p) ? p : []
+    methodDim.value = Array.isArray(m) ? m : []
+  } catch {
+    projectDim.value = []
+    methodDim.value = []
+  }
 }
 
 async function fetchStrength() {
@@ -145,6 +167,38 @@ const pieOption = computed(() => ({
   }],
 }))
 
+const projectDimBarOption = computed(() => ({
+  tooltip: { trigger: 'axis' },
+  grid: { left: 44, right: 16, top: 28, bottom: 72 },
+  xAxis: {
+    type: 'category',
+    data: projectDim.value.map((r) => r.label),
+    axisLabel: { rotate: 32, interval: 0, fontSize: 11 },
+  },
+  yAxis: { type: 'value', name: '任务数' },
+  series: [{
+    type: 'bar',
+    data: projectDim.value.map((r) => r.count),
+    itemStyle: { color: '#64748b', borderRadius: [4, 4, 0, 0] },
+  }],
+}))
+
+const methodDimBarOption = computed(() => ({
+  tooltip: { trigger: 'axis' },
+  grid: { left: 44, right: 16, top: 28, bottom: 72 },
+  xAxis: {
+    type: 'category',
+    data: methodDim.value.map((r) => r.label),
+    axisLabel: { rotate: 32, interval: 0, fontSize: 11 },
+  },
+  yAxis: { type: 'value', name: '任务数' },
+  series: [{
+    type: 'bar',
+    data: methodDim.value.map((r) => r.count),
+    itemStyle: { color: '#d97706', borderRadius: [4, 4, 0, 0] },
+  }],
+}))
+
 const strengthLineOption = computed(() => ({
   tooltip: { trigger: 'axis' },
   grid: { left: 50, right: 20, top: 20, bottom: 30 },
@@ -190,6 +244,7 @@ onMounted(() => {
   fetchDashboard()
   fetchVolume()
   fetchQualRate()
+  fetchDimStats()
   fetchStrength()
   fetchKpi()
 })
@@ -241,6 +296,31 @@ onMounted(() => {
             <div class="card-header"><span>强度发展曲线（按龄期均值）</span></div>
           </template>
           <v-chart :option="strengthLineOption" style="height: 260px; width: 100%" autoresize />
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="20" class="chart-row">
+      <el-col :span="12">
+        <el-card shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span>各项目任务数</span>
+              <span class="chart-sub">近30天</span>
+            </div>
+          </template>
+          <v-chart :option="projectDimBarOption" style="height: 280px; width: 100%" autoresize />
+        </el-card>
+      </el-col>
+      <el-col :span="12">
+        <el-card shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span>各检测方法任务数</span>
+              <span class="chart-sub">近30天</span>
+            </div>
+          </template>
+          <v-chart :option="methodDimBarOption" style="height: 280px; width: 100%" autoresize />
         </el-card>
       </el-col>
     </el-row>
@@ -353,5 +433,11 @@ onMounted(() => {
 
 .task-card {
   border-radius: 10px;
+}
+
+.chart-sub {
+  font-size: 12px;
+  font-weight: normal;
+  color: var(--el-text-color-secondary);
 }
 </style>

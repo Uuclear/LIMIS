@@ -96,6 +96,32 @@ class CycleAnalysisView(APIView):
         return Response({'code': 200, 'data': data})
 
 
+class TaskByProjectView(APIView):
+    """按项目统计检测任务数（与 Dashboard 默认时间范围一致）。"""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        start_date, end_date = _parse_date_range(request)
+        limit = int(request.query_params.get('limit', '20'))
+        limit = max(1, min(limit, 100))
+        data = services.get_task_counts_by_project(start_date, end_date, limit=limit)
+        return Response({'code': 200, 'data': data})
+
+
+class TaskByMethodView(APIView):
+    """按检测方法统计任务数。"""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        start_date, end_date = _parse_date_range(request)
+        limit = int(request.query_params.get('limit', '20'))
+        limit = max(1, min(limit, 100))
+        data = services.get_task_counts_by_method(start_date, end_date, limit=limit)
+        return Response({'code': 200, 'data': data})
+
+
 class WorkloadView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 

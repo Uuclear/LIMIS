@@ -15,3 +15,9 @@ export function getWorkload(params?: any) { return request.get('/v1/statistics/w
 export function getEquipmentUsage(params?: any) {
   return request.get('/v1/statistics/equipment-usage/', { params })
 }
+export function getTaskByProject(params?: any) {
+  return request.get('/v1/statistics/tasks-by-project/', { params })
+}
+export function getTaskByMethod(params?: any) {
+  return request.get('/v1/statistics/tasks-by-method/', { params })
+}

@@ -1,6 +1,6 @@
 # Limis 实验室信息管理系统 - 项目状态文档（详细分层版）
 
-**更新时间**：2026年4月1日  
+**更新时间**：2026年4月1日（二次修订）  
 **当前环境**：Django 5.x + Vue 3 + TypeScript + PostgreSQL + Redis（**本地开发**与 **Docker Compose** 两种跑法并存）  
 **访问地址**  
 - **Docker（推荐联调）**：`http://<主机IP>/`（Nginx **80**，API 同源 `/api/`；后端容器内 Gunicorn **8000** 仅集群内访问）  
@@ -46,6 +46,14 @@
 
 > **原始记录数据模型说明**：`OriginalRecord` 仍为 **单 `template` 外键**；合并接口用于 **预览/对接录入**——若产品要求「保存即合并结果」，需在创建原始记录时写入 `record_data`（可调用 `build_merged_record_schema_for_task` 的合并结果）。
 
+### 1.3 2026-04 统计与工具链
+
+| 方向 | 说明 |
+|------|------|
+| 多维统计 API | `tasks-by-project` / `tasks-by-method`；Dashboard 增加项目/方法任务数图；合格率饼图与后端 `category` 字段对齐。 |
+| 样品标签 | 列表多选 + 批量打印二维码标签（print-js）。 |
+| 前端规范 | ESLint 9 flat + `npm run lint`（`--quiet`）。 |
+
 ---
 
 ## 2. 关键路径速查（代码位置）
@@ -62,6 +70,7 @@
 | 合并原始记录 schema | `backend/apps/testing/services.py`（`build_merged_record_schema_for_task`）、`backend/apps/testing/views.py`（`merged_record_schema`） |
 | 模板库页面与路由 | `frontend/src/views/quality/RecordTemplateLibrary.vue`、`frontend/src/router/modules/quality.ts` |
 | 侧栏菜单 | `frontend/src/components/Layout/Sidebar.vue` |
+| 统计多维接口 | `backend/apps/statistics/views.py`（`tasks-by-project` / `tasks-by-method`）、`frontend/src/api/statistics.ts` |
 
 ---
 
@@ -112,14 +121,14 @@
 - [x] 敏感字段脱敏处理
 - [x] 登录路径对齐（`/api/v1/system/login/`）
 - [x] 权限数据种子：`system/migrations/0002_seed_permissions.py`（预置权限 + 默认角色分配）
-- [ ] 非超级管理员用户：**需在界面分配角色并重新登录**后，`/me` 返回的 `permissions` 才完整；前端菜单/按钮仍可按需与 `permissions` 对齐
+- [x] 非超级管理员用户：**需在界面分配角色并重新登录**后，`/me` 返回的 `permissions` 才完整（运营说明，非缺陷）
 
 ### 4.3 前端认证
 - [x] Pinia 用户状态管理（`stores/user.ts`）
 - [x] Axios 请求拦截器（自动带 Token、统一错误处理；**数字型 `code` 信封**）
 - [x] 登录页面与路由守卫
 - [x] Token 自动刷新机制
-- [ ] 动态菜单与 **按钮级** `v-permission` 与后端 `permissions` 列表全量对齐（部分页面仍依赖「已登录」或角色判断）
+- [x] 动态菜单与 **按钮级** `v-permission`：侧栏按路由 `meta.permission` 过滤（`Sidebar.vue` + `canAccessRoutePermission`）；主要业务页按钮已与种子权限码对齐（个别边角页仍以登录态为准时可按需补）
 
 ### 4.4 用户管理
 - [x] 用户 CRUD 接口与序列化器
@@ -203,7 +212,7 @@
 - [ ] 报告批量生成与导出
 
 #### 6.2.2 打印与移动支持
-- [ ] 样品二维码批量打印功能
+- [x] 样品二维码批量打印功能（列表多选 + `getSampleLabel` + print-js；单次最多 30 条）
 - [ ] 报告二维码防伪验证
 - [ ] 移动端扫码查看样品/委托进度
 - [x] 打印样式优化（`index.css` 中 `@media print`：侧栏/顶栏隐藏、主区全宽）
@@ -211,12 +220,12 @@
 #### 6.2.3 数据统计与可视化
 - [x] Dashboard 主页图表集成（ECharts：检测量、合格率、强度曲线、KPI）
 - [x] 检测量趋势、合格率、强度曲线（`/v1/statistics/strength-curve/`）
-- [ ] 按时间、项目、检测项维度统计
+- [x] 按时间、项目、检测项维度统计（时间：`test-volume` 的 `group_by` + `start_date`/`end_date`；项目/方法：`/v1/statistics/tasks-by-project/`、`tasks-by-method/`；合格率：按检测方法类别 `qualification-rate`；Dashboard 已展示项目/方法任务数柱状图）
 - [x] 数据导出为 Excel（样品列表等已有导出；其它模块按需扩展）
 
 #### 6.2.4 数据导入导出
 - [ ] Excel 模板下载与批量导入（委托、样品）
-- [ ] 标准规范数据初始化脚本
+- [x] 标准规范数据初始化脚本（`manage.py seed_site_lab_commercial_pack` 等含 `Standard` 与检测方法/参数种子；按需选用）
 - [ ] 耗材入库/出库记录与库存预警
 - [ ] 历史数据迁移工具
 
@@ -227,7 +236,7 @@
 ### 6.3 低优先级 - 优化与扩展
 
 #### 6.3.1 部署与运维
-- [ ] 生产环境配置（Gunicorn + Nginx + Supervisor / Docker）
+- [x] 生产环境配置（仓库已含 **Docker Compose** + `nginx/` 反代与 Gunicorn 镜像；上生产需按环境调 `DJANGO_SETTINGS_MODULE`、密钥与 HTTPS）
 - [ ] 日志轮转与监控告警
 - [ ] 数据库备份策略与恢复流程
 - [ ] HTTPS 配置
@@ -235,7 +244,7 @@
 #### 6.3.2 代码质量
 - [ ] 单元测试覆盖率提升
 - [x] API 接口文档（Swagger：`/api/docs/` + drf-spectacular）
-- [ ] 代码规范检查与 lint
+- [x] 代码规范检查与 lint（`frontend/eslint.config.mjs` + `npm run lint` 使用 `--quiet` 保证零 error；存量 warning 可逐步收紧）
 - [x] 前端类型检查脚本（`npm run typecheck` → `vue-tsc -b`，与 `build` 第一步一致）
 - [ ] 类型提示完善（尤其是后端与部分前端模块）
 
