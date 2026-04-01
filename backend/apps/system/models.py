@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 
 from core.models import BaseModel
 
@@ -11,6 +12,20 @@ class User(AbstractUser):
     title = models.CharField(max_length=100, blank=True, verbose_name='职称')
     avatar = models.ImageField(
         upload_to='avatars/', blank=True, null=True, verbose_name='头像',
+    )
+    # 电子签名
+    signature = models.ImageField(
+        upload_to='signatures/', blank=True, null=True, verbose_name='电子签名',
+    )
+    signature_updated_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='签名更新时间',
+    )
+    # 资质证书
+    certificate_no = models.CharField(
+        max_length=100, blank=True, verbose_name='资质证书编号',
+    )
+    certificate_expiry = models.DateField(
+        null=True, blank=True, verbose_name='证书有效期',
     )
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
     roles = models.ManyToManyField(
@@ -30,6 +45,28 @@ class User(AbstractUser):
         from . import services
 
         return services.has_permission(self, module, action)
+    
+    def has_valid_signature(self) -> bool:
+        """检查用户是否有有效的电子签名"""
+        return bool(self.signature and self.signature.name)
+    
+    def is_certificate_valid(self) -> bool:
+        """检查资质证书是否有效"""
+        if not self.certificate_expiry:
+            return True  # 无有效期视为永久有效
+        return self.certificate_expiry >= timezone.now().date()
+    
+    def can_sign_report(self) -> bool:
+        """检查用户是否可以签署报告"""
+        # 需要有有效签名
+        if not self.has_valid_signature():
+            return False
+        # 需要有授权签字人角色
+        if hasattr(self, 'roles'):
+            role_codes = self.roles.values_list('code', flat=True)
+            if 'auth_signer' in role_codes or 'admin' in role_codes:
+                return True
+        return self.is_superuser
 
 
 class Role(BaseModel):

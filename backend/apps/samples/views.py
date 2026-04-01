@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 
 from core.utils.export import export_to_excel
 from core.views import BaseModelViewSet
@@ -20,6 +21,7 @@ from .serializers import (
     SampleListSerializer,
     SampleStatusChangeSerializer,
 )
+from .services.blind_sample import BlindSampleService
 
 
 class SampleViewSet(BaseModelViewSet):
@@ -132,6 +134,138 @@ class SampleViewSet(BaseModelViewSet):
             ],
             filename='样品台账.xlsx',
         )
+    
+    # ==================== 盲样管理API ====================
+    
+    @action(detail=True, methods=['post'], url_path='assign-blind')
+    def assign_blind_no(self, request: Request, pk: str = None) -> Response:
+        """为单个样品分配盲样编号"""
+        sample = self.get_object()
+        
+        if sample.blind_no:
+            return Response({
+                'code': 400,
+                'message': f'该样品已有盲样编号: {sample.blind_no}',
+                'data': {'blind_no': sample.blind_no},
+            })
+        
+        blind_no = BlindSampleService.assign_blind_no(sample)
+        return Response({
+            'code': 200,
+            'message': '盲样编号分配成功',
+            'data': {
+                'sample_no': sample.sample_no,
+                'blind_no': blind_no,
+            },
+        })
+    
+    @action(detail=False, methods=['post'], url_path='batch-assign-blind')
+    def batch_assign_blind_no(self, request: Request) -> Response:
+        """批量分配盲样编号"""
+        sample_ids = request.data.get('sample_ids', [])
+        commission_id = request.data.get('commission_id')
+        
+        if not sample_ids and not commission_id:
+            return Response({
+                'code': 400,
+                'message': '请提供样品ID列表或委托单ID',
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 获取样品
+        if sample_ids:
+            samples = list(Sample.objects.filter(id__in=sample_ids))
+        else:
+            samples = list(Sample.objects.filter(commission_id=commission_id))
+        
+        if not samples:
+            return Response({
+                'code': 400,
+                'message': '未找到符合条件的样品',
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 批量分配盲样编号
+        mapping = BlindSampleService.batch_assign_blind_no(samples)
+        
+        return Response({
+            'code': 200,
+            'message': f'成功为 {len(mapping)} 个样品分配盲样编号',
+            'data': mapping,
+        })
+    
+    @action(detail=False, methods=['get'], url_path='blind-mapping')
+    def blind_mapping(self, request: Request) -> Response:
+        """获取盲样映射表（需要特定权限）"""
+        # 检查权限
+        if not BlindSampleService.can_view_mapping(request.user):
+            raise PermissionDenied('您没有权限查看盲样映射表')
+        
+        commission_id = request.query_params.get('commission_id')
+        project_id = request.query_params.get('project_id')
+        
+        mapping = BlindSampleService.get_blind_mapping(
+            commission_id=commission_id,
+            project_id=project_id,
+        )
+        
+        return Response({
+            'code': 200,
+            'data': mapping,
+        })
+    
+    @action(detail=True, methods=['post'], url_path='remove-blind')
+    def remove_blind_no(self, request: Request, pk: str = None) -> Response:
+        """移除盲样编号（需要特定权限）"""
+        # 检查权限
+        if not BlindSampleService.can_view_mapping(request.user):
+            raise PermissionDenied('您没有权限移除盲样编号')
+        
+        sample = self.get_object()
+        
+        if not sample.blind_no:
+            return Response({
+                'code': 400,
+                'message': '该样品没有盲样编号',
+            })
+        
+        old_blind_no = sample.blind_no
+        BlindSampleService.remove_blind_no(sample)
+        
+        return Response({
+            'code': 200,
+            'message': f'已移除盲样编号: {old_blind_no}',
+        })
+    
+    @action(detail=False, methods=['get'], url_path='search-by-blind')
+    def search_by_blind_no(self, request: Request) -> Response:
+        """通过盲样编号查询样品（检测人员使用）"""
+        blind_no = request.query_params.get('blind_no')
+        
+        if not blind_no:
+            return Response({
+                'code': 400,
+                'message': '请提供盲样编号',
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        sample = BlindSampleService.get_sample_by_blind_no(blind_no)
+        
+        if not sample:
+            return Response({
+                'code': 404,
+                'message': '未找到对应的样品',
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # 返回有限的信息（不包含委托方信息）
+        return Response({
+            'code': 200,
+            'data': {
+                'blind_no': sample.blind_no,
+                'name': sample.name,
+                'specification': sample.specification,
+                'grade': sample.grade,
+                'status': sample.status,
+                'status_display': sample.get_status_display(),
+            },
+        })
 
 
 class SampleGroupViewSet(BaseModelViewSet):

@@ -14,3 +14,24 @@ export function getPermissionList(params?: any) { return request.get('/v1/system
 /** 按 module 分组的权限列表（用于角色分配） */
 export function getPermissionGrouped() { return request.get('/v1/system/permissions/grouped/') }
 export function getAuditLogs(params?: any) { return request.get('/v1/system/audit-logs/', { params }) }
+
+// 签名相关API
+export function uploadSignature(formData: FormData) {
+  return request.post('/v1/system/users/upload-signature/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+export function deleteSignature() {
+  return request.delete('/v1/system/users/delete-signature/')
+}
+export function getMySignature() {
+  return request.get('/v1/system/users/my-signature/')
+}
+
+// 导出审计日志
+export function exportAuditLogs(params?: any) {
+  return request.get('/v1/system/audit-logs/export/', { 
+    params, 
+    responseType: 'blob' 
+  })
+}

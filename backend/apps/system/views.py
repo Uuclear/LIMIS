@@ -89,6 +89,12 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='reset-password')
     def reset_password(self, request: Request, pk: str = None) -> Response:
         user = self.get_object()
+        # 只有管理员或用户本人可以重置密码
+        if not request.user.is_superuser and request.user.pk != user.pk:
+            return Response(
+                {'detail': '无权限重置他人密码'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         password = request.data.get('password', '')
         if len(password) < 8:
             return Response(
@@ -106,6 +112,55 @@ class UserViewSet(viewsets.ModelViewSet):
         user.save(update_fields=['is_active'])
         state = '启用' if user.is_active else '禁用'
         return Response({'detail': f'用户已{state}'})
+    
+    @action(detail=False, methods=['post'], url_path='upload-signature')
+    def upload_signature(self, request: Request) -> Response:
+        """上传当前用户的电子签名"""
+        from .serializers import SignatureUploadSerializer
+        from django.utils import timezone
+        
+        serializer = SignatureUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        user = request.user
+        user.signature = serializer.validated_data['signature']
+        user.signature_updated_at = timezone.now()
+        user.save(update_fields=['signature', 'signature_updated_at'])
+        
+        return Response({
+            'code': 200,
+            'message': '签名上传成功',
+            'data': UserSerializer(user, context={'request': request}).data,
+        })
+    
+    @action(detail=False, methods=['delete'], url_path='delete-signature')
+    def delete_signature(self, request: Request) -> Response:
+        """删除当前用户的电子签名"""
+        user = request.user
+        if user.signature:
+            user.signature.delete(save=False)
+        user.signature = None
+        user.signature_updated_at = None
+        user.save(update_fields=['signature', 'signature_updated_at'])
+        
+        return Response({
+            'code': 200,
+            'message': '签名已删除',
+        })
+    
+    @action(detail=False, methods=['get'], url_path='my-signature')
+    def my_signature(self, request: Request) -> Response:
+        """获取当前用户的签名信息"""
+        user = request.user
+        return Response({
+            'code': 200,
+            'data': {
+                'has_signature': user.has_valid_signature(),
+                'signature_url': request.build_absolute_uri(user.signature.url) if user.signature else None,
+                'signature_updated_at': user.signature_updated_at,
+                'can_sign_report': user.can_sign_report(),
+            },
+        })
 
 
 class RoleViewSet(viewsets.ModelViewSet):

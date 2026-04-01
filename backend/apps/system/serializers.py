@@ -61,21 +61,36 @@ class RoleBriefSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     roles = RoleBriefSerializer(many=True, read_only=True)
     real_name = serializers.SerializerMethodField()
+    has_signature = serializers.SerializerMethodField()
+    signature_url = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'first_name', 'last_name', 'real_name', 'email',
             'phone', 'department', 'title', 'avatar',
+            'signature', 'signature_url', 'has_signature', 'signature_updated_at',
+            'certificate_no', 'certificate_expiry',
             'is_active', 'roles', 'date_joined', 'last_login',
         ]
-        read_only_fields = ['id', 'date_joined', 'last_login']
+        read_only_fields = ['id', 'date_joined', 'last_login', 'signature_updated_at']
 
     def get_real_name(self, obj: User) -> str:
         full = (obj.get_full_name() or '').strip()
         if full:
             return full
         return (obj.first_name or '').strip()
+    
+    def get_has_signature(self, obj: User) -> bool:
+        return obj.has_valid_signature()
+    
+    def get_signature_url(self, obj: User) -> str | None:
+        if obj.signature and obj.signature.name:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.signature.url)
+            return obj.signature.url
+        return None
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
@@ -120,6 +135,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'first_name', 'last_name', 'real_name', 'email', 'phone',
             'department', 'title', 'avatar', 'is_active', 'role_ids',
+            'certificate_no', 'certificate_expiry',
         ]
 
     def update(self, instance: User, validated_data: dict) -> User:
@@ -134,6 +150,24 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         if roles is not None:
             instance.roles.set(roles)
         return instance
+
+
+class SignatureUploadSerializer(serializers.Serializer):
+    """签名上传序列化器"""
+    signature = serializers.ImageField(required=True)
+    
+    def validate_signature(self, value):
+        """验证签名文件"""
+        # 检查文件大小（最大2MB）
+        if value.size > 2 * 1024 * 1024:
+            raise serializers.ValidationError('签名文件大小不能超过2MB')
+        
+        # 检查文件类型
+        allowed_types = ['image/png', 'image/jpeg', 'image/jpg']
+        if value.content_type not in allowed_types:
+            raise serializers.ValidationError('签名文件格式仅支持PNG/JPG')
+        
+        return value
 
 
 class PasswordChangeSerializer(serializers.Serializer):
