@@ -5,37 +5,37 @@ const testingRoutes: RouteRecordRaw[] = [
     path: '/testing/tasks',
     name: 'TestTaskList',
     component: () => import('@/views/testing/tasks/TaskList.vue'),
-    meta: { title: '检测任务', permission: 'task:list' },
+    meta: { title: '检测任务', permission: 'testing:view' },
   },
   {
     path: '/testing/results',
     name: 'TestResultList',
     component: () => import('@/views/testing/tasks/TaskList.vue'),
-    meta: { title: '检测结果', permission: 'task:list' },
+    meta: { title: '检测结果', permission: 'testing:view' },
   },
   {
     path: '/testing/tasks/:id',
     name: 'TestTaskDetail',
     component: () => import('@/views/testing/tasks/TaskDetail.vue'),
-    meta: { title: '任务详情', permission: 'task:list' },
+    meta: { title: '任务详情', permission: 'testing:view' },
   },
   {
     path: '/testing/records',
     name: 'RecordList',
     component: () => import('@/views/testing/records/RecordList.vue'),
-    meta: { title: '原始记录', permission: 'record:list' },
+    meta: { title: '原始记录', permission: 'testing:view' },
   },
   {
     path: '/testing/records/new',
     name: 'RecordCreate',
     component: () => import('@/views/testing/records/RecordForm.vue'),
-    meta: { title: '新建记录', permission: 'record:create' },
+    meta: { title: '新建记录', permission: 'testing:create' },
   },
   {
     path: '/testing/records/:id',
     name: 'RecordEdit',
     component: () => import('@/views/testing/records/RecordForm.vue'),
-    meta: { title: '编辑记录', permission: 'record:list' },
+    meta: { title: '编辑记录', permission: 'testing:view' },
   },
 ]
 

@@ -5,7 +5,7 @@ const sampleRoutes: RouteRecordRaw[] = [
     path: '/sample',
     name: 'SampleList',
     component: () => import('@/views/samples/SampleList.vue'),
-    meta: { title: '样品管理', permission: 'sample:list' },
+    meta: { title: '样品管理', permission: 'sample:view' },
   },
   {
     path: '/sample/register',
@@ -17,7 +17,7 @@ const sampleRoutes: RouteRecordRaw[] = [
     path: '/sample/:id',
     name: 'SampleDetail',
     component: () => import('@/views/samples/SampleDetail.vue'),
-    meta: { title: '样品详情', permission: 'sample:list' },
+    meta: { title: '样品详情', permission: 'sample:view' },
   },
 ]
 

@@ -5,7 +5,7 @@ const environmentRoutes: RouteRecordRaw[] = [
     path: '/environment',
     name: 'EnvironmentMonitor',
     component: () => import('@/views/environment/EnvironmentMonitor.vue'),
-    meta: { title: '环境监控', permission: 'environment:list' },
+    meta: { title: '环境监控', permission: 'environment:view' },
   },
 ]
 
