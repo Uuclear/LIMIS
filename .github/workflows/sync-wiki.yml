@@ -1,0 +1,165 @@
+name: Sync Wiki to GitHub Wiki
+
+on:
+  push:
+    branches:
+      - limis-ali
+    paths:
+      - 'wiki/**'
+  workflow_dispatch:
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout Wiki Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          path: wiki-repo
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: master
+        continue-on-error: true
+
+      - name: Sync Wiki Content
+        run: |
+          # 创建临时目录
+          mkdir -p wiki-temp
+          
+          # 复制wiki目录内容
+          cp -r wiki/* wiki-temp/
+          
+          # 处理文件名（移除序号前缀，使URL更友好）
+          cd wiki-temp
+          
+          # 处理01-系统概述目录
+          cd "01-系统概述"
+          mv "01-系统简介.md" "系统简介.md"
+          mv "02-快速开始.md" "快速开始.md"
+          mv "03-术语定义.md" "术语定义.md"
+          cd ..
+          
+          # 处理02-用户指南目录
+          cd "02-用户指南"
+          mv "01-角色权限说明.md" "角色权限说明.md"
+          mv "02-委托管理.md" "委托管理.md"
+          mv "03-样品管理.md" "样品管理.md"
+          mv "04-检测任务.md" "检测任务.md"
+          mv "05-原始记录.md" "原始记录.md"
+          mv "06-检测报告.md" "检测报告.md"
+          mv "07-个人中心.md" "个人中心.md"
+          cd ..
+          
+          # 处理03-管理员指南目录
+          cd "03-管理员指南"
+          mv "01-系统配置.md" "系统配置.md"
+          mv "02-用户管理.md" "用户管理.md"
+          mv "03-项目管理.md" "项目管理.md"
+          mv "04-设备管理.md" "设备管理.md"
+          mv "05-人员管理.md" "人员管理.md"
+          mv "06-标准库管理.md" "标准库管理.md"
+          mv "07-模板管理.md" "模板管理.md"
+          mv "08-质量管理.md" "质量管理.md"
+          mv "09-耗材管理.md" "耗材管理.md"
+          mv "10-环境监控.md" "环境监控.md"
+          mv "11-审计日志.md" "审计日志.md"
+          cd ..
+          
+          # 处理04-功能详解目录
+          cd "04-功能详解"
+          mv "01-状态机流转.md" "状态机流转.md"
+          mv "02-电子签名.md" "电子签名.md"
+          mv "03-盲样管理.md" "盲样管理.md"
+          mv "04-自动计算.md" "自动计算.md"
+          mv "05-龄期管理.md" "龄期管理.md"
+          mv "06-设备预警.md" "设备预警.md"
+          mv "07-实时监控.md" "实时监控.md"
+          mv "08-数据导出.md" "数据导出.md"
+          cd ..
+          
+          # 处理05-API文档目录
+          cd "05-API文档"
+          mv "01-API概述.md" "API概述.md"
+          mv "02-系统模块API.md" "系统模块API.md"
+          mv "03-业务模块API.md" "业务模块API.md"
+          mv "04-支撑模块API.md" "支撑模块API.md"
+          cd ..
+          
+          # 处理06-扩展开发目录
+          cd "06-扩展开发"
+          mv "01-开发环境搭建.md" "开发环境搭建.md"
+          mv "02-后端开发指南.md" "后端开发指南.md"
+          mv "03-前端开发指南.md" "前端开发指南.md"
+          mv "04-新增检测类型.md" "新增检测类型.md"
+          mv "05-自定义报表.md" "自定义报表.md"
+          cd ..
+          
+          # 处理07-常见问题目录
+          cd "07-常见问题"
+          mv "01-常见问题FAQ.md" "常见问题FAQ.md"
+          mv "02-已知问题.md" "已知问题.md"
+          mv "03-Bug预计与排查.md" "Bug预计与排查.md"
+          cd ..
+          
+          # 重命名目录（移除序号前缀）
+          mv "01-系统概述" "系统概述"
+          mv "02-用户指南" "用户指南"
+          mv "03-管理员指南" "管理员指南"
+          mv "04-功能详解" "功能详解"
+          mv "05-API文档" "API文档"
+          mv "06-扩展开发" "扩展开发"
+          mv "07-常见问题" "常见问题"
+          
+          # 复制README.md并重命名为Home.md
+          cp ../wiki/README.md Home.md
+          
+          cd ..
+
+      - name: Push to Wiki Repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 克隆Wiki仓库
+          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.wiki.git wiki-git 2>/dev/null || mkdir wiki-git
+          
+          cd wiki-git
+          
+          # 如果仓库为空，初始化
+          if [ ! -d .git ]; then
+            git init
+            git remote add origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.wiki.git
+          fi
+          
+          # 清空现有内容
+          rm -rf *
+          
+          # 复制新内容
+          cp -r ../wiki-temp/* .
+          
+          # 配置git
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          
+          # 添加并提交
+          git add -A
+          
+          # 检查是否有更改
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          git commit -m "Sync wiki from ${{ github.sha }}"
+          
+          # 推送
+          git push origin master --force
+
+      - name: Sync Complete
+        run: |
+          echo "✅ Wiki同步完成！"
+          echo "📚 访问地址: https://github.com/${{ github.repository }}/wiki"
