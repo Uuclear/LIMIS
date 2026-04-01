@@ -59,12 +59,13 @@ class ReportViewSet(BaseModelViewSet):
         'submit_audit': 'edit',
         'audit': 'approve',
         'approve': 'approve',
-        'issue': 'approve',
+        'issue': 'edit',
         'void': 'delete',
         'preview': 'view',
         'download': 'export',
         'distribute': 'edit',
         'verify': 'view',
+        'timeline': 'view',
     }
     filterset_class = ReportFilter
     search_fields = ['report_no', 'commission__commission_no']
@@ -240,6 +241,31 @@ class ReportViewSet(BaseModelViewSet):
                 'has_cma': report.has_cma,
             },
         })
+
+    @action(detail=True, methods=['get'])
+    def timeline(self, request: Request, pk: str = None) -> Response:
+        report = self.get_object()
+        nodes = [{
+            'time': report.created_at,
+            'label': '报告创建',
+            'actor': report.created_by_name or '',
+            'detail': f'报告编号：{report.report_no}',
+        }]
+        for approval in report.approvals.select_related('user').order_by('created_at'):
+            nodes.append({
+                'time': approval.created_at,
+                'label': f'{approval.get_role_display()}-{approval.get_action_display()}',
+                'actor': approval.user.get_full_name() if approval.user else '',
+                'detail': approval.comment or '',
+            })
+        for dist in report.distributions.order_by('distribution_date', 'created_at'):
+            nodes.append({
+                'time': dist.created_at,
+                'label': '报告发放',
+                'actor': dist.receiver_signature or '',
+                'detail': f'{dist.recipient} / {dist.get_method_display()}',
+            })
+        return Response({'code': 200, 'data': nodes})
 
 
 class ReportDistributionViewSet(BaseModelViewSet):

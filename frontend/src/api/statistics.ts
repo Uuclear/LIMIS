@@ -21,3 +21,12 @@ export function getTaskByProject(params?: any) {
 export function getTaskByMethod(params?: any) {
   return request.get('/v1/statistics/tasks-by-method/', { params })
 }
+export function getFlowKpis(params?: any) {
+  return request.get('/v1/statistics/flow-kpis/', { params })
+}
+export function getOperationalReporting(params?: any) {
+  return request.get('/v1/statistics/operational-reporting/', { params })
+}
+export function exportOperationalReporting(params?: any) {
+  return request.get('/v1/statistics/operational-reporting/export/', { params, responseType: 'blob' } as any)
+}

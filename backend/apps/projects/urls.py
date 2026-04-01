@@ -31,4 +31,8 @@ urlpatterns = [
         '<int:project_pk>/witnesses/',
         include(_nested_urls(views.WitnessViewSet, 'project-witness')),
     ),
+    path(
+        '<int:project_pk>/samplers/',
+        include(_nested_urls(views.SamplerViewSet, 'project-sampler')),
+    ),
 ]

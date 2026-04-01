@@ -10,6 +10,7 @@ import {
   auditReport,
   approveReport,
   issueReport,
+  getReportTimeline,
   downloadReport,
   previewReport,
 } from '@/api/reports'
@@ -49,10 +50,12 @@ const approvalStepMap: Record<string, string> = {
 
 const approvalActionMap: Record<string, string> = {
   approve: '通过',
+  pass: '通过',
   reject: '驳回',
 }
 
 const pdfUrl = ref('')
+const timeline = ref<Array<{ time: string; label: string; actor: string; detail: string }>>([])
 
 async function fetchReport() {
   loading.value = true
@@ -60,6 +63,15 @@ async function fetchReport() {
     report.value = await getReport(reportId.value) as any
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchTimeline() {
+  try {
+    const res: any = await getReportTimeline(reportId.value)
+    timeline.value = Array.isArray(res) ? res : (res?.data ?? res ?? [])
+  } catch {
+    timeline.value = []
   }
 }
 
@@ -98,8 +110,12 @@ function openAuditDialog(type: 'audit' | 'approve') {
 }
 
 async function handleAuditSubmit() {
+  if (auditAction.value === 'reject' && (auditComment.value || '').trim().length < 4) {
+    ElMessage.warning('退回原因至少4个字符')
+    return
+  }
   const payload = {
-    action: auditAction.value,
+    approved: auditAction.value === 'approve',
     comment: auditComment.value,
   }
   await runLocked('audit_submit', async () => {
@@ -112,6 +128,7 @@ async function handleAuditSubmit() {
       ElMessage.success('操作成功')
       auditDialogVisible.value = false
       fetchReport()
+      fetchTimeline()
     } catch {
       ElMessage.error('操作失败')
     }
@@ -168,10 +185,11 @@ function goBack() {
 }
 
 function approvalTagType(action: string) {
-  return action === 'approve' ? 'success' : 'danger'
+  return action === 'pass' ? 'success' : 'danger'
 }
 
 onMounted(fetchReport)
+onMounted(fetchTimeline)
 </script>
 
 <template>
@@ -243,14 +261,14 @@ onMounted(fetchReport)
             :key="approval.id"
             :timestamp="approval.created_at"
             placement="top"
-            :type="approval.action === 'approve' ? 'success' : 'danger'"
+            :type="approval.action === 'pass' ? 'success' : 'danger'"
           >
             <div class="approval-item">
               <div>
                 <el-tag :type="approvalTagType(approval.action)" size="small">
-                  {{ approvalStepMap[approval.step] }} - {{ approvalActionMap[approval.action] }}
+                  {{ approvalStepMap[(approval as any).role || (approval as any).step] || '审批' }} - {{ approvalActionMap[approval.action] || approval.action }}
                 </el-tag>
-                <span class="approval-operator">{{ approval.operator_name }}</span>
+                <span class="approval-operator">{{ (approval as any).user_name || (approval as any).operator_name || '' }}</span>
               </div>
               <div v-if="approval.comment" class="approval-comment">
                 {{ approval.comment }}
@@ -259,6 +277,17 @@ onMounted(fetchReport)
           </el-timeline-item>
         </el-timeline>
         <el-empty v-else description="暂无审批记录" :image-size="60" />
+      </el-card>
+
+      <el-card shadow="never" style="margin-top: 16px">
+        <template #header><span>流程时间线</span></template>
+        <el-timeline v-if="timeline.length">
+          <el-timeline-item v-for="(n, i) in timeline" :key="`${n.time}-${i}`" :timestamp="n.time" placement="top">
+            <div>{{ n.label }} <span style="color:#999"> {{ n.actor ? `（${n.actor}）` : '' }}</span></div>
+            <div v-if="n.detail" style="color:#666; margin-top:4px">{{ n.detail }}</div>
+          </el-timeline-item>
+        </el-timeline>
+        <el-empty v-else description="暂无流程记录" :image-size="56" />
       </el-card>
 
       <!-- Distribution Records -->
@@ -310,7 +339,7 @@ onMounted(fetchReport)
         </template>
 
         <template v-if="report.status === 'approved'">
-          <el-button v-permission="'report:approve'" type="success" :loading="isLocked('issue')" @click="handleIssue">发放</el-button>
+          <el-button v-permission="'report:edit'" type="success" :loading="isLocked('issue')" @click="handleIssue">发放</el-button>
         </template>
 
         <template v-if="report.status === 'issued'">

@@ -3,7 +3,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Search, Refresh, Grid, List } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getTestTaskList, assignTask, startTask, completeTask } from '@/api/testing'
+import { getTestTaskList, assignTask, completeTask, returnTask, returnTaskToCommission } from '@/api/testing'
 import { getAssignableTesters } from '@/api/staff'
 import type { TestTask } from '@/types/testing'
 import { useActionLock } from '@/composables/useActionLock'
@@ -28,28 +28,25 @@ const query = reactive({
 
 const statusColumns = [
   { key: 'unassigned', label: '待分配', type: 'info' as const },
-  { key: 'assigned', label: '待检', type: 'warning' as const },
   { key: 'in_progress', label: '检测中', type: '' as const },
   { key: 'completed', label: '已完成', type: 'success' as const },
 ]
 
 const statusMap: Record<string, string> = {
   unassigned: '待分配',
-  assigned: '待检',
   in_progress: '检测中',
   completed: '已完成',
 }
 
 const statusTagType: Record<string, string> = {
   unassigned: 'info',
-  assigned: 'warning',
   in_progress: '',
   completed: 'success',
 }
 
 const kanbanData = computed(() => {
   const grouped: Record<string, TestTask[]> = {
-    unassigned: [], assigned: [], in_progress: [], completed: [],
+    unassigned: [], in_progress: [], completed: [],
   }
   for (const task of tableData.value) {
     if (grouped[task.status]) {
@@ -69,16 +66,32 @@ const testerLoading = ref(false)
 async function fetchList() {
   loading.value = true
   try {
-    const params: Record<string, any> = { ...query }
-    if (!query.sample) delete params.sample
-    if (query.date_range?.length === 2) {
-      params.start_date = query.date_range[0]
-      params.end_date = query.date_range[1]
+    const params: Record<string, any> = {
+      page: query.page,
+      page_size: query.page_size,
     }
-    delete params.date_range
+    if (query.status) params.status = query.status
+    if (query.sample) params.sample = query.sample
+    if (query.date_range?.length === 2) {
+      params.planned_date_from = query.date_range[0]
+      params.planned_date_to = query.date_range[1]
+    }
+    const tn = (query.tester_name || '').trim()
+    if (tn) params.search = tn
+    // #region agent log
+    fetch('http://127.0.0.1:7490/ingest/c75af6f2-90e9-47e0-a350-bab47c84a284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'66f994'},body:JSON.stringify({sessionId:'66f994',runId:'initial',hypothesisId:'H1',location:'TaskList.vue:fetchList:before',message:'task_list_request',data:{params},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const res: any = await getTestTaskList(params)
+    // #region agent log
+    fetch('http://127.0.0.1:7490/ingest/c75af6f2-90e9-47e0-a350-bab47c84a284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'66f994'},body:JSON.stringify({sessionId:'66f994',runId:'initial',hypothesisId:'H1',location:'TaskList.vue:fetchList:after',message:'task_list_response',data:{count:(res?.results??res?.list??[]).length,statuses:(res?.results??res?.list??[]).map((x:any)=>x.status)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     tableData.value = res.results ?? res.list ?? []
     total.value = res.total ?? res.count ?? 0
+  } catch (e: any) {
+    // #region agent log
+    fetch('http://127.0.0.1:7490/ingest/c75af6f2-90e9-47e0-a350-bab47c84a284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'66f994'},body:JSON.stringify({sessionId:'66f994',runId:'initial',hypothesisId:'H1',location:'TaskList.vue:fetchList:error',message:'task_list_error',data:{message:e?.message||'',responseStatus:e?.response?.status||null,responseData:e?.response?.data||null},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    throw e
   } finally {
     loading.value = false
   }
@@ -150,17 +163,6 @@ async function handleAssign() {
   })
 }
 
-async function handleStart(task: TestTask) {
-  await runLocked(`start_task_${task.id}`, async () => {
-    try {
-      await ElMessageBox.confirm('确认开始检测？', '提示')
-      await startTask(task.id)
-      ElMessage.success('已开始检测')
-      fetchList()
-    } catch { /* cancelled */ }
-  })
-}
-
 async function handleComplete(task: TestTask) {
   await runLocked(`complete_task_${task.id}`, async () => {
     try {
@@ -170,6 +172,58 @@ async function handleComplete(task: TestTask) {
       fetchList()
     } catch { /* cancelled */ }
   })
+}
+
+async function handleReturn(task: TestTask) {
+  let reason = ''
+  try {
+    const prompt = await ElMessageBox.prompt('请输入退回原因（至少4个字符）', '退回待分配', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputPattern: /^.{4,}$/,
+      inputErrorMessage: '原因至少4个字符',
+    })
+    reason = prompt.value
+  } catch {
+    return
+  }
+  await runLocked(`return_task_${task.id}`, async () => {
+    try {
+      await returnTask(task.id, { reason })
+      ElMessage.success('已退回待分配')
+      fetchList()
+    } catch { /* cancelled */ }
+  })
+}
+
+
+
+async function handleReturnCommission(task: TestTask) {
+  let reason = ''
+  try {
+    const prompt = await ElMessageBox.prompt('请输入退回委托原因（至少4个字符）', '退回委托提交', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputPattern: /^.{4,}$/,
+      inputErrorMessage: '原因至少4个字符',
+    })
+    reason = prompt.value
+  } catch {
+    return
+  }
+  await runLocked(`return_commission_${task.id}`, async () => {
+    try {
+      await returnTaskToCommission(task.id, { reason })
+      ElMessage.success('已退回委托提交流程')
+      fetchList()
+    } catch { /* cancelled */ }
+  })
+}
+
+function handleChangeCommission(task: TestTask) {
+  const cid = (task as any).commission
+  if (!cid) return
+  router.push(`/entrustment/${cid}/edit`)
 }
 
 function isOverdue(task: TestTask) {
@@ -283,7 +337,7 @@ onMounted(() => {
               <div class="kanban-card-actions" @click.stop>
                 <el-button
                   v-if="task.status === 'unassigned'"
-                  v-permission="'testing:edit'"
+                  v-permission="'task:edit'"
                   size="small"
                   type="primary"
                   @click="openAssignDialog(task)"
@@ -291,24 +345,42 @@ onMounted(() => {
                   分配
                 </el-button>
                 <el-button
-                  v-if="task.status === 'assigned'"
-                  v-permission="'testing:edit'"
+                  v-if="task.status === 'unassigned'"
+                  v-permission="'task:edit'"
                   size="small"
                   type="warning"
-                  :loading="isLocked(`start_task_${task.id}`)"
-                  @click="handleStart(task)"
+                  :loading="isLocked(`return_commission_${task.id}`)"
+                  @click="handleReturnCommission(task)"
                 >
-                  开始
+                  退回委托
+                </el-button>
+                <el-button
+                  v-if="task.status === 'unassigned'"
+                  v-permission="'commission:edit'"
+                  size="small"
+                  @click="handleChangeCommission(task)"
+                >
+                  变更委托
                 </el-button>
                 <el-button
                   v-if="task.status === 'in_progress'"
-                  v-permission="'testing:edit'"
+                  v-permission="'task:edit'"
                   size="small"
                   type="success"
                   :loading="isLocked(`complete_task_${task.id}`)"
                   @click="handleComplete(task)"
                 >
                   完成
+                </el-button>
+                <el-button
+                  v-if="task.status === 'in_progress'"
+                  v-permission="'task:edit'"
+                  size="small"
+                  type="danger"
+                  :loading="isLocked(`return_task_${task.id}`)"
+                  @click="handleReturn(task)"
+                >
+                  退回
                 </el-button>
               </div>
             </div>
@@ -338,10 +410,10 @@ onMounted(() => {
           </el-table-column>
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-button v-permission="'testing:view'" link type="primary" @click="goDetail(row)">查看</el-button>
+              <el-button v-permission="'task:view'" link type="primary" @click="goDetail(row)">查看</el-button>
               <el-button
                 v-if="row.status === 'unassigned'"
-                v-permission="'testing:edit'"
+                v-permission="'task:edit'"
                 link
                 type="primary"
                 @click="openAssignDialog(row)"
@@ -349,24 +421,42 @@ onMounted(() => {
                 分配
               </el-button>
               <el-button
-                v-if="row.status === 'assigned'"
-                v-permission="'testing:edit'"
+                v-if="row.status === 'unassigned'"
+                v-permission="'task:edit'"
                 link
                 type="warning"
-                :loading="isLocked(`start_task_${row.id}`)"
-                @click="handleStart(row)"
+                :loading="isLocked(`return_commission_${row.id}`)"
+                @click="handleReturnCommission(row)"
               >
-                开始
+                退回委托
+              </el-button>
+              <el-button
+                v-if="row.status === 'unassigned'"
+                v-permission="'commission:edit'"
+                link
+                @click="handleChangeCommission(row)"
+              >
+                变更委托
               </el-button>
               <el-button
                 v-if="row.status === 'in_progress'"
-                v-permission="'testing:edit'"
+                v-permission="'task:edit'"
                 link
                 type="success"
                 :loading="isLocked(`complete_task_${row.id}`)"
                 @click="handleComplete(row)"
               >
                 完成
+              </el-button>
+              <el-button
+                v-if="row.status === 'in_progress'"
+                v-permission="'task:edit'"
+                link
+                type="danger"
+                :loading="isLocked(`return_task_${row.id}`)"
+                @click="handleReturn(row)"
+              >
+                退回
               </el-button>
             </template>
           </el-table-column>
@@ -411,7 +501,7 @@ onMounted(() => {
       <template #footer>
         <el-button @click="assignDialogVisible = false">取消</el-button>
         <el-button
-          v-permission="'testing:edit'"
+          v-permission="'task:edit'"
           type="primary"
           :loading="currentTask ? isLocked(`assign_task_${currentTask.id}`) : false"
           @click="handleAssign"

@@ -5,19 +5,22 @@ from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from core.audit import log_business_event
+from apps.system.services import has_permission_code
 
 from .models import Report, ReportApproval
 
 
-def _check_permission(user, required_role: str) -> None:
-    role_perm_map = {
-        'compile': 'reports.compile_report',
-        'audit': 'reports.audit_report',
-        'approve': 'reports.approve_report',
-    }
-    perm = role_perm_map.get(required_role)
-    if perm and not user.has_perm(perm):
-        raise PermissionDenied(f'没有{required_role}权限')
+def _require_permission(user, permission_code: str, action_label: str) -> None:
+    if has_permission_code(user, permission_code):
+        return
+    raise PermissionDenied(f'没有{action_label}权限')
+
+
+def _require_reject_comment(approved: bool, comment: str, stage: str) -> None:
+    if approved:
+        return
+    if len((comment or '').strip()) < 4:
+        raise ValidationError(f'{stage}退回时请填写至少 4 个字符的原因')
 
 
 def _create_approval(
@@ -54,7 +57,7 @@ def submit_for_audit(report_id: int, user) -> Report:
     if report.status != 'draft':
         raise ValidationError('只有草稿状态可以提交审核')
 
-    _check_permission(user, 'compile')
+    _require_permission(user, 'report:edit', '报告编制')
     report.status = 'pending_audit'
     report.compiler = user
     report.compile_date = timezone.now()
@@ -71,14 +74,15 @@ def submit_for_audit(report_id: int, user) -> Report:
         path=f'/api/v1/reports/reports/{report.pk}/submit_audit/',
         payload={'report_no': report.report_no, 'status': report.status},
     )
-    from apps.system.services import notify_users_by_permission_code
+    from apps.system.services import notify_flow_targets
 
-    notify_users_by_permission_code(
-        'report:approve',
-        'report_audit',
-        f'报告待审核：{report.report_no}',
-        '',
-        f'/reports/{report.pk}',
+    notify_flow_targets(
+        role_code='tech_director',
+        fallback_permission_code='report:approve',
+        notification_type='report_audit',
+        title=f'报告待审核：{report.report_no}',
+        content='',
+        link_path=f'/reports/{report.pk}',
     )
     return report
 
@@ -98,7 +102,8 @@ def audit_report(
     if report.status != 'pending_audit':
         raise ValidationError('只有待审核状态可以审核')
 
-    _check_permission(user, 'audit')
+    _require_permission(user, 'report:approve', '报告审批')
+    _require_reject_comment(approved, comment, '审核')
     action = 'pass' if approved else 'reject'
     report.auditor = user
     report.audit_date = timezone.now()
@@ -121,14 +126,15 @@ def audit_report(
         },
     )
     if approved:
-        from apps.system.services import notify_users_by_permission_code
+        from apps.system.services import notify_flow_targets
 
-        notify_users_by_permission_code(
-            'report:approve',
-            'report_approve',
-            f'报告待批准：{report.report_no}',
-            '',
-            f'/reports/{report.pk}',
+        notify_flow_targets(
+            role_code='auth_signer',
+            fallback_permission_code='report:approve',
+            notification_type='report_approve',
+            title=f'报告待批准：{report.report_no}',
+            content='',
+            link_path=f'/reports/{report.pk}',
         )
     return report
 
@@ -148,7 +154,8 @@ def approve_report(
     if report.status != 'pending_approve':
         raise ValidationError('只有待批准状态可以批准')
 
-    _check_permission(user, 'approve')
+    _require_permission(user, 'report:approve', '报告批准')
+    _require_reject_comment(approved, comment, '批准')
     action = 'pass' if approved else 'reject'
     report.approver = user
     report.approve_date = timezone.now()
@@ -175,6 +182,7 @@ def approve_report(
 
 @transaction.atomic
 def issue_report(report_id: int, user) -> Report:
+    _require_permission(user, 'report:edit', '报告发放')
     report = Report.objects.select_for_update().get(pk=report_id)
     if report.status == 'issued':
         return report
@@ -193,16 +201,15 @@ def issue_report(report_id: int, user) -> Report:
         path=f'/api/v1/reports/reports/{report.pk}/issue/',
         payload={'report_no': report.report_no, 'issue_date': str(report.issue_date)},
     )
-    if report.compiler_id:
-        from apps.system.services import notify_user
-
-        notify_user(
-            report.compiler_id,
-            'system',
-            f'报告已发放：{report.report_no}',
-            '',
-            f'/reports/{report.pk}',
-        )
+    from apps.system.services import notify_flow_targets
+    notify_flow_targets(
+        role_code='reception',
+        fallback_permission_code='report:edit',
+        notification_type='report_issue_done',
+        title=f'报告已发放：{report.report_no}',
+        content='',
+        link_path=f'/reports/{report.pk}',
+    )
     return report
 
 
@@ -211,6 +218,11 @@ def void_report(report_id: int, user, reason: str = '') -> Report:
     report = Report.objects.select_for_update().get(pk=report_id)
     if report.status == 'voided':
         return report
+    reason = (reason or '').strip()
+    if len(reason) < 4:
+        raise ValidationError('作废原因至少 4 个字符')
+    if report.status in ('issued',):
+        raise ValidationError('已发放报告不允许直接作废，请走作废审批流程')
 
     report.status = 'voided'
     report.save(update_fields=['status', 'updated_at'])

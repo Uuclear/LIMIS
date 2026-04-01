@@ -14,7 +14,6 @@ import equipmentRoutes from './modules/equipment'
 import staffRoutes from './modules/staff'
 import environmentRoutes from './modules/environment'
 import qualityRoutes from './modules/quality'
-import consumableRoutes from './modules/consumables'
 import testingRoutes from './modules/testing'
 import reportRoutes from './modules/reports'
 
@@ -62,7 +61,6 @@ const routes: RouteRecordRaw[] = [
       ...staffRoutes,
       ...environmentRoutes,
       ...qualityRoutes,
-      ...consumableRoutes,
       ...testingRoutes,
       ...reportRoutes,
     ],

@@ -30,7 +30,7 @@ class Commission(BaseModel):
         verbose_name='分部分项工程',
     )
     construction_part = models.CharField(
-        max_length=200, verbose_name='施工部位',
+        max_length=200, verbose_name='工程部位',
     )
     commission_date = models.DateField(verbose_name='委托日期')
     client_unit = models.CharField(max_length=200, verbose_name='委托单位')
@@ -46,6 +46,14 @@ class Commission(BaseModel):
         blank=True,
         on_delete=models.SET_NULL,
         verbose_name='见证人',
+    )
+    sampler = models.ForeignKey(
+        'projects.Sampler',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='sampled_commissions',
+        verbose_name='取样人',
     )
     is_witnessed = models.BooleanField(default=False, verbose_name='是否见证取样')
     status = models.CharField(

@@ -5,6 +5,8 @@ export interface Commission {
   project_name: string
   sub_project: number | null
   sub_project_name: string
+  /** 列表接口聚合的样品名称，详情可能为空 */
+  sample_names?: string
   construction_part: string
   commission_date: string
   client_unit: string
@@ -12,6 +14,8 @@ export interface Commission {
   client_phone: string
   witness: number | null
   witness_name: string
+  sampler?: number | null
+  sampler_name?: string
   is_witnessed: boolean
   status: string
   status_display?: string

@@ -2,7 +2,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { getRoleList, createRole, updateRole, deleteRole, getPermissionGrouped } from '@/api/system'
+import { getRoleList, createRole, updateRole, deleteRole, getPermissionGrouped, getRequiredRoleStatus } from '@/api/system'
 
 interface RoleRow {
   id: number
@@ -36,11 +36,13 @@ const rules = {
 }
 
 const grouped = ref<Record<string, any[]>>({})
+const requiredMissing = ref<string[]>([])
 
 const moduleTitle: Record<string, string> = {
   system: '系统管理',
   project: '工程项目',
   commission: '委托受理',
+  task: '任务管理',
   testing: '检测管理',
   report: '报告管理',
   quality: '质量管理',
@@ -68,6 +70,11 @@ async function fetchList() {
 async function fetchPermissions() {
   const res: any = await getPermissionGrouped()
   grouped.value = res && typeof res === 'object' ? res : {}
+}
+
+async function fetchRequiredStatus() {
+  const res: any = await getRequiredRoleStatus()
+  requiredMissing.value = (res?.missing ?? res?.data?.missing ?? []) as string[]
 }
 
 function openCreate() {
@@ -124,6 +131,7 @@ async function handleDelete(row: RoleRow) {
 onMounted(() => {
   fetchList()
   fetchPermissions()
+  fetchRequiredStatus()
 })
 </script>
 
@@ -136,6 +144,14 @@ onMounted(() => {
           <el-button v-permission="'system:create'" type="primary" :icon="Plus" @click="openCreate">新增角色</el-button>
         </div>
       </template>
+      <el-alert
+        v-if="requiredMissing.length"
+        title="关键流程角色缺失，会导致任务/报告流程不可用"
+        type="warning"
+        :description="`缺失角色：${requiredMissing.join('、')}`"
+        show-icon
+        style="margin-bottom: 12px"
+      />
 
       <el-table v-loading="loading" :data="tableData" stripe border>
         <el-table-column prop="name" label="角色名称" min-width="140" />

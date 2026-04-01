@@ -258,7 +258,7 @@ onMounted(fetchList)
             </el-button>
             <el-button
               v-if="row.status === 'approved'"
-              v-permission="'report:approve'"
+              v-permission="'report:edit'"
               link
               type="success"
               :loading="isLocked(`issue_${row.id}`)"

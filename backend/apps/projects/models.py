@@ -153,3 +153,35 @@ class Witness(BaseModel):
 
     def __str__(self) -> str:
         return self.name
+
+
+class Sampler(BaseModel):
+    ID_TYPE_CHOICES = Witness.ID_TYPE_CHOICES
+
+    project = models.ForeignKey(
+        Project, on_delete=models.CASCADE,
+        related_name='samplers', verbose_name='所属项目',
+    )
+    name = models.CharField(max_length=50, verbose_name='取样人姓名')
+    id_type = models.CharField(
+        max_length=20, choices=ID_TYPE_CHOICES,
+        default='id_card', verbose_name='证件类型',
+    )
+    id_number = models.CharField(max_length=50, blank=True, verbose_name='证件号')
+    organization = models.ForeignKey(
+        Organization, null=True, blank=True,
+        on_delete=models.SET_NULL, verbose_name='所属单位',
+    )
+    phone = models.CharField(max_length=20, blank=True, verbose_name='联系电话')
+    certificate_no = models.CharField(max_length=100, blank=True, verbose_name='取样员证书号')
+    is_active = models.BooleanField(default=True, verbose_name='是否在岗')
+
+    class Meta:
+        verbose_name = '取样人'
+        verbose_name_plural = verbose_name
+        ordering = ['-created_at']
+
+    def __str__(self) -> str:
+        return self.name
+
+

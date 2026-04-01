@@ -36,11 +36,11 @@ graph TD
 为保证“按钮显示/可编辑性/下一步入口”不因枚举不一致而阻断流程，前端与后端以数据库真实枚举为准：
 
 ### 4.1 检测任务（TestTask）
-后端枚举为：`unassigned / assigned / in_progress / completed`
-- `unassigned`：待分配（仅可分配人员）
-- `assigned`：待检（可开始检测）
-- `in_progress`：检测中（可完成检测，且可进入原始记录填写）
+后端枚举为：`unassigned / in_progress / completed / abnormal`
+- `unassigned`：待分配（技术负责人分配检测员）
+- `in_progress`：检测中（可完成检测，可退回待分配）
 - `completed`：已完成
+- `abnormal`：异常
 
 ### 4.2 原始记录（OriginalRecord）
 后端枚举为：`draft / pending_review / reviewed / returned`

@@ -11,8 +11,14 @@ from rest_framework.exceptions import ValidationError
 
 from core.utils.numbering import NumberGenerator
 from core.audit import log_business_event
+from apps.system.services import has_permission_code
 
 from .models import OriginalRecord, TestTask
+def _require_permission(user, permission_code: str, action_label: str) -> None:
+    if has_permission_code(user, permission_code):
+        return
+    raise ValidationError(f'无权限执行{action_label}')
+
 
 
 def generate_task_no() -> str:
@@ -65,33 +71,46 @@ def _deduped_task_slots(sample, items) -> list[tuple[Any, Any]]:
         if not _commission_item_matches_sample(item, sample):
             continue
 
+        test_item_name = _clean_text(getattr(item, 'test_item', ''))
         method_name = _clean_text(getattr(item, 'test_method', ''))
-        if not method_name:
-            continue
+        std_no = _clean_text(getattr(item, 'test_standard', ''))
+        test_method = None
+        test_parameter = None
 
-        test_method = TestMethod.objects.filter(
-            name__iexact=method_name,
-            is_active=True,
-        ).first()
-        if not test_method:
-            std_no = _clean_text(getattr(item, 'test_standard', ''))
-            if std_no:
+        if method_name:
+            test_method = TestMethod.objects.filter(
+                name__iexact=method_name,
+                is_active=True,
+            ).first()
+            if not test_method and std_no:
                 test_method = TestMethod.objects.filter(
                     standard_no__iexact=std_no,
                     is_active=True,
                 ).first()
 
+        # 简化流程后，委托项允许仅配置“检测参数”，此处反向推导方法。
+        if not test_method and test_item_name:
+            param_qs = TestParameter.objects.filter(
+                name__iexact=test_item_name,
+                is_deleted=False,
+                method__is_active=True,
+            ).select_related('method')
+            if std_no:
+                param_qs = param_qs.filter(method__standard_no__iexact=std_no)
+            test_parameter = param_qs.first()
+            if test_parameter:
+                test_method = test_parameter.method
+
         if not test_method:
             continue
 
-        test_item_name = _clean_text(getattr(item, 'test_item', ''))
-        test_parameter = None
         if test_item_name:
-            test_parameter = TestParameter.objects.filter(
-                method_id=test_method.id,
-                name__iexact=test_item_name,
-                is_deleted=False,
-            ).first()
+            if test_parameter is None or test_parameter.method_id != test_method.id:
+                test_parameter = TestParameter.objects.filter(
+                    method_id=test_method.id,
+                    name__iexact=test_item_name,
+                    is_deleted=False,
+                ).first()
 
         key = (test_method.id, test_parameter.id if test_parameter else None)
         if key in seen:
@@ -161,16 +180,18 @@ def create_tasks_for_sample(sample_id: int, user=None) -> list[TestTask]:
 @transaction.atomic
 def assign_task(
     task_id: int,
+    user,
     tester_id: int,
     equipment_id: int | None = None,
     planned_date: datetime.date | None = None,
 ) -> TestTask:
+    _require_permission(user, 'task:edit', '任务分配')
     task = TestTask.objects.select_for_update().get(pk=task_id)
 
-    if task.status not in ('unassigned', 'assigned'):
-        raise ValidationError('只有待分配或待检状态的任务可以分配')
+    if task.status not in ('unassigned', 'in_progress'):
+        raise ValidationError('只有待分配或检测中状态的任务可以分配')
     if (
-        task.status == 'assigned'
+        task.status == 'in_progress'
         and task.assigned_tester_id == tester_id
         and task.assigned_equipment_id == equipment_id
         and task.planned_date == planned_date
@@ -180,10 +201,12 @@ def assign_task(
     task.assigned_tester_id = tester_id
     task.assigned_equipment_id = equipment_id
     task.planned_date = planned_date
-    task.status = 'assigned'
+    task.status = 'in_progress'
+    if task.actual_date is None:
+        task.actual_date = timezone.now().date()
     task.save(update_fields=[
         'assigned_tester_id', 'assigned_equipment_id',
-        'planned_date', 'status', 'updated_at',
+        'planned_date', 'status', 'actual_date', 'updated_at',
     ])
     log_business_event(
         user=None,
@@ -212,13 +235,94 @@ def assign_task(
 
 
 @transaction.atomic
+
+
+@transaction.atomic
+def return_to_commission(task_id: int, user, reason: str = '') -> TestTask:
+    _require_permission(user, 'task:edit', '任务退回委托')
+    reason = (reason or '').strip()
+    if len(reason) < 4:
+        raise ValidationError('退回原因至少 4 个字符')
+
+    task = TestTask.objects.select_related('commission').select_for_update().get(pk=task_id)
+    if task.status != 'unassigned':
+        raise ValidationError('仅待分配任务可退回到委托流程')
+
+    commission = task.commission
+    related_tasks = TestTask.objects.select_for_update().filter(commission_id=commission.id, is_deleted=False)
+    busy = related_tasks.exclude(status='unassigned').exists()
+    if busy:
+        raise ValidationError('存在非待分配任务，无法退回到委托流程')
+
+    # 退回委托：进入已退回列表，便于在委托页显式处理
+    commission.status = 'rejected'
+    commission.reviewer_id = None
+    commission.review_date = None
+    commission.review_comment = reason[:500]
+    commission.save(update_fields=['status', 'reviewer_id', 'review_date', 'review_comment', 'updated_at'])
+
+    sample_ids = list(related_tasks.values_list('sample_id', flat=True))
+    for t in related_tasks:
+        t.soft_delete()
+
+    if sample_ids:
+        from apps.samples.models import Sample
+        Sample.objects.filter(id__in=sample_ids, is_deleted=False).update(status='pending')
+
+    log_business_event(
+        user=user,
+        module='commission',
+        action='task_return_to_commission',
+        entity='commission',
+        entity_id=commission.pk,
+        path=f'/api/v1/testing/tasks/{task.pk}/return-commission/',
+        payload={'commission_no': commission.commission_no, 'task_no': task.task_no, 'reason': reason[:500]},
+    )
+    return task
+
+def return_task(task_id: int, user, reason: str = '') -> TestTask:
+    _require_permission(user, 'task:edit', '任务退回')
+    reason = (reason or '').strip()
+    if len(reason) < 4:
+        raise ValidationError('退回原因至少 4 个字符')
+    task = TestTask.objects.select_for_update().get(pk=task_id)
+    if task.status == 'unassigned':
+        return task
+    task.status = 'unassigned'
+    task.assigned_tester_id = None
+    task.assigned_equipment_id = None
+    task.save(update_fields=[
+        'status', 'assigned_tester_id', 'assigned_equipment_id', 'updated_at',
+    ])
+    log_business_event(
+        user=user,
+        module='task',
+        action='return',
+        entity='test_task',
+        entity_id=task.pk,
+        path=f'/api/v1/testing/tasks/{task.pk}/return/',
+        payload={'task_no': task.task_no, 'reason': reason[:500]},
+    )
+    from apps.system.services import notify_flow_targets
+    notify_flow_targets(
+        role_code='tech_director',
+        fallback_permission_code='task:edit',
+        notification_type='task_returned',
+        title=f'任务已退回待分配：{task.task_no}',
+        content=reason[:200],
+        link_path=f'/testing/tasks/{task.pk}',
+    )
+    return task
+
+
+@transaction.atomic
 def start_task(task_id: int) -> TestTask:
     task = TestTask.objects.select_for_update().get(pk=task_id)
     if task.status == 'in_progress':
         return task
 
-    if task.status != 'assigned':
-        raise ValidationError('只有待检状态的任务可以开始检测')
+    if task.status == 'unassigned':
+        raise ValidationError('请先分配检测人员')
 
     task.status = 'in_progress'
     task.actual_date = timezone.now().date()
@@ -426,9 +530,10 @@ def build_merged_record_schema_for_task(task_id: int) -> dict:
         tpl = (
             RecordTemplate.objects.filter(
                 test_method=method,
-                test_parameter=param,
                 is_active=True,
-            ).order_by('-created_at').first()
+            ).filter(
+                Q(test_parameter=param) | Q(test_parameters=param)
+            ).distinct().order_by('-created_at').first()
         )
         if tpl is None:
             tpl = (

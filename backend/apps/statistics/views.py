@@ -7,6 +7,8 @@ from rest_framework import permissions
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.http import HttpResponse
+import csv
 
 from . import services
 
@@ -138,3 +140,42 @@ class EquipmentUsageView(APIView):
         start_date, end_date = _parse_date_range(request)
         data = services.get_equipment_usage(start_date, end_date)
         return Response({'code': 200, 'data': data})
+
+
+class FlowKpiView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        start_date, end_date = _parse_date_range(request)
+        data = services.get_flow_kpis(start_date, end_date)
+        return Response({'code': 200, 'data': data})
+
+
+class OperationalReportingView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        start_date, end_date = _parse_date_range(request)
+        data = services.get_operational_reporting(start_date, end_date)
+        return Response({'code': 200, 'data': data})
+
+
+class OperationalReportingExportView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> HttpResponse:
+        start_date, end_date = _parse_date_range(request)
+        data = services.get_operational_reporting(start_date, end_date)
+        resp = HttpResponse(content_type='text/csv; charset=utf-8')
+        resp['Content-Disposition'] = 'attachment; filename=\"operational_reporting.csv\"'
+        writer = csv.writer(resp)
+        writer.writerow(['role_code', 'role_name', 'active_users', 'start_date', 'end_date'])
+        for row in data:
+            writer.writerow([
+                row.get('role_code', ''),
+                row.get('role_name', ''),
+                row.get('active_users', 0),
+                row.get('start_date', ''),
+                row.get('end_date', ''),
+            ])
+        return resp

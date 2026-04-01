@@ -8,7 +8,6 @@ from core.models import BaseModel
 class TestTask(BaseModel):
     STATUS_CHOICES = (
         ('unassigned', '待分配'),
-        ('assigned', '待检'),
         ('in_progress', '检测中'),
         ('completed', '已完成'),
         ('abnormal', '异常'),

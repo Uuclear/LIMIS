@@ -162,6 +162,9 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'password_change': PASSWORD_CHANGE_THROTTLE_RATE,
     },
+    'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
+    'DATE_FORMAT': '%Y-%m-%d',
+    'TIME_FORMAT': '%H:%M:%S',
 }
 
 SIMPLE_JWT = {

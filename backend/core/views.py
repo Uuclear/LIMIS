@@ -21,6 +21,14 @@ class BaseModelViewSet(CreatedByMixin, ModelViewSet):
         qs = super().get_queryset()
         if hasattr(qs.model, 'is_deleted'):
             qs = qs.filter(is_deleted=False)
+        # 为分页提供稳定顺序，避免 unordered queryset 警告。
+        if not getattr(qs, 'ordered', False):
+            model = getattr(qs, 'model', None)
+            field_names = {f.name for f in model._meta.fields} if model else set()
+            if 'created_at' in field_names:
+                qs = qs.order_by('-created_at', '-id')
+            elif 'id' in field_names:
+                qs = qs.order_by('-id')
         return qs
 
     def destroy(self, request: Request, *args: Any, **kwargs: Any) -> Response:

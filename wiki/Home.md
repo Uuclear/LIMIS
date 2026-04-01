@@ -17,4 +17,19 @@
 
 ---
 
+## 目录中文对照
+
+- `01-getting-started`：入门与概念
+- `02-architecture`：系统架构
+- `03-development`：研发指南
+- `04-deployment`：部署与运维
+- `05-api-and-integration`：API 与系统对接
+- `06-user-guide`：用户使用手册
+- `07-faq`：常见问题
+- `08-security-compliance`：安全与合规
+- `09-operations-maintenance`：运维专题
+- `10-project-status-snapshot`：项目状态摘要
+
+---
+
 返回：[README 完整索引](README.md)

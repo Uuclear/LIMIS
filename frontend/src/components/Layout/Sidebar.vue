@@ -65,7 +65,6 @@ const rawMenuItems: MenuItem[] = [
     children: [
       { index: '/equipment', title: '仪器设备' },
       { index: '/staff', title: '人员管理' },
-      { index: '/consumable', title: '耗材管理' },
     ],
   },
   {

@@ -150,6 +150,15 @@ def has_permission(user: User, module: str, action: str) -> bool:
     ).exists()
 
 
+def has_permission_code(user: User, permission_code: str) -> bool:
+    if user.is_superuser:
+        return True
+    return Permission.objects.filter(
+        roles__users=user,
+        code=permission_code,
+    ).exists()
+
+
 def notify_user(
     user_id: int,
     notification_type: str,
@@ -192,3 +201,44 @@ def notify_users_by_permission_code(
         )
         n += 1
     return n
+
+
+def notify_users_by_role_code(
+    role_code: str,
+    notification_type: str,
+    title: str,
+    content: str = '',
+    link_path: str = '',
+) -> int:
+    ids = (
+        User.objects.filter(
+            is_active=True,
+            roles__code=role_code,
+        )
+        .distinct()
+        .values_list('pk', flat=True)
+    )
+    n = 0
+    for uid in ids:
+        notify_user(int(uid), notification_type, title, content, link_path)
+        n += 1
+    return n
+
+
+def notify_flow_targets(
+    *,
+    role_code: str,
+    fallback_permission_code: str,
+    notification_type: str,
+    title: str,
+    content: str = '',
+    link_path: str = '',
+) -> int:
+    sent = notify_users_by_role_code(
+        role_code, notification_type, title, content, link_path,
+    )
+    if sent > 0:
+        return sent
+    return notify_users_by_permission_code(
+        fallback_permission_code, notification_type, title, content, link_path,
+    )

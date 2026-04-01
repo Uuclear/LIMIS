@@ -28,13 +28,18 @@ export interface Report {
 
 export interface ReportApproval {
   id: number
-  report_id: number
-  step: 'audit' | 'approve'
-  action: 'approve' | 'reject'
-  operator_id: number
-  operator_name: string
+  report_id?: number
+  report?: number
+  step?: 'audit' | 'approve'
+  role?: 'compile' | 'audit' | 'approve'
+  action: 'approve' | 'reject' | 'pass'
+  operator_id?: number
+  operator_name?: string
+  user?: number
+  user_name?: string
   comment: string
-  signature_url: string | null
+  signature_url?: string | null
+  signature?: string | null
   created_at: string
 }
 

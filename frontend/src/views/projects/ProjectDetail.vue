@@ -10,7 +10,6 @@ import {
   Tickets,
   List,
   Clock,
-  Flag,
   Loading,
   CircleCheck,
   OfficeBuilding,
@@ -20,15 +19,18 @@ import {
   getProject, getOrganizations, createOrganization, updateOrganization, deleteOrganization,
   getSubProjects, createSubProject, updateSubProject, deleteSubProject,
   getContracts, createContract, updateContract, deleteContract,
-  getWitnesses, createWitness, updateWitness, deleteWitness, getProjectStats,
+  getWitnesses, createWitness, updateWitness, deleteWitness,
+  getSamplers, createSampler, updateSampler, deleteSampler, getProjectStats,
 } from '@/api/projects'
-import type { Project, Organization, SubProject, Contract, Witness } from '@/types/project'
+import type { Project, Organization, SubProject, Contract, Witness, Sampler } from '@/types/project'
 
 const route = useRoute()
 const router = useRouter()
-const projectId = computed(() => {
-  const n = Number(route.params.id)
-  return Number.isFinite(n) ? n : 0
+const projectKey = computed(() => String(route.params.id ?? '').trim())
+const projectId = computed<number | null>(() => {
+  const n = Number(projectKey.value)
+  if (!projectKey.value || !Number.isFinite(n)) return null
+  return n
 })
 const activeTab = ref('basic')
 const project = ref<Project>({} as Project)
@@ -36,8 +38,8 @@ const project = ref<Project>({} as Project)
 // --- Basic Info ---
 async function fetchProject() {
   try {
-    if (!projectId.value) return
-    project.value = (await getProject(projectId.value)) as any
+    if (!projectKey.value) return
+    project.value = (await getProject(projectKey.value)) as any
   } catch (e: any) {
     // request.ts 通常已弹出后端 message/detail；这里不重复弹框
     project.value = {} as Project
@@ -60,6 +62,7 @@ const orgRoleOptions = [
 ]
 
 async function fetchOrgs() {
+  if (!projectId.value) return
   orgLoading.value = true
   try {
     const res: any = await getOrganizations(projectId.value)
@@ -95,6 +98,7 @@ function buildOrgPayload() {
 }
 
 async function handleOrgSubmit() {
+  if (!projectId.value) return
   const payload = buildOrgPayload()
   if (orgForm.id) {
     await updateOrganization(projectId.value, orgForm.id, payload)
@@ -108,6 +112,7 @@ async function handleOrgSubmit() {
 }
 
 async function handleOrgDelete(row: Organization) {
+  if (!projectId.value) return
   await ElMessageBox.confirm('确认删除？', '提示', { type: 'warning' })
   await deleteOrganization(projectId.value, row.id)
   ElMessage.success('删除成功')
@@ -125,8 +130,19 @@ const subForm = reactive({
   parent: null as number | null,
   description: '',
 })
+const subParentOptions = computed(() => {
+  const opts: Array<{ id: number; name: string }> = []
+  for (const u of subList.value as any[]) {
+    opts.push({ id: u.id, name: `[单位] ${u.name}` })
+    for (const d of (u.children || [])) {
+      opts.push({ id: d.id, name: `[分部] ${d.name}` })
+    }
+  }
+  return opts
+})
 
 async function fetchSubs() {
+  if (!projectId.value) return
   subLoading.value = true
   try {
     const res: any = await getSubProjects(projectId.value)
@@ -153,6 +169,7 @@ function openSubEdit(row: SubProject) {
 }
 
 async function handleSubSubmit() {
+  if (!projectId.value) return
   const payload = {
     name: subForm.name,
     code: subForm.code || '',
@@ -171,7 +188,8 @@ async function handleSubSubmit() {
 }
 
 async function handleSubDelete(row: SubProject) {
-  await ElMessageBox.confirm('确认删除该分部分项？', '提示', { type: 'warning' })
+  if (!projectId.value) return
+  await ElMessageBox.confirm('确认删除该单位/分部/分项工程？', '提示', { type: 'warning' })
   await deleteSubProject(projectId.value, row.id)
   ElMessage.success('删除成功')
   fetchSubs()
@@ -193,6 +211,7 @@ const contractForm = reactive({
 })
 
 async function fetchContracts() {
+  if (!projectId.value) return
   contractLoading.value = true
   try {
     const res: any = await getContracts(projectId.value)
@@ -232,6 +251,7 @@ function openContractEdit(row: Contract) {
 }
 
 async function handleContractSubmit() {
+  if (!projectId.value) return
   const payload = {
     contract_no: contractForm.contract_no,
     title: contractForm.title,
@@ -253,6 +273,7 @@ async function handleContractSubmit() {
 }
 
 async function handleContractDelete(row: Contract) {
+  if (!projectId.value) return
   await ElMessageBox.confirm('确认删除该合同？', '提示', { type: 'warning' })
   await deleteContract(projectId.value, (row as any).id)
   ElMessage.success('删除成功')
@@ -282,6 +303,7 @@ const witnessForm = reactive({
 })
 
 async function fetchWitnesses() {
+  if (!projectId.value) return
   witnessLoading.value = true
   try {
     const res: any = await getWitnesses(projectId.value)
@@ -320,6 +342,7 @@ function openWitnessEdit(row: Witness) {
 }
 
 async function handleWitnessSubmit() {
+  if (!projectId.value) return
   const payload = {
     name: witnessForm.name,
     phone: witnessForm.phone || '',
@@ -340,16 +363,100 @@ async function handleWitnessSubmit() {
 }
 
 async function handleWitnessDelete(row: Witness) {
+  if (!projectId.value) return
   await ElMessageBox.confirm('确认删除该见证人？', '提示', { type: 'warning' })
   await deleteWitness(projectId.value, (row as any).id)
   ElMessage.success('删除成功')
   fetchWitnesses()
 }
 
+// --- Samplers ---
+const samplerLoading = ref(false)
+const samplerList = ref<Sampler[]>([])
+const samplerDialogVisible = ref(false)
+const samplerForm = reactive({
+  id: 0,
+  name: '',
+  phone: '',
+  id_type: 'id_card',
+  id_number: '',
+  organization: null as number | null,
+  certificate_no: '',
+})
+
+async function fetchSamplers() {
+  if (!projectId.value) return
+  samplerLoading.value = true
+  try {
+    const res: any = await getSamplers(projectId.value)
+    samplerList.value = res.results ?? res.list ?? res ?? []
+  } finally {
+    samplerLoading.value = false
+  }
+}
+
+async function openSamplerCreate() {
+  if (!orgList.value.length) await fetchOrgs()
+  Object.assign(samplerForm, {
+    id: 0,
+    name: '',
+    phone: '',
+    id_type: 'id_card',
+    id_number: '',
+    organization: null,
+    certificate_no: '',
+  })
+  samplerDialogVisible.value = true
+}
+
+function openSamplerEdit(row: Sampler) {
+  const r = row as any
+  Object.assign(samplerForm, {
+    id: r.id,
+    name: r.name,
+    phone: r.phone || '',
+    id_type: r.id_type || 'id_card',
+    id_number: r.id_number || '',
+    organization: r.organization ?? null,
+    certificate_no: r.certificate_no || '',
+  })
+  samplerDialogVisible.value = true
+}
+
+async function handleSamplerSubmit() {
+  if (!projectId.value) return
+  const payload = {
+    name: samplerForm.name,
+    phone: samplerForm.phone || '',
+    id_type: samplerForm.id_type || 'id_card',
+    id_number: samplerForm.id_number || '',
+    organization: samplerForm.organization,
+    certificate_no: samplerForm.certificate_no || '',
+  }
+  if (samplerForm.id) {
+    await updateSampler(projectId.value, samplerForm.id, payload)
+    ElMessage.success('更新成功')
+  } else {
+    await createSampler(projectId.value, payload)
+    ElMessage.success('创建成功')
+  }
+  samplerDialogVisible.value = false
+  fetchSamplers()
+}
+
+async function handleSamplerDelete(row: Sampler) {
+  if (!projectId.value) return
+  await ElMessageBox.confirm('确认删除该取样人？', '提示', { type: 'warning' })
+  await deleteSampler(projectId.value, (row as any).id)
+  ElMessage.success('删除成功')
+  fetchSamplers()
+}
+
 // --- Stats ---
 const stats = ref<any>({})
 async function fetchStats() {
   try {
+    if (!projectId.value) return
     const raw = (await getProjectStats(projectId.value)) as any
     const r = raw || {}
     // axios 拦截器会把 data 转成 camelCase，这里统一成模板使用的 snake_case
@@ -360,11 +467,10 @@ async function fetchStats() {
       contract_count: r.contractCount ?? r.contract_count ?? 0,
       task_total: r.taskTotal ?? r.task_total ?? 0,
       unassigned_count: r.unassignedCount ?? r.unassigned_count ?? 0,
-      assigned_count: r.assignedCount ?? r.assigned_count ?? 0,
       in_progress_count: r.inProgressCount ?? r.in_progress_count ?? 0,
       completed_count: r.completedCount ?? r.completed_count ?? 0,
       organization_count: r.organizationCount ?? r.organization_count ?? 0,
-      witness_count: r.witnessCount ?? r.witness_count ?? 0,
+      witness_count: (r.witnessCount ?? r.witness_count ?? 0) + (r.samplerCount ?? r.sampler_count ?? 0),
     }
   } catch {
     stats.value = {}
@@ -387,7 +493,6 @@ const taskStatCards = computed(() => {
   return [
     { title: '任务总数', sub: '检测任务', value: s.task_total ?? 0, icon: List, color: '#334155', bg: '#f1f5f9' },
     { title: '待分配', sub: '未指派检测员', value: s.unassigned_count ?? 0, icon: Clock, color: '#64748b', bg: '#f8fafc' },
-    { title: '待检', sub: '已分配待开始', value: s.assigned_count ?? 0, icon: Flag, color: '#ca8a04', bg: '#fefce8' },
     { title: '检测中', sub: '正在检测', value: s.in_progress_count ?? 0, icon: Loading, color: '#2563eb', bg: '#eff6ff' },
     { title: '已完成', sub: '已闭环', value: s.completed_count ?? 0, icon: CircleCheck, color: '#16a34a', bg: '#f0fdf4' },
   ]
@@ -397,7 +502,7 @@ const orgStatCards = computed(() => {
   const s = stats.value
   return [
     { title: '参建单位', sub: '建设/施工/监理等', value: s.organization_count ?? 0, icon: OfficeBuilding, color: '#0369a1', bg: '#e0f2fe' },
-    { title: '见证人', sub: '在岗见证', value: s.witness_count ?? 0, icon: User, color: '#a21caf', bg: '#fdf4ff' },
+    { title: '见证/取样人', sub: '在岗人员', value: s.witness_count ?? 0, icon: User, color: '#a21caf', bg: '#fdf4ff' },
   ]
 })
 
@@ -417,6 +522,10 @@ function handleTabChange(tab: string) {
     witnesses: async () => {
       await fetchOrgs()
       await fetchWitnesses()
+    },
+    samplers: async () => {
+      await fetchOrgs()
+      await fetchSamplers()
     },
     stats: fetchStats,
   }
@@ -503,16 +612,25 @@ onMounted(fetchProject)
       </el-tab-pane>
 
       <!-- Sub Projects -->
-      <el-tab-pane label="分部分项工程" name="subs">
+      <el-tab-pane label="单位分部分项工程" name="subs">
         <el-card shadow="never">
           <template #header>
             <div class="card-header">
-              <span>分部分项工程</span>
+              <span>单位分部分项工程</span>
               <el-button v-permission="'project:create'" type="primary" :icon="Plus" size="small" @click="openSubCreate">新增</el-button>
             </div>
           </template>
           <el-table v-loading="subLoading" :data="subList" stripe border row-key="id" default-expand-all>
             <el-table-column prop="code" label="编码" width="160" />
+            <el-table-column label="层级" width="120">
+              <template #default="{ row }">
+                {{
+                  (row as any).parent
+                    ? ((row as any).children?.length ? '分部工程' : '分项工程')
+                    : '单位工程'
+                }}
+              </template>
+            </el-table-column>
             <el-table-column prop="name" label="名称" min-width="200" />
             <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
             <el-table-column label="操作" width="140" fixed="right">
@@ -577,6 +695,36 @@ onMounted(fetchProject)
               <template #default="{ row }">
                 <el-button v-permission="'project:edit'" link type="primary" @click="openWitnessEdit(row)">编辑</el-button>
                 <el-button v-permission="'project:delete'" link type="danger" @click="handleWitnessDelete(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-tab-pane>
+
+      <!-- Samplers -->
+      <el-tab-pane label="取样人" name="samplers">
+        <el-card shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span>取样人</span>
+              <el-button v-permission="'project:create'" type="primary" :icon="Plus" size="small" @click="openSamplerCreate">新增</el-button>
+            </div>
+          </template>
+          <el-table v-loading="samplerLoading" :data="samplerList" stripe border>
+            <el-table-column prop="name" label="姓名" width="120" />
+            <el-table-column label="证件类型" width="120">
+              <template #default="{ row }">{{ (row as any).id_type_display || '—' }}</template>
+            </el-table-column>
+            <el-table-column prop="phone" label="电话" width="140" />
+            <el-table-column prop="id_number" label="证件号" width="200" />
+            <el-table-column label="所属单位" min-width="180">
+              <template #default="{ row }">{{ (row as any).organization_name || '—' }}</template>
+            </el-table-column>
+            <el-table-column prop="certificate_no" label="证书编号" width="160" />
+            <el-table-column label="操作" width="140" fixed="right">
+              <template #default="{ row }">
+                <el-button v-permission="'project:edit'" link type="primary" @click="openSamplerEdit(row)">编辑</el-button>
+                <el-button v-permission="'project:delete'" link type="danger" @click="handleSamplerDelete(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -690,13 +838,13 @@ onMounted(fetchProject)
     </el-dialog>
 
     <!-- SubProject Dialog -->
-    <el-dialog v-model="subDialogVisible" :title="subForm.id ? '编辑分部分项' : '新增分部分项'" width="480px" destroy-on-close>
+    <el-dialog v-model="subDialogVisible" :title="subForm.id ? '编辑单位分部分项' : '新增单位分部分项'" width="480px" destroy-on-close>
       <el-form :model="subForm" label-width="80px">
         <el-form-item label="编码"><el-input v-model="subForm.code" /></el-form-item>
         <el-form-item label="名称"><el-input v-model="subForm.name" /></el-form-item>
         <el-form-item label="上级">
           <el-select v-model="subForm.parent" placeholder="无（顶级）" clearable style="width: 100%">
-            <el-option v-for="s in subList" :key="s.id" :label="s.name" :value="s.id" />
+            <el-option v-for="s in subParentOptions" :key="s.id" :label="s.name" :value="s.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="描述"><el-input v-model="subForm.description" type="textarea" /></el-form-item>
@@ -757,6 +905,30 @@ onMounted(fetchProject)
       <template #footer>
         <el-button @click="witnessDialogVisible = false">取消</el-button>
         <el-button v-permission="witnessForm.id ? 'project:edit' : 'project:create'" type="primary" @click="handleWitnessSubmit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Sampler Dialog -->
+    <el-dialog v-model="samplerDialogVisible" :title="samplerForm.id ? '编辑取样人' : '新增取样人'" width="480px" destroy-on-close>
+      <el-form :model="samplerForm" label-width="80px">
+        <el-form-item label="姓名"><el-input v-model="samplerForm.name" /></el-form-item>
+        <el-form-item label="电话"><el-input v-model="samplerForm.phone" /></el-form-item>
+        <el-form-item label="证件类型">
+          <el-select v-model="samplerForm.id_type" placeholder="请选择" style="width: 100%">
+            <el-option v-for="o in witnessIdTypeOptions" :key="`sampler-type-${o.value}`" :label="o.label" :value="o.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="证件号"><el-input v-model="samplerForm.id_number" /></el-form-item>
+        <el-form-item label="所属参建单位">
+          <el-select v-model="samplerForm.organization" placeholder="可选" clearable filterable style="width: 100%">
+            <el-option v-for="o in orgList" :key="`sampler-org-${o.id}`" :label="o.name" :value="o.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="证书编号"><el-input v-model="samplerForm.certificate_no" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="samplerDialogVisible = false">取消</el-button>
+        <el-button v-permission="samplerForm.id ? 'project:edit' : 'project:create'" type="primary" @click="handleSamplerSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>

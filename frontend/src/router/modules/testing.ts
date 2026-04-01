@@ -5,19 +5,19 @@ const testingRoutes: RouteRecordRaw[] = [
     path: '/testing/tasks',
     name: 'TestTaskList',
     component: () => import('@/views/testing/tasks/TaskList.vue'),
-    meta: { title: '检测任务', permission: 'testing:view' },
+    meta: { title: '检测任务', permission: 'task:view' },
   },
   {
     path: '/testing/results',
     name: 'TestResultList',
     component: () => import('@/views/testing/tasks/TaskList.vue'),
-    meta: { title: '检测结果', permission: 'testing:view' },
+    meta: { title: '检测结果', permission: 'task:view' },
   },
   {
     path: '/testing/tasks/:id',
     name: 'TestTaskDetail',
     component: () => import('@/views/testing/tasks/TaskDetail.vue'),
-    meta: { title: '任务详情', permission: 'testing:view' },
+    meta: { title: '任务详情', permission: 'task:view' },
   },
   {
     path: '/testing/records',

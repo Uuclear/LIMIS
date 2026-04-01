@@ -34,7 +34,7 @@ export interface TestParameter {
 export interface TestTask {
   id: number
   task_no: string
-  status: 'unassigned' | 'assigned' | 'in_progress' | 'completed' | 'abnormal'
+  status: 'unassigned' | 'in_progress' | 'completed' | 'abnormal'
   sample_id: number
   sample_no: string
   sample_name: string

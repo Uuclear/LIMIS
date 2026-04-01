@@ -20,8 +20,17 @@ class RecordTemplate(BaseModel):
         on_delete=models.CASCADE,
         related_name='record_templates', verbose_name='检测参数',
     )
+    test_parameters = models.ManyToManyField(
+        'testing.TestParameter',
+        blank=True,
+        related_name='record_templates_multi',
+        verbose_name='关联检测参数',
+    )
     version = models.CharField(max_length=20, default='1.0', verbose_name='版本号')
     schema = models.JSONField(verbose_name='表单定义')
+    word_template = models.FileField(
+        upload_to='record_templates/', null=True, blank=True, verbose_name='Word模板',
+    )
     is_active = models.BooleanField(default=True, verbose_name='是否启用')
 
     class Meta:

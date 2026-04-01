@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from django.db.models import Count, Q, QuerySet
+from django.http import Http404
+from django.shortcuts import get_object_or_404
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -11,13 +13,14 @@ from core.views import BaseModelViewSet
 
 from . import services
 from .filters import ProjectFilter
-from .models import Contract, Organization, Project, SubProject, Witness
+from .models import Contract, Organization, Project, Sampler, SubProject, Witness
 from .serializers import (
     ContractSerializer,
     OrganizationSerializer,
     ProjectCreateUpdateSerializer,
     ProjectDetailSerializer,
     ProjectListSerializer,
+    SamplerSerializer,
     SubProjectSerializer,
     WitnessSerializer,
 )
@@ -28,6 +31,7 @@ class ProjectViewSet(BaseModelViewSet):
     filterset_class = ProjectFilter
     search_fields = ['name', 'code']
     ordering_fields = ['name', 'code', 'start_date', 'created_at']
+    ordering = ['-created_at', '-id']
 
     def get_queryset(self) -> QuerySet:
         qs = Project.objects.filter(is_deleted=False)
@@ -42,7 +46,7 @@ class ProjectViewSet(BaseModelViewSet):
                     filter=Q(commissions__is_deleted=False),
                 ),
             )
-        return qs
+        return qs.order_by('-created_at', '-id')
 
     def get_serializer_class(self) -> type:
         if self.action == 'list':
@@ -50,6 +54,16 @@ class ProjectViewSet(BaseModelViewSet):
         if self.action in ('create', 'update', 'partial_update'):
             return ProjectCreateUpdateSerializer
         return ProjectDetailSerializer
+
+    def get_object(self):
+        lookup = self.kwargs.get(self.lookup_field, '')
+        queryset = self.filter_queryset(self.get_queryset())
+        if str(lookup).isdigit():
+            try:
+                return get_object_or_404(queryset, pk=int(lookup))
+            except Http404:
+                return get_object_or_404(queryset, code=str(lookup))
+        return get_object_or_404(queryset, code=str(lookup))
 
     @action(detail=True, methods=['get'])
     def stats(self, request: Request, pk: str = None) -> Response:
@@ -107,5 +121,14 @@ class WitnessViewSet(ProjectNestedMixin, BaseModelViewSet):
         is_deleted=False,
     )
     serializer_class = WitnessSerializer
+    search_fields = ['name', 'certificate_no']
+    filterset_fields = ['is_active']
+
+
+class SamplerViewSet(ProjectNestedMixin, BaseModelViewSet):
+    queryset = Sampler.objects.select_related('organization').filter(
+        is_deleted=False,
+    )
+    serializer_class = SamplerSerializer
     search_fields = ['name', 'certificate_no']
     filterset_fields = ['is_active']

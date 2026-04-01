@@ -12,4 +12,7 @@ urlpatterns = [
     path('equipment-usage/', views.EquipmentUsageView.as_view(), name='equipment-usage'),
     path('tasks-by-project/', views.TaskByProjectView.as_view(), name='tasks-by-project'),
     path('tasks-by-method/', views.TaskByMethodView.as_view(), name='tasks-by-method'),
+    path('flow-kpis/', views.FlowKpiView.as_view(), name='flow-kpis'),
+    path('operational-reporting/', views.OperationalReportingView.as_view(), name='operational-reporting'),
+    path('operational-reporting/export/', views.OperationalReportingExportView.as_view(), name='operational-reporting-export'),
 ]

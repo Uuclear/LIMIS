@@ -257,3 +257,58 @@ def get_task_counts_by_method(
         }
         for r in qs
     ]
+
+
+def get_flow_kpis(start_date: date, end_date: date) -> dict[str, Any]:
+    from apps.testing.models import TestTask
+    from apps.reports.models import Report
+
+    task_total = TestTask.objects.filter(
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date,
+    ).count()
+    task_returned = TestTask.objects.filter(
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date,
+        status='unassigned',
+        assigned_tester__isnull=True,
+    ).count()
+    report_total = Report.objects.filter(
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date,
+    ).count()
+    pending_audit = Report.objects.filter(
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date,
+        status='pending_audit',
+    ).count()
+    pending_approve = Report.objects.filter(
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date,
+        status='pending_approve',
+    ).count()
+
+    return {
+        'task_total': task_total,
+        'task_returned': task_returned,
+        'task_return_rate': round((task_returned / task_total * 100), 1) if task_total else 0,
+        'report_total': report_total,
+        'pending_audit': pending_audit,
+        'pending_approve': pending_approve,
+    }
+
+
+def get_operational_reporting(start_date: date, end_date: date) -> list[dict[str, Any]]:
+    from apps.system.models import Role
+
+    rows = []
+    for role in Role.objects.filter(code__in=['reception', 'tech_director', 'tester', 'auth_signer']):
+        user_count = role.users.filter(is_active=True).count()
+        rows.append({
+            'role_code': role.code,
+            'role_name': role.name,
+            'active_users': user_count,
+            'start_date': str(start_date),
+            'end_date': str(end_date),
+        })
+    return rows

@@ -31,7 +31,7 @@
 
 ### 完整文档列表（含相对链接）
 
-#### `01-getting-started/`（5）
+#### 入门与概念（`01-getting-started/`，5）
 
 1. [LIMIS 系统概览](01-getting-started/01-limis-overview.md)
 2. [术语与缩写表](01-getting-started/02-terminology-glossary.md)
@@ -39,7 +39,7 @@
 4. [首次登录与个人资料](01-getting-started/04-first-login-and-profile.md)
 5. [界面导航与菜单地图](01-getting-started/05-ui-navigation-map.md)
 
-#### `02-architecture/`（5）
+#### 系统架构（`02-architecture/`，5）
 
 6. [系统架构总览](02-architecture/01-system-architecture-overview.md)
 7. [后端技术栈（Django / DRF）](02-architecture/02-backend-django-stack.md)
@@ -47,7 +47,7 @@
 9. [核心业务对象与数据域](02-architecture/04-domain-model-overview.md)
 10. [外部系统集成点](02-architecture/05-integration-points.md)
 
-#### `03-development/`（7）
+#### 研发指南（`03-development/`，7）
 
 11. [本地开发环境搭建](03-development/01-local-development-setup.md)
 12. [编码规范与工程约定](03-development/02-coding-style-and-conventions.md)
@@ -57,7 +57,7 @@
 16. [贡献指南](03-development/06-contributing-guide.md)
 17. [GitHub Wiki 同步（CI → `.wiki.git`）](03-development/07-github-wiki-sync.md)
 
-#### `04-deployment/`（5）
+#### 部署与运维（`04-deployment/`，5）
 
 17. [部署总览](04-deployment/01-deployment-overview.md)
 18. [运行时与进程模型](04-deployment/02-runtime-and-process.md)
@@ -65,14 +65,14 @@
 20. [反向代理与 TLS](04-deployment/04-reverse-proxy-and-tls.md)
 21. [备份与恢复](04-deployment/05-backup-and-recovery.md)
 
-#### `05-api-and-integration/`（4）
+#### API 与系统对接（`05-api-and-integration/`，4）
 
 22. [认证与 JWT（含会话版本）](05-api-and-integration/01-authentication-and-jwt.md)
 23. [REST API 约定](05-api-and-integration/02-rest-conventions.md)
 24. [错误响应与业务码](05-api-and-integration/03-error-response-and-codes.md)
 25. [前端请求信封与字段兼容](05-api-and-integration/04-frontend-api-envelope.md)
 
-#### `06-user-guide/`（6）
+#### 用户使用手册（`06-user-guide/`，6）
 
 26. [工程项目与委托管理](06-user-guide/01-entrustment-and-projects.md)
 27. [样品、检测任务与结果](06-user-guide/02-sampling-and-testing.md)
@@ -81,20 +81,20 @@
 30. [仪器设备、耗材与环境监控](06-user-guide/05-resources-equipment-environment.md)
 31. [系统管理（用户、角色、日志）](06-user-guide/06-system-administration-ui.md)
 
-#### `07-faq/`（3）
+#### 常见问题（`07-faq/`，3）
 
 32. [登录、权限与会话 FAQ](07-faq/01-login-permission-and-session-faq.md)
 33. [业务流程 FAQ](07-faq/02-business-process-faq.md)
 34. [运维 FAQ](07-faq/03-operation-and-maintenance-faq.md)
 
-#### `08-security-compliance/`（4）
+#### 安全与合规（`08-security-compliance/`，4）
 
 35. [授权模型与模块权限](08-security-compliance/01-authorization-model.md)
 36. [审计与操作日志](08-security-compliance/02-audit-trail.md)
 37. [数据安全与敏感信息](08-security-compliance/03-data-security.md)
 38. [标准规范元数据与工标网爬取说明](08-security-compliance/04-standards-crawl-metadata.md)
 
-#### `09-operations-maintenance/`（4）
+#### 运维专题（`09-operations-maintenance/`，4）
 
 39. [例行巡检清单](09-operations-maintenance/01-routine-inspection-checklist.md)
 40. [日志与监控](09-operations-maintenance/02-logs-and-monitoring.md)

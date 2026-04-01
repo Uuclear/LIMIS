@@ -142,11 +142,38 @@ class RoleViewSet(viewsets.ModelViewSet):
     lims_module = 'system'
     lims_action_map = {'assign_permissions': 'edit'}
     search_fields = ['name', 'code']
+    REQUIRED_ROLE_CODES = {'reception', 'tech_director', 'tester', 'auth_signer'}
 
     def get_serializer_class(self) -> type:
         if self.action in ('create', 'update', 'partial_update'):
             return RoleCreateUpdateSerializer
         return RoleSerializer
+
+    def destroy(self, request: Request, *args, **kwargs) -> Response:
+        role = self.get_object()
+        if role.code in self.REQUIRED_ROLE_CODES:
+            return Response(
+                {'detail': '该角色为流程必选角色，不允许删除'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+    @action(detail=False, methods=['get'], url_path='required-status')
+    def required_status(self, request: Request) -> Response:
+        rows = []
+        existing = {
+            r.code: r for r in Role.objects.filter(code__in=self.REQUIRED_ROLE_CODES)
+        }
+        for code in sorted(self.REQUIRED_ROLE_CODES):
+            role = existing.get(code)
+            rows.append({
+                'code': code,
+                'exists': bool(role),
+                'name': role.name if role else '',
+                'is_active_users': role.users.filter(is_active=True).exists() if role else False,
+            })
+        missing = [r['code'] for r in rows if not r['exists']]
+        return Response({'code': 200, 'data': {'items': rows, 'missing': missing}})
 
     @action(detail=True, methods=['post'], url_path='assign-permissions')
     def assign_permissions(self, request: Request, pk: str = None) -> Response:

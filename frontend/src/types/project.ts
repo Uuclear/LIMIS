@@ -56,3 +56,15 @@ export interface Witness {
   organization?: number | null
   certificate_no: string
 }
+
+export interface Sampler {
+  id: number
+  project_id: number
+  name: string
+  phone: string
+  id_number?: string
+  id_type?: string
+  id_type_display?: string
+  organization?: number | null
+  certificate_no: string
+}

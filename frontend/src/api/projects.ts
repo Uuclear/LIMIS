@@ -1,7 +1,7 @@
 import request from '@/utils/request'
 
 export function getProjectList(params?: any) { return request.get('/v1/projects/', { params }) }
-export function getProject(id: number) { return request.get(`/v1/projects/${id}/`) }
+export function getProject(idOrCode: number | string) { return request.get(`/v1/projects/${idOrCode}/`) }
 export function createProject(data: any) { return request.post('/v1/projects/', data) }
 export function updateProject(id: number, data: any) { return request.put(`/v1/projects/${id}/`, data) }
 export function deleteProject(id: number) { return request.delete(`/v1/projects/${id}/`) }
@@ -56,6 +56,19 @@ export function updateWitness(projectId: number, id: number, data: any) {
 }
 export function deleteWitness(projectId: number, id: number) {
   return request.delete(`/v1/projects/${projectId}/witnesses/${id}/`)
+}
+
+export function getSamplers(projectId: number, params?: any) {
+  return request.get(`/v1/projects/${projectId}/samplers/`, { params })
+}
+export function createSampler(projectId: number, data: any) {
+  return request.post(`/v1/projects/${projectId}/samplers/`, data)
+}
+export function updateSampler(projectId: number, id: number, data: any) {
+  return request.put(`/v1/projects/${projectId}/samplers/${id}/`, data)
+}
+export function deleteSampler(projectId: number, id: number) {
+  return request.delete(`/v1/projects/${projectId}/samplers/${id}/`)
 }
 
 export function getProjectStats(projectId: number) {

@@ -21,6 +21,8 @@ import {
   getEquipmentUsage,
   getTaskByProject,
   getTaskByMethod,
+  getFlowKpis,
+  exportOperationalReporting,
 } from '@/api/statistics'
 
 use([
@@ -40,7 +42,7 @@ interface StatCard {
 
 const stats = ref<StatCard[]>([
   { title: '本月委托', value: 0, icon: Document, color: '#2563eb', bg: '#eff6ff' },
-  { title: '待检任务', value: 0, icon: List, color: '#f59e0b', bg: '#fffbeb' },
+  { title: '待分配任务', value: 0, icon: List, color: '#f59e0b', bg: '#fffbeb' },
   { title: '本月报告', value: 0, icon: Notebook, color: '#10b981', bg: '#ecfdf5' },
   { title: '设备预警', value: 0, icon: WarningFilled, color: '#ef4444', bg: '#fef2f2' },
 ])
@@ -52,6 +54,9 @@ const kpi = ref({
   workload_top_tester: '',
   workload_top_total: 0,
   equipment_usage_rate: 0,
+  task_return_rate: 0,
+  pending_audit: 0,
+  pending_approve: 0,
 })
 
 const recentTasks = ref<any[]>([])
@@ -117,10 +122,11 @@ async function fetchStrength() {
 
 async function fetchKpi() {
   try {
-    const [cycleRes, workloadRes, equipmentRes]: any[] = await Promise.all([
+    const [cycleRes, workloadRes, equipmentRes, flowKpiRes]: any[] = await Promise.all([
       getCycleAnalysis(),
       getWorkload(),
       getEquipmentUsage(),
+      getFlowKpis(),
     ])
     const cycle = cycleRes ?? {}
     const workload = workloadRes ?? []
@@ -133,6 +139,9 @@ async function fetchKpi() {
       workload_top_tester: top.tester_name ?? '-',
       workload_top_total: Number(top.total ?? 0),
       equipment_usage_rate: totalEq > 0 ? Math.round((usedEq / totalEq) * 1000) / 10 : 0,
+      task_return_rate: Number(flowKpiRes?.task_return_rate ?? 0),
+      pending_audit: Number(flowKpiRes?.pending_audit ?? 0),
+      pending_approve: Number(flowKpiRes?.pending_approve ?? 0),
     }
   } catch { /* ignore */ }
 }
@@ -219,7 +228,6 @@ const strengthLineOption = computed(() => ({
 
 const taskStatusMap: Record<string, string> = {
   unassigned: '待分配',
-  assigned: '待检',
   in_progress: '检测中',
   completed: '已完成',
   abnormal: '异常',
@@ -228,7 +236,6 @@ const taskStatusMap: Record<string, string> = {
 function statusType(status: string) {
   const map: Record<string, string> = {
     unassigned: 'info',
-    assigned: 'warning',
     in_progress: 'primary',
     completed: 'success',
     abnormal: 'danger',
@@ -248,10 +255,24 @@ onMounted(() => {
   fetchStrength()
   fetchKpi()
 })
+
+async function handleExportOperationalReporting() {
+  const res: any = await exportOperationalReporting()
+  const blob = new Blob([res], { type: 'text/csv;charset=utf-8;' })
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'operational_reporting.csv'
+  a.click()
+  window.URL.revokeObjectURL(url)
+}
 </script>
 
 <template>
   <div class="dashboard">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+      <el-button type="primary" plain @click="handleExportOperationalReporting">导出运营报表</el-button>
+    </div>
     <el-row :gutter="20" class="stat-row">
       <el-col v-for="item in stats" :key="item.title" :span="6">
         <el-card shadow="hover" class="stat-card">
@@ -330,7 +351,7 @@ onMounted(() => {
         <el-card shadow="hover">
           <template #header><div class="card-header"><span>平均流转周期</span></div></template>
           <div class="kpi-value">{{ kpi.avg_cycle_days }} 天</div>
-          <div class="kpi-sub">委托到批准的平均耗时</div>
+          <div class="kpi-sub">委托到批准的平均耗时；待审核 {{ kpi.pending_audit }} / 待批准 {{ kpi.pending_approve }}</div>
         </el-card>
       </el-col>
       <el-col :span="8">
@@ -342,9 +363,9 @@ onMounted(() => {
       </el-col>
       <el-col :span="8">
         <el-card shadow="hover">
-          <template #header><div class="card-header"><span>设备利用率</span></div></template>
+          <template #header><div class="card-header"><span>设备利用率与退回率</span></div></template>
           <div class="kpi-value">{{ kpi.equipment_usage_rate }}%</div>
-          <div class="kpi-sub">近30天有任务的在用设备占比</div>
+          <div class="kpi-sub">近30天设备利用率；任务退回率 {{ kpi.task_return_rate }}%</div>
         </el-card>
       </el-col>
     </el-row>

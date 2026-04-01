@@ -49,7 +49,7 @@ async function handleReview() {
 
 function statusLabel(status: string) {
   const map: Record<string, string> = {
-    draft: '草稿', pending_review: '待提交', reviewed: '已提交', rejected: '已退回',
+    draft: '草稿', pending_review: '草稿', reviewed: '已提交', rejected: '已退回',
   }
   return map[status] ?? status
 }
@@ -91,7 +91,7 @@ onMounted(fetchDetail)
         <el-descriptions-item label="委托日期">{{ detail.commission_date }}</el-descriptions-item>
         <el-descriptions-item label="工程名称">{{ detail.project_name }}</el-descriptions-item>
         <el-descriptions-item label="分部工程">{{ detail.sub_project_name }}</el-descriptions-item>
-        <el-descriptions-item label="施工部位">{{ detail.construction_part }}</el-descriptions-item>
+        <el-descriptions-item label="工程部位">{{ detail.construction_part }}</el-descriptions-item>
         <el-descriptions-item label="见证取样">
           <el-tag :type="detail.is_witnessed ? 'success' : 'info'" size="small">
             {{ detail.is_witnessed ? '是' : '否' }}
@@ -101,6 +101,7 @@ onMounted(fetchDetail)
         <el-descriptions-item label="联系人">{{ detail.client_contact }}</el-descriptions-item>
         <el-descriptions-item label="联系电话">{{ detail.client_phone }}</el-descriptions-item>
         <el-descriptions-item label="见证人">{{ detail.witness_name }}</el-descriptions-item>
+        <el-descriptions-item label="取样人">{{ (detail as any).sampler_name || '—' }}</el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ detail.created_at }}</el-descriptions-item>
       </el-descriptions>
     </el-card>

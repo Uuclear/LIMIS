@@ -27,9 +27,9 @@
 
 ### 检测任务状态
 ```
-待分配(unassigned) → 待检(assigned) → 检测中(in_progress) → 已完成(completed)
-                                                              ↓
-                                                         异常(abnormal)
+待分配(unassigned) → 检测中(in_progress) → 已完成(completed)
+            ↑                ↓
+         退回重分配          异常(abnormal)
 ```
 
 ### 原始记录状态

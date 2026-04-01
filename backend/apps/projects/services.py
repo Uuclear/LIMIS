@@ -13,9 +13,10 @@ def get_project_stats(project_id: int) -> dict[str, Any]:
         'organization_count': 0,
         'contract_count': 0,
         'witness_count': 0,
+        'sampler_count': 0,
     }
 
-    from .models import Contract, Organization, Witness
+    from .models import Contract, Organization, Sampler, Witness
     stats['organization_count'] = Organization.objects.filter(
         project_id=project_id,
     ).count()
@@ -23,6 +24,9 @@ def get_project_stats(project_id: int) -> dict[str, Any]:
         project_id=project_id,
     ).count()
     stats['witness_count'] = Witness.objects.filter(
+        project_id=project_id,
+    ).count()
+    stats['sampler_count'] = Sampler.objects.filter(
         project_id=project_id,
     ).count()
 
@@ -55,13 +59,11 @@ def get_project_stats(project_id: int) -> dict[str, Any]:
         qs = TestTask.objects.filter(commission__project_id=project_id)
         stats['completed_count'] = qs.filter(status='completed').count()
         stats['unassigned_count'] = qs.filter(status='unassigned').count()
-        stats['assigned_count'] = qs.filter(status='assigned').count()
         stats['in_progress_count'] = qs.filter(status='in_progress').count()
         stats['task_total'] = qs.count()
     except LookupError:
         stats['completed_count'] = 0
         stats['unassigned_count'] = 0
-        stats['assigned_count'] = 0
         stats['in_progress_count'] = 0
         stats['task_total'] = 0
 
