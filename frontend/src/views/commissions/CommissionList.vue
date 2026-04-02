@@ -29,17 +29,11 @@ async function fetchList() {
   loading.value = true
   try {
     const statusParam = activeStatus.value === 'draft' ? undefined : (activeStatus.value || undefined)
-    // #region agent log
-    fetch('http://127.0.0.1:7490/ingest/c75af6f2-90e9-47e0-a350-bab47c84a284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'66f994'},body:JSON.stringify({sessionId:'66f994',runId:'initial',hypothesisId:'H2',location:'CommissionList.vue:fetchList:before',message:'commission_list_request',data:{activeStatus:activeStatus.value,statusParam},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     const res: any = await getCommissionList({ ...query, status: statusParam })
     const rows = (res.results ?? res.list ?? []) as Commission[]
     tableData.value = activeStatus.value === 'draft'
       ? rows.filter((r: any) => r.status === 'draft' || r.status === 'rejected')
       : rows
-    // #region agent log
-    fetch('http://127.0.0.1:7490/ingest/c75af6f2-90e9-47e0-a350-bab47c84a284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'66f994'},body:JSON.stringify({sessionId:'66f994',runId:'initial',hypothesisId:'H2',location:'CommissionList.vue:fetchList:after',message:'commission_list_statuses',data:{rows:tableData.value.map((r:any)=>({id:r.id,status:r.status}))},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     total.value = res.total ?? res.count ?? 0
   } finally {
     loading.value = false

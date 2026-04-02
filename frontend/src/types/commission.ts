@@ -28,9 +28,14 @@ export interface Commission {
 export interface CommissionItem {
   id?: number
   commission?: number
-  test_object: string
-  test_item: string
-  test_standard: string
+  test_parameter?: number | null
+  parameter_name?: string
+  standard_no?: string
+  standard_name?: string
+  // Keep old text fields for backward compat
+  test_object?: string
+  test_item?: string
+  test_standard?: string
   test_method?: string
   specification: string
   grade: string

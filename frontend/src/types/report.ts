@@ -1,55 +1,60 @@
 export interface Report {
   id: number
   report_no: string
-  title: string
-  status: 'draft' | 'pending_audit' | 'pending_approve' | 'approved' | 'issued' | 'voided'
-  commission_id: number
+  commission: number
   commission_no: string
-  project_name: string
-  client_name: string
-  sample_ids: number[]
-  sample_names: string[]
-  compiler_id: number
+  report_type: string
+  template_name: string
+  status: 'draft' | 'pending_audit' | 'pending_approve' | 'approved' | 'issued' | 'voided'
+  status_display: string
+  compiler: number | null
   compiler_name: string
-  compile_date: string
-  has_cma: boolean
-  has_cnas: boolean
-  pdf_url: string | null
+  compile_date: string | null
+  auditor: number | null
+  auditor_name: string
+  audit_date: string | null
+  approver: number | null
+  approver_name: string
+  approve_date: string | null
   conclusion: string
+  pdf_file: string | null
+  qr_code: string | null
+  has_cma: boolean
+  issue_date: string | null
   remark: string
-  issued_at: string | null
-  voided_at: string | null
-  void_reason: string
   created_at: string
   updated_at: string
+  created_by: number | null
+  created_by_name: string
   approvals: ReportApproval[]
   distributions: ReportDistribution[]
 }
 
 export interface ReportApproval {
   id: number
-  report_id?: number
-  report?: number
-  step?: 'audit' | 'approve'
-  role?: 'compile' | 'audit' | 'approve'
-  action: 'approve' | 'reject' | 'pass'
-  operator_id?: number
-  operator_name?: string
-  user?: number
-  user_name?: string
+  report: number
+  role: 'compile' | 'audit' | 'approve'
+  role_display: string
+  action: 'submit' | 'pass' | 'reject'
+  action_display: string
+  user: number
+  user_name: string
   comment: string
-  signature_url?: string | null
-  signature?: string | null
+  signature: string | null
   created_at: string
+  updated_at: string
 }
 
 export interface ReportDistribution {
   id: number
-  report_id: number
+  report: number
   recipient: string
+  recipient_unit: string
   method: 'email' | 'print' | 'pickup'
-  distributed_at: string
-  operator_id: number
-  operator_name: string
-  remark: string
+  method_display: string
+  copies: number
+  distribution_date: string
+  receiver_signature: string | null
+  created_at: string
+  updated_at: string
 }

@@ -17,9 +17,7 @@ export const useUserStore = defineStore('user', () => {
     if (!userInfo.value) return ''
     const u = userInfo.value as Record<string, unknown>
     return (
-      (u.realName as string)
-      || (u.real_name as string)
-      || (u.firstName as string)
+      (u.real_name as string)
       || (u.first_name as string)
       || (u.username as string)
     )

@@ -35,9 +35,6 @@ export const createTestResult = (data: any) => request.post(`${T}/results/`, dat
 export const calculateResult = (data: any) => request.post(`${T}/results/calculate/`, data)
 
 export const getTestCategories = () => request.get(`${T}/categories/`)
-export const getTestMethods = (params?: any) => request.get(`${T}/methods/`, { params })
-export const createTestMethod = (data: any) => request.post(`${T}/methods/`, data)
-export const updateTestMethod = (id: number, data: any) => request.put(`${T}/methods/${id}/`, data)
 export const getTestParameters = (params?: any) => request.get(`${T}/parameters/`, { params })
 export const createTestParameter = (data: any) => request.post(`${T}/parameters/`, data)
 export const updateTestParameter = (id: number, data: any) => request.put(`${T}/parameters/${id}/`, data)

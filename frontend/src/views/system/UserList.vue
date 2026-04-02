@@ -210,7 +210,7 @@ onMounted(() => { fetchList(); fetchRoles() })
         <el-table-column prop="username" label="用户名" min-width="120" />
         <el-table-column label="姓名" min-width="100">
           <template #default="{ row }">
-            {{ (row as any).realName || (row as any).real_name || (row as any).firstName || (row as any).first_name || '—' }}
+            {{ (row as any).real_name || (row as any).first_name || '—' }}
           </template>
         </el-table-column>
         <el-table-column label="手机号" min-width="130">

@@ -226,8 +226,8 @@ onMounted(() => { fetchDetail(); fetchTimeline() })
         <el-descriptions-item label="接收日期">{{ detail.received_date }}</el-descriptions-item>
         <el-descriptions-item label="委托编号">{{ detail.commission_no }}</el-descriptions-item>
         <el-descriptions-item label="工程名称" :span="2">{{ detail.project_name }}</el-descriptions-item>
-        <el-descriptions-item v-if="detail.retention_date" label="留样日期">
-          {{ detail.retention_date }}
+        <el-descriptions-item v-if="detail.retention_deadline" label="留样到期日">
+          {{ detail.retention_deadline }}
         </el-descriptions-item>
         <el-descriptions-item v-if="detail.disposal_date" label="处置日期">
           {{ detail.disposal_date }}

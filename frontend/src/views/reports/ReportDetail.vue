@@ -212,17 +212,14 @@ onMounted(fetchTimeline)
         </template>
         <el-descriptions :column="3" border>
           <el-descriptions-item label="报告编号">{{ report.report_no }}</el-descriptions-item>
-          <el-descriptions-item label="报告标题">{{ report.title }}</el-descriptions-item>
+          <el-descriptions-item label="报告类型">{{ report.report_type }}</el-descriptions-item>
           <el-descriptions-item label="编制日期">{{ report.compile_date }}</el-descriptions-item>
           <el-descriptions-item label="编制人">{{ report.compiler_name }}</el-descriptions-item>
           <el-descriptions-item label="CMA标志">
             <el-tag v-if="report.has_cma" type="success" size="small">CMA</el-tag>
             <span v-else>-</span>
           </el-descriptions-item>
-          <el-descriptions-item label="CNAS标志">
-            <el-tag v-if="report.has_cnas" type="success" size="small">CNAS</el-tag>
-            <span v-else>-</span>
-          </el-descriptions-item>
+          <el-descriptions-item label="发放日期">{{ report.issue_date || '-' }}</el-descriptions-item>
           <el-descriptions-item label="结论" :span="3">
             {{ report.conclusion || '-' }}
           </el-descriptions-item>
@@ -237,18 +234,7 @@ onMounted(fetchTimeline)
         <template #header><span>委托及样品信息</span></template>
         <el-descriptions :column="3" border>
           <el-descriptions-item label="委托编号">{{ report.commission_no }}</el-descriptions-item>
-          <el-descriptions-item label="项目名称">{{ report.project_name }}</el-descriptions-item>
-          <el-descriptions-item label="委托单位">{{ report.client_name }}</el-descriptions-item>
-          <el-descriptions-item label="相关样品" :span="3">
-            <el-tag
-              v-for="(name, idx) in report.sample_names"
-              :key="idx"
-              style="margin-right: 6px; margin-bottom: 4px"
-            >
-              {{ name }}
-            </el-tag>
-            <span v-if="!report.sample_names?.length">-</span>
-          </el-descriptions-item>
+          <el-descriptions-item label="模板名称">{{ report.template_name || '-' }}</el-descriptions-item>
         </el-descriptions>
       </el-card>
 

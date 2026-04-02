@@ -78,19 +78,10 @@ async function fetchList() {
     }
     const tn = (query.tester_name || '').trim()
     if (tn) params.search = tn
-    // #region agent log
-    fetch('http://127.0.0.1:7490/ingest/c75af6f2-90e9-47e0-a350-bab47c84a284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'66f994'},body:JSON.stringify({sessionId:'66f994',runId:'initial',hypothesisId:'H1',location:'TaskList.vue:fetchList:before',message:'task_list_request',data:{params},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     const res: any = await getTestTaskList(params)
-    // #region agent log
-    fetch('http://127.0.0.1:7490/ingest/c75af6f2-90e9-47e0-a350-bab47c84a284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'66f994'},body:JSON.stringify({sessionId:'66f994',runId:'initial',hypothesisId:'H1',location:'TaskList.vue:fetchList:after',message:'task_list_response',data:{count:(res?.results??res?.list??[]).length,statuses:(res?.results??res?.list??[]).map((x:any)=>x.status)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     tableData.value = res.results ?? res.list ?? []
     total.value = res.total ?? res.count ?? 0
   } catch (e: any) {
-    // #region agent log
-    fetch('http://127.0.0.1:7490/ingest/c75af6f2-90e9-47e0-a350-bab47c84a284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'66f994'},body:JSON.stringify({sessionId:'66f994',runId:'initial',hypothesisId:'H1',location:'TaskList.vue:fetchList:error',message:'task_list_error',data:{message:e?.message||'',responseStatus:e?.response?.status||null,responseData:e?.response?.data||null},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     throw e
   } finally {
     loading.value = false
@@ -143,7 +134,7 @@ function openAssignDialog(task: TestTask) {
   currentTask.value = task
   assignForm.tester_id = null
   assignForm.tester_name = ''
-  fetchTesterOptions((task as any).test_method)
+  fetchTesterOptions((task as any).test_parameter)
   assignDialogVisible.value = true
 }
 
@@ -329,7 +320,7 @@ onMounted(() => {
             >
               <div class="kanban-card-title">{{ task.task_no }}</div>
               <div class="kanban-card-info">{{ task.sample_name }}</div>
-              <div class="kanban-card-info">{{ task.method_name }}</div>
+              <div class="kanban-card-info">{{ task.parameter_name }}</div>
               <div class="kanban-card-footer">
                 <span>{{ task.planned_date }}</span>
                 <span v-if="task.tester_name">{{ task.tester_name }}</span>
@@ -398,7 +389,7 @@ onMounted(() => {
         <el-table v-loading="loading" :data="tableData" stripe border>
           <el-table-column prop="task_no" label="任务编号" width="180" />
           <el-table-column prop="sample_name" label="样品" min-width="140" show-overflow-tooltip />
-          <el-table-column prop="method_name" label="检测方法" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="parameter_name" label="检测参数" min-width="160" show-overflow-tooltip />
           <el-table-column prop="tester_name" label="检测人员" width="120" />
           <el-table-column prop="planned_date" label="计划日期" width="120" />
           <el-table-column label="状态" width="100" align="center">

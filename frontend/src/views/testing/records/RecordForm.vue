@@ -179,7 +179,7 @@ onMounted(() => {
       <el-button :icon="ArrowLeft" @click="goBack">返回</el-button>
       <span class="page-title">
         {{ isEdit ? '编辑原始记录' : '新建原始记录' }}
-        <template v-if="record"> - {{ record.record_no }}</template>
+        <template v-if="record"> - {{ record.task_no }}</template>
       </span>
       <el-tag v-if="record" :type="record.status === 'draft' ? 'info' : 'success'" effect="dark">
         {{

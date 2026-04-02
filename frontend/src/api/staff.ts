@@ -40,8 +40,8 @@ export function getExpiringCerts(params?: any) {
   return request.get('/v1/staff/expiring-certs/', { params })
 }
 
-export function getAssignableTesters(methodId?: number) {
+export function getAssignableTesters(parameterId?: number) {
   return request.get('/v1/staff/profiles/assignable-testers/', {
-    params: methodId ? { method_id: methodId } : {},
+    params: parameterId ? { parameter_id: parameterId } : {},
   })
 }

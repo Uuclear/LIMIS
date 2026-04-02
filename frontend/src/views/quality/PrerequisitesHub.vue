@@ -9,8 +9,8 @@ const router = useRouter()
 
 const steps = [
   { order: 1, title: '标准规范', desc: '录入现行标准号、名称、实施日期，可爬取工标网辅助填写', path: '/quality/standards', permission: 'standards:view' as const },
-  { order: 2, title: '项目参数库', desc: '为每本标准建立检测方法（TestMethod）与检测参数（TestParameter）', path: '/quality/parameter-library', permission: 'testing:view' as const },
-  { order: 3, title: '原始记录模板', desc: '按检测方法/参数绑定 JSON 表单结构，供任务录入原始数据', path: '/quality/record-templates', permission: 'testing:view' as const },
+  { order: 2, title: '项目参数库', desc: '为每本标准建立检测参数（TestParameter），参数直接关联标准', path: '/quality/parameter-library', permission: 'testing:view' as const },
+  { order: 3, title: '原始记录模板', desc: '按检测参数绑定 JSON 表单结构，供任务录入原始数据', path: '/quality/record-templates', permission: 'testing:view' as const },
   { order: 4, title: '报告模板', desc: '了解报告类型与模板名称约定，编制报告时选用', path: '/quality/report-templates', permission: 'report:view' as const },
 ]
 

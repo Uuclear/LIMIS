@@ -12,7 +12,7 @@ export interface Sample {
   commission_id: number
   commission_no: string
   project_name: string
-  retention_date: string | null
+  retention_deadline: string | null
   disposal_date: string | null
   created_at: string
   updated_at: string

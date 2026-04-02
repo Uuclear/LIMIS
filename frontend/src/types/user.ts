@@ -1,16 +1,19 @@
 export interface UserInfo {
   id: number
   username: string
-  realName: string
+  real_name: string
+  first_name: string
+  last_name: string
   email: string
   phone: string
   avatar: string
   department: string
+  title: string
   roles: Role[]
   permissions: string[]
-  isActive: boolean
-  lastLogin: string
-  createdAt: string
+  is_active: boolean
+  last_login: string
+  date_joined: string
 }
 
 export interface Role {

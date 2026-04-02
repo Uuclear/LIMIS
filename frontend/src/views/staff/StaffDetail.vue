@@ -63,7 +63,7 @@ const authLoading = ref(false)
 const authList = ref<any[]>([])
 const authDialogVisible = ref(false)
 const authForm = reactive({
-  method_name: '', method_no: '', scope: '', auth_date: '', expiry_date: '', remark: '',
+  parameter_name: '', parameter_no: '', scope: '', auth_date: '', expiry_date: '', remark: '',
 })
 
 async function fetchAuths() {
@@ -77,7 +77,7 @@ async function fetchAuths() {
 }
 
 function openAuthCreate() {
-  Object.assign(authForm, { method_name: '', method_no: '', scope: '', auth_date: '', expiry_date: '', remark: '' })
+  Object.assign(authForm, { parameter_name: '', parameter_no: '', scope: '', auth_date: '', expiry_date: '', remark: '' })
   authDialogVisible.value = true
 }
 
@@ -237,8 +237,8 @@ onMounted(fetchStaff)
             </div>
           </template>
           <el-table v-loading="authLoading" :data="authList" stripe border>
-            <el-table-column prop="method_name" label="检测方法" min-width="180" />
-            <el-table-column prop="method_no" label="方法标准号" width="160" />
+            <el-table-column prop="parameter_name" label="检测参数" min-width="180" />
+            <el-table-column prop="parameter_no" label="参数编号" width="160" />
             <el-table-column prop="scope" label="授权范围" min-width="160" show-overflow-tooltip />
             <el-table-column prop="auth_date" label="授权日期" width="120" />
             <el-table-column label="有效期至" width="130">
@@ -325,8 +325,8 @@ onMounted(fetchStaff)
     <!-- Authorization Dialog -->
     <el-dialog v-model="authDialogVisible" title="新增上岗授权" width="520px" destroy-on-close>
       <el-form :model="authForm" label-width="90px">
-        <el-form-item label="检测方法"><el-input v-model="authForm.method_name" /></el-form-item>
-        <el-form-item label="方法标准号"><el-input v-model="authForm.method_no" /></el-form-item>
+        <el-form-item label="检测参数"><el-input v-model="authForm.parameter_name" /></el-form-item>
+        <el-form-item label="参数编号"><el-input v-model="authForm.parameter_no" /></el-form-item>
         <el-form-item label="授权范围"><el-input v-model="authForm.scope" /></el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">

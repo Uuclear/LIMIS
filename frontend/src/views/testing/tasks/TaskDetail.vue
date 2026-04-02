@@ -36,7 +36,7 @@ async function fetchTask() {
   try {
     task.value = await getTestTask(taskId.value) as any
     if (task.value) {
-      await fetchTesterOptions((task.value as any).test_method)
+      await fetchTesterOptions((task.value as any).test_parameter)
     }
   } finally {
     loading.value = false
@@ -185,7 +185,7 @@ onMounted(() => {
         </template>
         <el-descriptions :column="3" border>
           <el-descriptions-item label="任务编号">{{ task.task_no }}</el-descriptions-item>
-          <el-descriptions-item label="检测方法">{{ task.method_name }}</el-descriptions-item>
+          <el-descriptions-item label="检测参数">{{ task.parameter_name }}</el-descriptions-item>
           <el-descriptions-item label="标准编号">{{ task.standard_no }}</el-descriptions-item>
           <el-descriptions-item label="检测人员">
             {{ task.tester_name || '未分配' }}
@@ -215,17 +215,13 @@ onMounted(() => {
 
       <!-- Equipment Info -->
       <el-card
-        v-if="task.equipment_names?.length"
+        v-if="task.assigned_equipment"
         shadow="never"
         style="margin-top: 16px"
       >
         <template #header><span>设备信息</span></template>
-        <el-tag
-          v-for="(name, idx) in task.equipment_names"
-          :key="idx"
-          style="margin-right: 8px; margin-bottom: 8px"
-        >
-          {{ name }}
+        <el-tag style="margin-right: 8px; margin-bottom: 8px">
+          设备 #{{ task.assigned_equipment }}
         </el-tag>
       </el-card>
 

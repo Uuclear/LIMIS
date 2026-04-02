@@ -4,13 +4,13 @@ import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getQualificationProfiles, createQualificationProfile, updateQualificationProfile } from '@/api/quality'
 import { getStandardList } from '@/api/standards'
-import { getTestMethods, getRecordTemplates } from '@/api/testing'
+import { getTestParameters, getRecordTemplates } from '@/api/testing'
 
 const loading = ref(false)
 const profileList = ref<any[]>([])
 
 const standards = ref<any[]>([])
-const methods = ref<any[]>([])
+const parameters = ref<any[]>([])
 const templates = ref<any[]>([])
 
 const optionsLoading = ref(false)
@@ -18,13 +18,13 @@ const optionsLoading = ref(false)
 async function fetchOptions() {
   optionsLoading.value = true
   try {
-    const [stdRes, mRes, tRes]: any[] = await Promise.all([
+    const [stdRes, pRes, tRes]: any[] = await Promise.all([
       getStandardList({ page_size: 500 }),
-      getTestMethods({ page_size: 500 }),
+      getTestParameters({ page_size: 500 }),
       getRecordTemplates({ page_size: 500 }),
     ])
     standards.value = stdRes.results ?? stdRes.list ?? stdRes ?? []
-    methods.value = mRes.results ?? mRes.list ?? mRes ?? []
+    parameters.value = pRes.results ?? pRes.list ?? pRes ?? []
     templates.value = tRes.results ?? tRes.list ?? tRes ?? []
   } finally {
     optionsLoading.value = false
@@ -51,7 +51,7 @@ const form = reactive({
   valid_from: '',
   valid_to: '',
   allowed_standards: [] as number[],
-  allowed_test_methods: [] as number[],
+  allowed_parameters: [] as number[],
   allowed_record_templates: [] as number[],
 })
 
@@ -64,7 +64,7 @@ function openCreate() {
     valid_from: '',
     valid_to: '',
     allowed_standards: [],
-    allowed_test_methods: [],
+    allowed_parameters: [],
     allowed_record_templates: [],
   })
   dialogVisible.value = true
@@ -79,7 +79,7 @@ function openEdit(p: any) {
     valid_from: p.valid_from ?? '',
     valid_to: p.valid_to ?? '',
     allowed_standards: p.allowed_standards ?? [],
-    allowed_test_methods: p.allowed_test_methods ?? [],
+    allowed_parameters: p.allowed_parameters ?? [],
     allowed_record_templates: p.allowed_record_templates ?? [],
   })
   dialogVisible.value = true
@@ -96,7 +96,7 @@ async function handleSubmit() {
     valid_from: form.valid_from || null,
     valid_to: form.valid_to || null,
     allowed_standards: form.allowed_standards,
-    allowed_test_methods: form.allowed_test_methods,
+    allowed_parameters: form.allowed_parameters,
     allowed_record_templates: form.allowed_record_templates,
   }
   if (dialogMode.value === 'create') {
@@ -140,7 +140,7 @@ onMounted(async () => {
           <template #default="{ row }">
             <div style="line-height: 1.6">
               <div>标准：{{ row.allowed_standards?.length ?? 0 }}</div>
-              <div>方法：{{ row.allowed_test_methods?.length ?? 0 }}</div>
+              <div>参数：{{ row.allowed_parameters?.length ?? 0 }}</div>
               <div>模板：{{ row.allowed_record_templates?.length ?? 0 }}</div>
             </div>
           </template>
@@ -196,20 +196,20 @@ onMounted(async () => {
           </el-select>
         </el-form-item>
 
-        <el-form-item label="允许检测方法">
+        <el-form-item label="允许检测参数">
           <el-select
-            v-model="form.allowed_test_methods"
+            v-model="form.allowed_parameters"
             multiple
             filterable
-            placeholder="选择检测方法"
+            placeholder="选择检测参数"
             style="width: 100%"
             :loading="optionsLoading"
           >
             <el-option
-              v-for="m in methods"
-              :key="m.id"
-              :label="`${m.standard_no} ${m.name}`"
-              :value="m.id"
+              v-for="p in parameters"
+              :key="p.id"
+              :label="`${p.code ?? ''} ${p.name}`"
+              :value="p.id"
             />
           </el-select>
         </el-form-item>

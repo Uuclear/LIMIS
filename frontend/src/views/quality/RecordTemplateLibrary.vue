@@ -9,7 +9,6 @@ import {
   updateRecordTemplate,
   deleteRecordTemplate,
   getMergedRecordSchema,
-  getTestMethods,
   getTestParameters,
   getTestTaskList,
   getRecordTemplateWordPreview,
@@ -46,9 +45,8 @@ type FieldRow = {
 const loading = ref(false)
 const tableData = ref<any[]>([])
 const total = ref(0)
-const query = reactive({ page: 1, page_size: 20, keyword: '', test_method: '' as string | number | '' })
+const query = reactive({ page: 1, page_size: 20, keyword: '', test_parameter: '' as string | number | '' })
 
-const methodOptions = ref<{ id: number; name: string }[]>([])
 const paramOptions = ref<{ id: number; name: string; code: string }[]>([])
 
 const dialogVisible = ref(false)
@@ -57,7 +55,7 @@ const form = reactive({
   id: 0,
   name: '',
   code: '',
-  test_method: null as number | null,
+  test_parameter: null as number | null,
   test_parameters: [] as number[],
   word_file: null as File | null,
   word_template_url: '',
@@ -117,16 +115,8 @@ const previewTemplatePdfUrl = computed<string>(() => {
   return /\.pdf(\?|$)/i.test(url) ? url : ''
 })
 
-async function loadMethods() {
-  const res: any = await getTestMethods({ page_size: 500 })
-  const rows = res.results ?? res.list ?? []
-  methodOptions.value = rows.map((m: any) => ({ id: m.id, name: `${m.standard_no} ${m.name}` }))
-}
-
-async function loadParamsForMethod(methodId: number | null) {
-  paramOptions.value = []
-  if (!methodId) return
-  const res: any = await getTestParameters({ method: methodId, page_size: 500 })
+async function loadParams() {
+  const res: any = await getTestParameters({ page_size: 500 })
   const rows = res.results ?? res.list ?? []
   paramOptions.value = rows.map((p: any) => ({ id: p.id, name: p.name, code: p.code }))
 }
@@ -148,14 +138,6 @@ async function loadRecentTasks() {
   }
 }
 
-watch(
-  () => form.test_method,
-  (id) => {
-    if (syncingFormState.value) return
-    form.test_parameters = []
-    loadParamsForMethod(id)
-  },
-)
 
 function parseSchema() {
   try {
@@ -253,18 +235,12 @@ async function fetchList() {
   loading.value = true
   try {
     const params: any = { ...query }
-    if (params.test_method === '' || params.test_method === null) delete params.test_method
-    // #region agent log
-    fetch('http://127.0.0.1:7490/ingest/c75af6f2-90e9-47e0-a350-bab47c84a284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'66f994'},body:JSON.stringify({sessionId:'66f994',runId:'initial',hypothesisId:'H4',location:'RecordTemplateLibrary.vue:fetchList:before',message:'record_template_list_request',data:{params},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    if (params.test_parameter === '' || params.test_parameter === null) delete params.test_parameter
     const res: any = await getRecordTemplates(params)
     tableData.value = res.results ?? res.list ?? []
     if (previewTemplate.value?.id) {
       previewTemplate.value = tableData.value.find((x: any) => x.id === previewTemplate.value.id) || null
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7490/ingest/c75af6f2-90e9-47e0-a350-bab47c84a284',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'66f994'},body:JSON.stringify({sessionId:'66f994',runId:'initial',hypothesisId:'H4',location:'RecordTemplateLibrary.vue:fetchList:after',message:'record_template_list_response',data:{count:tableData.value.length,first:tableData.value[0]||null},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     total.value = res.total ?? res.count ?? 0
   } finally {
     loading.value = false
@@ -282,7 +258,7 @@ function openCreateDocument() {
     id: 0,
     name: '',
     code: '',
-    test_method: null,
+    test_parameter: null,
     test_parameters: [],
     word_file: null,
     word_template_url: '',
@@ -291,7 +267,6 @@ function openCreateDocument() {
     is_active: true,
   })
   syncingFormState.value = false
-  paramOptions.value = []
   schemaEditTab.value = 'json'
   dialogVisible.value = true
 }
@@ -303,7 +278,7 @@ function openCreate() {
     id: 0,
     name: '',
     code: '',
-    test_method: null,
+    test_parameter: null,
     test_parameters: [],
     word_file: null,
     word_template_url: '',
@@ -312,7 +287,6 @@ function openCreate() {
     is_active: true,
   })
   syncingFormState.value = false
-  paramOptions.value = []
   recordTitle.value = DEFAULT_CONCRETE_COMPRESSIVE.title
   fieldRows.value = DEFAULT_CONCRETE_COMPRESSIVE.fields.map((x) => ({ ...x }))
   schemaEditTab.value = 'visual'
@@ -326,7 +300,7 @@ function openEdit(row: any) {
     id: row.id,
     name: row.name,
     code: row.code,
-    test_method: row.test_method ?? null,
+    test_parameter: row.test_parameter ?? null,
     test_parameters: Array.isArray(row.test_parameters)
       ? row.test_parameters
       : (row.test_parameter ? [row.test_parameter] : []),
@@ -337,7 +311,6 @@ function openEdit(row: any) {
     is_active: row.is_active !== false,
   })
   syncingFormState.value = false
-  if (form.test_method) loadParamsForMethod(form.test_method)
   schemaEditTab.value = 'visual'
   loadFieldRowsFromSchemaText()
   dialogVisible.value = true
@@ -348,8 +321,8 @@ async function handleSubmit() {
     ElMessage.warning('请填写模板名称与编号')
     return
   }
-  if (!form.test_method) {
-    ElMessage.warning('请选择检测方法')
+  if (!form.test_parameter) {
+    ElMessage.warning('请选择检测参数')
     return
   }
   if (schemaEditTab.value === 'visual') {
@@ -367,7 +340,7 @@ async function handleSubmit() {
   const fd = new FormData()
   fd.append('name', form.name.trim())
   fd.append('code', form.code.trim())
-  fd.append('test_method', String(form.test_method))
+  fd.append('test_parameter', String(form.test_parameter))
   for (const pid of form.test_parameters || []) fd.append('test_parameters', String(pid))
   fd.append('version', form.version || '1.0')
   fd.append('schema', JSON.stringify(schema || { layout: 'a4-portrait', title: '文档模板', fields: [] }))
@@ -439,7 +412,7 @@ onMounted(async () => {
     previewTaskId.value = tid
   }
   fetchList()
-  await loadMethods()
+  await loadParams()
   await loadRecentTasks()
   if (Number.isFinite(tid) && tid > 0) {
     await handlePreviewMerged()
@@ -453,7 +426,7 @@ onMounted(async () => {
       <div>
         <h2 class="record-tpl-title">原始记录模板</h2>
         <p class="record-tpl-desc">
-          依赖「项目参数库」中已维护的<strong>检测方法</strong>；可为每个模板配置<strong>关联参数（多选）</strong>。版式按<strong>竖版 A4</strong>预览；检测任务会按参数将多模板<strong>合并</strong>为可填结构。
+          依赖「项目参数库」中已维护的<strong>检测参数</strong>；可为每个模板配置<strong>关联参数（多选）</strong>。版式按<strong>竖版 A4</strong>预览；检测任务会按参数将多模板<strong>合并</strong>为可填结构。
         </p>
       </div>
       <router-link class="record-tpl-link" to="/quality/foundation">← 检测基础配置</router-link>
@@ -482,14 +455,14 @@ onMounted(async () => {
         <el-form-item label="关键词">
           <el-input v-model="query.keyword" placeholder="名称/编号" clearable style="width: 180px" />
         </el-form-item>
-        <el-form-item label="检测方法">
-          <el-select v-model="query.test_method" placeholder="全部" clearable filterable style="width: 220px">
-            <el-option v-for="m in methodOptions" :key="m.id" :label="m.name" :value="m.id" />
+        <el-form-item label="检测参数">
+          <el-select v-model="query.test_parameter" placeholder="全部" clearable filterable style="width: 220px">
+            <el-option v-for="p in paramOptions" :key="p.id" :label="`${p.name} (${p.code})`" :value="p.id" />
           </el-select>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :icon="Search" @click="() => { query.page = 1; fetchList() }">搜索</el-button>
-          <el-button :icon="Refresh" @click="() => { Object.assign(query, { page: 1, keyword: '', test_method: '' }); fetchList() }">重置</el-button>
+          <el-button :icon="Refresh" @click="() => { Object.assign(query, { page: 1, keyword: '', test_parameter: '' }); fetchList() }">重置</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -663,9 +636,9 @@ onMounted(async () => {
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="检测方法" required>
-              <el-select v-model="form.test_method" placeholder="选择方法" filterable style="width: 100%">
-                <el-option v-for="m in methodOptions" :key="m.id" :label="m.name" :value="m.id" />
+            <el-form-item label="检测参数" required>
+              <el-select v-model="form.test_parameter" placeholder="选择参数" filterable style="width: 100%">
+                <el-option v-for="p in paramOptions" :key="p.id" :label="`${p.name} (${p.code})`" :value="p.id" />
               </el-select>
             </el-form-item>
           </el-col>

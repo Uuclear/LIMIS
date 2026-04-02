@@ -6,7 +6,7 @@ import { Plus, Delete } from '@element-plus/icons-vue'
 import { getCommission, createCommission, updateCommission, submitCommission } from '@/api/commissions'
 import { getProjectList, getSubProjects, getWitnesses, getSamplers, getOrganizations } from '@/api/projects'
 import { getStandardList } from '@/api/standards'
-import { getTestMethods, getTestParameters } from '@/api/testing'
+import { getTestParameters } from '@/api/testing'
 import { batchCreateSamples } from '@/api/samples'
 import { useActionLock } from '@/composables/useActionLock'
 
@@ -19,7 +19,6 @@ const { isLocked, runLocked } = useActionLock()
 
 interface CommissionItemRow {
   standard_id: number | null
-  test_method_id: number | null
   test_parameter_id: number | null
   test_object: string
   specification: string
@@ -77,10 +76,8 @@ const clientContactOptions = ref<string[]>([])
 const clientPhoneOptions = ref<string[]>([])
 const standardOptions = ref<any[]>([])
 
-/** 每行缓存：标准号 -> 方法列表；方法 id -> 参数列表；标准号 -> 参数列表(聚合) */
-const methodCache = ref<Record<string, any[]>>({})
-const paramCache = ref<Record<number, any[]>>({})
-const standardParamCache = ref<Record<string, Array<{ id: number; name: string; method_id: number; method_name: string }>>>({})
+/** 缓存：标准号 -> 参数列表 */
+const standardParamCache = ref<Record<string, Array<{ id: number; name: string; code: string; unit: string }>>>({})
 
 async function fetchProjects() {
   const res: any = await getProjectList({ page_size: 500 })
@@ -165,54 +162,34 @@ watch(() => form.is_witnessed, (v) => {
   }
 })
 
-async function ensureMethodsForStandard(standardNo: string) {
-  if (!standardNo || methodCache.value[standardNo] !== undefined) return
-  const res: any = await getTestMethods({ standard_no: standardNo, page_size: 200 })
-  methodCache.value[standardNo] = res.results ?? res.list ?? []
-}
-
-async function ensureParametersForMethod(methodId: number) {
-  if (!methodId || paramCache.value[methodId] !== undefined) return
-  const res: any = await getTestParameters({ method: methodId, page_size: 200 })
-  paramCache.value[methodId] = res.results ?? res.list ?? []
+async function ensureParametersForStandard(standardNo: string) {
+  if (!standardNo || standardParamCache.value[standardNo] !== undefined) return
+  const res: any = await getTestParameters({ standard_no: standardNo, page_size: 500 })
+  standardParamCache.value[standardNo] = (res.results ?? res.list ?? []).map((p: any) => ({
+    id: p.id, name: p.name, code: p.code, unit: p.unit,
+  }))
 }
 
 async function onRowStandardChange(row: CommissionItemRow) {
-  row.test_method_id = null
   row.test_parameter_id = null
   const std = standardOptions.value.find((s) => s.id === row.standard_id)
   if (std?.standard_no) {
-    await ensureMethodsForStandard(std.standard_no)
-    if (standardParamCache.value[std.standard_no] === undefined) {
-      const methods = methodCache.value[std.standard_no] ?? []
-      const merged: Array<{ id: number; name: string; method_id: number; method_name: string }> = []
-      for (const m of methods) {
-        await ensureParametersForMethod(m.id)
-        const params = paramCache.value[m.id] ?? []
-        for (const p of params) {
-          merged.push({ id: p.id, name: p.name, method_id: m.id, method_name: m.name })
-        }
-      }
-      standardParamCache.value[std.standard_no] = merged
-    }
+    await ensureParametersForStandard(std.standard_no)
   }
 }
 
-function methodsForRow(row: CommissionItemRow) {
-  const std = standardOptions.value.find((s) => s.id === row.standard_id)
-  if (!std?.standard_no) return []
-  return methodCache.value[std.standard_no] ?? []
+function onRowParameterChange(row: CommissionItemRow) {
+  const params = parametersForRow(row)
+  const p = params.find((x: any) => x.id === row.test_parameter_id)
+  if (p && !row.test_object) {
+    row.test_object = p.name ?? ''
+  }
 }
 
 function parametersForRow(row: CommissionItemRow) {
   const std = standardOptions.value.find((s) => s.id === row.standard_id)
   if (!std?.standard_no) return []
   return standardParamCache.value[std.standard_no] ?? []
-}
-
-function onRowParameterChange(row: CommissionItemRow) {
-  const p = parametersForRow(row).find((x: any) => x.id === row.test_parameter_id) as any
-  row.test_method_id = p?.method_id ?? null
 }
 
 async function fetchDetail() {
@@ -235,9 +212,8 @@ async function fetchDetail() {
     is_witnessed: res.is_witnessed,
     items: (res.items ?? []).map((it: any) => ({
       standard_id: null,
-      test_method_id: null,
-      test_parameter_id: null,
-      test_object: it.test_object,
+      test_parameter_id: it.test_parameter ?? null,
+      test_object: it.test_object || '',
       specification: it.specification ?? '',
       grade: it.grade ?? '',
       quantity: it.quantity ?? 1,
@@ -264,7 +240,6 @@ async function fetchDetail() {
 function addItem() {
   form.items.push({
     standard_id: null,
-    test_method_id: null,
     test_parameter_id: null,
     test_object: '',
     specification: '',
@@ -298,14 +273,9 @@ function removeSample(index: number) {
 }
 
 function buildItemPayload(row: CommissionItemRow) {
-  const std = standardOptions.value.find((s) => s.id === row.standard_id)
-  const method = methodsForRow(row).find((m: any) => m.id === row.test_method_id)
-  const param = parametersForRow(row).find((p: any) => p.id === row.test_parameter_id)
   return {
-    test_object: row.test_object || '—',
-    test_item: param?.name || method?.name || '—',
-    test_standard: std?.standard_no || '',
-    test_method: method?.name || '',
+    test_parameter: row.test_parameter_id,
+    test_object: row.test_object || '',
     specification: row.specification || '',
     grade: row.grade || '',
     quantity: row.quantity || 1,
@@ -583,7 +553,7 @@ onMounted(async () => {
                 <el-option
                   v-for="p in parametersForRow(row)"
                   :key="p.id"
-                  :label="`${p.name}${p.method_name ? `（${p.method_name}）` : ''}`"
+                  :label="`${p.name}${p.unit ? ` (${p.unit})` : ''}`"
                   :value="p.id"
                 />
               </el-select>

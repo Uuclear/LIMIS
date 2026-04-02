@@ -113,7 +113,7 @@ onMounted(fetchDetail)
         <el-table-column prop="test_object" label="检测对象" min-width="140" />
         <el-table-column prop="test_item" label="检测项目" min-width="140" />
         <el-table-column prop="test_standard" label="检测标准" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="test_method" label="检测方法" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="parameter_name" label="检测参数" min-width="160" show-overflow-tooltip />
         <el-table-column prop="specification" label="规格型号" width="130" />
         <el-table-column prop="grade" label="设计强度/等级" width="120" />
         <el-table-column prop="quantity" label="数量" width="80" align="center" />
