@@ -71,7 +71,7 @@ def submit_for_audit(report_id: int, user) -> Report:
         action='submit_audit',
         entity='report',
         entity_id=report.pk,
-        path=f'/api/v1/reports/reports/{report.pk}/submit_audit/',
+        path=f'/api/v1/reports/{report.pk}/submit_audit/',
         payload={'report_no': report.report_no, 'status': report.status},
     )
     from apps.system.services import notify_flow_targets
@@ -118,7 +118,7 @@ def audit_report(
         action='audit',
         entity='report',
         entity_id=report.pk,
-        path=f'/api/v1/reports/reports/{report.pk}/audit/',
+        path=f'/api/v1/reports/{report.pk}/audit/',
         payload={
             'report_no': report.report_no,
             'approved': approved,
@@ -170,7 +170,7 @@ def approve_report(
         action='approve',
         entity='report',
         entity_id=report.pk,
-        path=f'/api/v1/reports/reports/{report.pk}/approve/',
+        path=f'/api/v1/reports/{report.pk}/approve/',
         payload={
             'report_no': report.report_no,
             'approved': approved,
@@ -198,7 +198,7 @@ def issue_report(report_id: int, user) -> Report:
         action='issue',
         entity='report',
         entity_id=report.pk,
-        path=f'/api/v1/reports/reports/{report.pk}/issue/',
+        path=f'/api/v1/reports/{report.pk}/issue/',
         payload={'report_no': report.report_no, 'issue_date': str(report.issue_date)},
     )
     from apps.system.services import notify_flow_targets
@@ -233,7 +233,7 @@ def void_report(report_id: int, user, reason: str = '') -> Report:
         action='void',
         entity='report',
         entity_id=report.pk,
-        path=f'/api/v1/reports/reports/{report.pk}/void/',
+        path=f'/api/v1/reports/{report.pk}/void/',
         payload={'report_no': report.report_no, 'reason': reason},
     )
     return report
