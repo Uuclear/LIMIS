@@ -214,6 +214,27 @@ def issue_report(report_id: int, user) -> Report:
 
 
 @transaction.atomic
+def archive_report(report_id: int, user) -> Report:
+    report = Report.objects.select_for_update().get(pk=report_id)
+    if report.status == 'archived':
+        return report
+    if report.status != 'issued':
+        raise ValidationError('只有已发放的报告可以归档')
+    report.status = 'archived'
+    report.save(update_fields=['status', 'updated_at'])
+    log_business_event(
+        user=user,
+        module='report',
+        action='archive',
+        entity='report',
+        entity_id=report.pk,
+        path=f'/api/v1/reports/{report.pk}/archive/',
+        payload={'report_no': report.report_no},
+    )
+    return report
+
+
+@transaction.atomic
 def void_report(report_id: int, user, reason: str = '') -> Report:
     report = Report.objects.select_for_update().get(pk=report_id)
     if report.status == 'voided':

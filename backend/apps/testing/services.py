@@ -363,7 +363,95 @@ def review_record(
             'status': record.status,
         },
     )
+    if approved:
+        _extract_results_from_record(record)
     return record
+
+
+def _extract_results_from_record(record: OriginalRecord) -> None:
+    """Auto-extract TestResult from reviewed OriginalRecord data."""
+    from .models import TestResult
+
+    task = record.task
+    param = task.test_parameter
+    if not param:
+        return
+
+    data = record.record_data or {}
+    if isinstance(data, dict):
+        values = data.get('values', data)
+    else:
+        return
+
+    # Try multiple key patterns
+    raw = None
+    for key in ['result_value', 'raw_value', param.code, param.name]:
+        if key in values and values[key] is not None:
+            raw = values[key]
+            break
+
+    if raw is None:
+        return
+
+    # Round value
+    try:
+        from decimal import Decimal, ROUND_HALF_UP
+        decimal_val = Decimal(str(raw))
+        if param.precision >= 0:
+            rounded = decimal_val.quantize(
+                Decimal(10) ** -param.precision, rounding=ROUND_HALF_UP,
+            )
+        else:
+            rounded = decimal_val
+    except Exception:
+        rounded = None
+
+    result, _ = TestResult.objects.update_or_create(
+        task=task,
+        parameter=param,
+        defaults={
+            'raw_value': str(raw),
+            'rounded_value': rounded,
+            'display_value': str(rounded if rounded is not None else raw),
+            'unit': param.unit or '',
+            'created_by': record.recorder,
+        },
+    )
+
+    # Auto-judge if rules exist
+    try:
+        _auto_judge_result(result, task.sample)
+    except Exception:
+        pass
+
+
+def _auto_judge_result(result, sample) -> None:
+    """Auto-judge a TestResult using JudgmentRule."""
+    from .models import JudgmentRule
+
+    grade = getattr(sample, 'grade', '') or ''
+    rule = JudgmentRule.objects.filter(
+        test_parameter=result.parameter,
+    )
+    if grade:
+        rule = rule.filter(grade__iexact=grade)
+    rule = rule.first()
+
+    if not rule:
+        return
+
+    if result.rounded_value is None:
+        return
+
+    val = result.rounded_value
+    if rule.min_value is not None and val < rule.min_value:
+        result.judgment = 'unqualified'
+    elif rule.max_value is not None and val > rule.max_value:
+        result.judgment = 'unqualified'
+    else:
+        result.judgment = 'qualified'
+
+    result.save(update_fields=['judgment', 'updated_at'])
 
 
 def build_merged_record_schema_for_task(task_id: int) -> dict:

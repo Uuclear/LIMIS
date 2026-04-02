@@ -60,6 +60,7 @@ class ReportViewSet(BaseModelViewSet):
         'audit': 'approve',
         'approve': 'approve',
         'issue': 'edit',
+        'archive': 'edit',
         'void': 'delete',
         'preview': 'view',
         'download': 'export',
@@ -177,6 +178,15 @@ class ReportViewSet(BaseModelViewSet):
         return Response({
             'code': 200,
             'message': '报告已发放',
+            'data': ReportDetailSerializer(report).data,
+        })
+
+    @action(detail=True, methods=['post'], url_path='archive')
+    def archive(self, request: Request, pk: str = None) -> Response:
+        report = workflow.archive_report(int(pk), request.user)
+        return Response({
+            'code': 200,
+            'message': '报告已归档',
             'data': ReportDetailSerializer(report).data,
         })
 

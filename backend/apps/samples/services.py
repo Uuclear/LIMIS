@@ -46,24 +46,33 @@ def create_samples_from_commission(commission_id: int) -> list[Sample]:
     from apps.commissions.models import Commission
 
     commission = Commission.objects.select_related('project').get(pk=commission_id)
-    items = commission.items.all() if hasattr(commission, 'items') else []
-    samples = []
+
+    # Idempotency: skip if samples already exist for this commission
+    if Sample.objects.filter(commission=commission, is_deleted=False).exists():
+        return list(Sample.objects.filter(commission=commission, is_deleted=False))
+
+    items = commission.items.filter(is_deleted=False).select_related('test_parameter')
+    created_samples: list[Sample] = []
+
+    def _resolve_name(item) -> str:
+        """Derive sample name: test_object > test_item > test_parameter.name."""
+        obj = str(getattr(item, 'test_object', '') or '').strip()
+        if obj and obj not in ('-', '—', '－'):
+            return obj
+        item_name = str(getattr(item, 'test_item', '') or '').strip()
+        if item_name and item_name not in ('-', '—', '－'):
+            return item_name
+        if item.test_parameter_id:
+            return getattr(item.test_parameter, 'name', '') or ''
+        return ''
 
     for item in items:
-        for _ in range(getattr(item, 'quantity', 1)):
+        for _ in range(getattr(item, 'quantity', 1) or 1):
             sample = Sample.objects.create(
                 sample_no=generate_sample_no(commission),
                 blind_no=generate_blind_no(),
                 commission=commission,
-                # 样品名称来源：委托项目（CommissionItem）里的“检测对象/检测项目”字段。
-                # 旧实现错误地读取了不存在的 `item.name`，导致 name 为空，进而触发必填校验问题。
-                # 有些 demo/历史数据里 `test_object` 可能用 '—' 表示缺失，此时应回退到 `test_item`。
-                name=(
-                    (lambda v: v if str(v).strip() not in ('', '-', '—', '－') else '')(  # type: ignore[no-any-return]
-                        getattr(item, 'test_object', ''),
-                    )
-                    or getattr(item, 'test_item', '')
-                ),
+                name=_resolve_name(item),
                 specification=getattr(item, 'specification', ''),
                 grade=getattr(item, 'grade', ''),
                 quantity=1,
@@ -76,9 +85,17 @@ def create_samples_from_commission(commission_id: int) -> list[Sample]:
                 ),
                 sampling_location=getattr(commission, 'sampling_location', ''),
             )
-            samples.append(sample)
+            created_samples.append(sample)
 
-    return samples
+    # Auto-create testing tasks for each new sample
+    from apps.testing.services import create_tasks_for_sample
+    for sample in created_samples:
+        try:
+            create_tasks_for_sample(sample.id)
+        except Exception:
+            pass  # Don't fail sample creation if task creation has issues
+
+    return created_samples
 
 
 SAMPLE_IMPORT_TEMPLATE_COLUMNS: tuple[str, ...] = (
