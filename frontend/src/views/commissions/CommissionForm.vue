@@ -40,6 +40,11 @@ interface SampleRow {
   remark: string
 }
 
+function todayStr() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 const form = reactive({
   project_code: '',
   project: null as number | null,
@@ -48,7 +53,7 @@ const form = reactive({
   division_sub_project: null as number | null,
   item_sub_project: null as number | null,
   construction_part: '',
-  commission_date: '',
+  commission_date: todayStr(),
   client_unit: '',
   client_contact: '',
   client_phone: '',
@@ -69,8 +74,8 @@ const subProjectOptions = ref<any[]>([])
 const unitProjectOptions = ref<{ id: number; name: string }[]>([])
 const divisionProjectOptions = ref<{ id: number; name: string }[]>([])
 const itemProjectOptions = ref<{ id: number; name: string }[]>([])
-const witnessOptions = ref<{ id: number; name: string }[]>([])
-const samplerOptions = ref<{ id: number; name: string }[]>([])
+const witnessOptions = ref<{ id: number; name: string; cert_no?: string }[]>([])
+const samplerOptions = ref<{ id: number; name: string; cert_no?: string }[]>([])
 const orgOptions = ref<{ id: number; name: string; contact_person?: string; contact_phone?: string }[]>([])
 const clientContactOptions = ref<string[]>([])
 const clientPhoneOptions = ref<string[]>([])
@@ -154,6 +159,15 @@ function handleClientUnitChange(name: string) {
   form.client_contact = clientContactOptions.value[0] || ''
   form.client_phone = clientPhoneOptions.value[0] || ''
 }
+
+const selectedWitnessCert = computed(() => {
+  const w = witnessOptions.value.find(o => o.id === form.witness) as any
+  return w?.certificate_no || ''
+})
+const selectedSamplerCert = computed(() => {
+  const s = samplerOptions.value.find(o => o.id === form.sampler) as any
+  return s?.certificate_no || ''
+})
 
 watch(() => form.is_witnessed, (v) => {
   if (!v) {
@@ -461,7 +475,7 @@ onMounted(async () => {
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="委托单位">
-              <el-select v-model="form.client_unit" placeholder="可选（来自参建单位）" clearable filterable style="width: 100%" @change="handleClientUnitChange">
+              <el-select v-model="form.client_unit" placeholder="可选（来自参建单位）" clearable filterable allow-create default-first-option style="width: 100%" @change="handleClientUnitChange">
                 <el-option v-for="o in orgOptions" :key="o.id" :label="o.name" :value="o.name" />
               </el-select>
             </el-form-item>
@@ -484,9 +498,12 @@ onMounted(async () => {
           </el-col>
           <el-col :span="12">
             <el-form-item label="见证人">
-              <el-select v-model="form.witness" placeholder="请选择" clearable :disabled="!form.is_witnessed" style="width: 100%">
-                <el-option v-for="w in witnessOptions" :key="w.id" :label="w.name" :value="w.id" />
-              </el-select>
+              <div style="display: flex; align-items: center; gap: 8px; width: 100%">
+                <el-select v-model="form.witness" placeholder="请选择" clearable filterable :disabled="!form.is_witnessed" style="flex: 1">
+                  <el-option v-for="w in witnessOptions" :key="w.id" :label="w.name" :value="w.id" />
+                </el-select>
+                <span v-if="selectedWitnessCert" style="white-space: nowrap; color: var(--el-text-color-secondary); font-size: 12px">证书号：{{ selectedWitnessCert }}</span>
+              </div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -498,9 +515,12 @@ onMounted(async () => {
           </el-col>
           <el-col :span="12">
             <el-form-item label="取样人">
-              <el-select v-model="form.sampler" placeholder="请选择" clearable :disabled="!form.is_witnessed" style="width: 100%">
-                <el-option v-for="w in samplerOptions" :key="`sampler-${w.id}`" :label="w.name" :value="w.id" />
-              </el-select>
+              <div style="display: flex; align-items: center; gap: 8px; width: 100%">
+                <el-select v-model="form.sampler" placeholder="请选择" clearable filterable :disabled="!form.is_witnessed" style="flex: 1">
+                  <el-option v-for="w in samplerOptions" :key="`sampler-${w.id}`" :label="w.name" :value="w.id" />
+                </el-select>
+                <span v-if="selectedSamplerCert" style="white-space: nowrap; color: var(--el-text-color-secondary); font-size: 12px">证书号：{{ selectedSamplerCert }}</span>
+              </div>
             </el-form-item>
           </el-col>
         </el-row>

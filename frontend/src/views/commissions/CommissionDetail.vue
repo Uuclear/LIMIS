@@ -2,6 +2,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Printer } from '@element-plus/icons-vue'
 import { getCommission, reviewCommission } from '@/api/commissions'
 import type { Commission } from '@/types/commission'
 import { useActionLock } from '@/composables/useActionLock'
@@ -49,7 +50,8 @@ async function handleReview() {
 
 function statusLabel(status: string) {
   const map: Record<string, string> = {
-    draft: '草稿', pending_review: '草稿', reviewed: '已提交', rejected: '已退回',
+    draft: '草稿', pending_review: '待评审', reviewed: '已评审', rejected: '已退回',
+    cancelled: '已终止',
   }
   return map[status] ?? status
 }
@@ -57,8 +59,13 @@ function statusLabel(status: string) {
 function statusTagType(status: string) {
   const map: Record<string, string> = {
     draft: 'info', pending_review: 'warning', reviewed: 'success', rejected: 'danger',
+    cancelled: 'info',
   }
   return map[status] ?? 'info'
+}
+
+function handlePrint() {
+  window.print()
 }
 
 onMounted(fetchDetail)
@@ -74,6 +81,7 @@ onMounted(fetchDetail)
         </div>
       </template>
       <template #extra>
+        <el-button :icon="Printer" @click="handlePrint">打印委托单</el-button>
         <el-button
           v-if="canReview"
           v-permission="'commission:approve'"
@@ -165,3 +173,15 @@ onMounted(fetchDetail)
     </el-dialog>
   </div>
 </template>
+
+<style>
+@media print {
+  .sidebar, .navbar, .page-header .el-button, .el-dialog, .el-page-header__back {
+    display: none !important;
+  }
+  .page-container {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}
+</style>

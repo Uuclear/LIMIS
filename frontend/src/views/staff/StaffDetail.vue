@@ -9,6 +9,7 @@ import {
   getTrainings, createTraining,
   getEvaluations, createEvaluation,
 } from '@/api/staff'
+import { getTestCategories, getTestParameters } from '@/api/testing'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,7 +26,7 @@ const certLoading = ref(false)
 const certList = ref<any[]>([])
 const certDialogVisible = ref(false)
 const certForm = reactive({
-  name: '', cert_no: '', issuer: '', issue_date: '', expiry_date: '', remark: '',
+  cert_type: '', cert_no: '', issuing_authority: '', issue_date: '', expiry_date: '',
 })
 
 async function fetchCerts() {
@@ -39,7 +40,7 @@ async function fetchCerts() {
 }
 
 function openCertCreate() {
-  Object.assign(certForm, { name: '', cert_no: '', issuer: '', issue_date: '', expiry_date: '', remark: '' })
+  Object.assign(certForm, { cert_type: '', cert_no: '', issuing_authority: '', issue_date: '', expiry_date: '' })
   certDialogVisible.value = true
 }
 
@@ -58,12 +59,25 @@ function expiryTagType(date: string) {
   return 'success'
 }
 
+// --- Shared options ---
+const categoryOptions = ref<{ id: number; name: string }[]>([])
+const parameterOptions = ref<{ id: number; name: string; code: string }[]>([])
+
+async function fetchOptions() {
+  const [catRes, paramRes]: any[] = await Promise.all([
+    getTestCategories(),
+    getTestParameters({ page_size: 500 }),
+  ])
+  categoryOptions.value = (catRes.results ?? catRes.list ?? catRes ?? [])
+  parameterOptions.value = (paramRes.results ?? paramRes.list ?? paramRes ?? [])
+}
+
 // --- Authorizations ---
 const authLoading = ref(false)
 const authList = ref<any[]>([])
 const authDialogVisible = ref(false)
 const authForm = reactive({
-  parameter_name: '', parameter_no: '', scope: '', auth_date: '', expiry_date: '', remark: '',
+  test_category: null as number | null, parameters: [] as number[], authorized_date: '', is_active: true,
 })
 
 async function fetchAuths() {
@@ -77,7 +91,7 @@ async function fetchAuths() {
 }
 
 function openAuthCreate() {
-  Object.assign(authForm, { parameter_name: '', parameter_no: '', scope: '', auth_date: '', expiry_date: '', remark: '' })
+  Object.assign(authForm, { test_category: null, parameters: [], authorized_date: '', is_active: true })
   authDialogVisible.value = true
 }
 
@@ -93,13 +107,13 @@ const trainLoading = ref(false)
 const trainList = ref<any[]>([])
 const trainDialogVisible = ref(false)
 const trainForm = reactive({
-  topic: '', type: '', start_date: '', end_date: '', hours: 0, institution: '', result: '', remark: '',
+  title: '', training_date: '', hours: 0, trainer: '', assessment_result: 'pass',
 })
 
-const trainTypeOptions = [
-  { label: '内部培训', value: 'internal' },
-  { label: '外部培训', value: 'external' },
-  { label: '自学', value: 'self' },
+const trainResultOptions = [
+  { label: '合格', value: 'pass' },
+  { label: '不合格', value: 'fail' },
+  { label: '未考核', value: 'na' },
 ]
 
 async function fetchTrainings() {
@@ -114,8 +128,7 @@ async function fetchTrainings() {
 
 function openTrainCreate() {
   Object.assign(trainForm, {
-    topic: '', type: 'internal', start_date: '', end_date: '',
-    hours: 0, institution: '', result: '', remark: '',
+    title: '', training_date: '', hours: 0, trainer: '', assessment_result: 'pass',
   })
   trainDialogVisible.value = true
 }
@@ -127,8 +140,8 @@ async function handleTrainSubmit() {
   fetchTrainings()
 }
 
-function trainTypeLabel(val: string) {
-  return trainTypeOptions.find(o => o.value === val)?.label ?? val
+function trainResultLabel(val: string) {
+  return trainResultOptions.find(o => o.value === val)?.label ?? val
 }
 
 // --- Evaluations ---
@@ -136,7 +149,7 @@ const evalLoading = ref(false)
 const evalList = ref<any[]>([])
 const evalDialogVisible = ref(false)
 const evalForm = reactive({
-  eval_date: '', evaluator: '', type: '', score: 0, conclusion: '', remark: '',
+  eval_date: '', eval_type: '', score: 0, conclusion: 'competent', comment: '',
 })
 
 async function fetchEvals() {
@@ -150,7 +163,7 @@ async function fetchEvals() {
 }
 
 function openEvalCreate() {
-  Object.assign(evalForm, { eval_date: '', evaluator: '', type: '', score: 0, conclusion: '', remark: '' })
+  Object.assign(evalForm, { eval_date: '', eval_type: '', score: 0, conclusion: 'competent', comment: '' })
   evalDialogVisible.value = true
 }
 
@@ -163,7 +176,7 @@ async function handleEvalSubmit() {
 
 function handleTabChange(tab: string) {
   const loaders: Record<string, () => void> = {
-    certs: fetchCerts, auths: fetchAuths,
+    certs: fetchCerts, auths: () => { fetchAuths(); fetchOptions() },
     trainings: fetchTrainings, evals: fetchEvals,
   }
   loaders[tab]?.()
@@ -208,9 +221,9 @@ onMounted(fetchStaff)
             </div>
           </template>
           <el-table v-loading="certLoading" :data="certList" stripe border>
-            <el-table-column prop="name" label="证书名称" min-width="160" />
+            <el-table-column prop="cert_type" label="证书类型" min-width="160" />
             <el-table-column prop="cert_no" label="证书编号" width="160" />
-            <el-table-column prop="issuer" label="发证机构" width="160" />
+            <el-table-column prop="issuing_authority" label="发证机构" width="160" />
             <el-table-column prop="issue_date" label="发证日期" width="120" />
             <el-table-column label="有效期至" width="130">
               <template #default="{ row }">
@@ -222,7 +235,6 @@ onMounted(fetchStaff)
                 </el-icon>
               </template>
             </el-table-column>
-            <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
           </el-table>
         </el-card>
       </el-tab-pane>
@@ -237,15 +249,11 @@ onMounted(fetchStaff)
             </div>
           </template>
           <el-table v-loading="authLoading" :data="authList" stripe border>
-            <el-table-column prop="parameter_name" label="检测参数" min-width="180" />
-            <el-table-column prop="parameter_no" label="参数编号" width="160" />
-            <el-table-column prop="scope" label="授权范围" min-width="160" show-overflow-tooltip />
-            <el-table-column prop="auth_date" label="授权日期" width="120" />
-            <el-table-column label="有效期至" width="130">
+            <el-table-column prop="test_category_name" label="检测类别" min-width="140" />
+            <el-table-column prop="authorized_date" label="授权日期" width="120" />
+            <el-table-column label="状态" width="100" align="center">
               <template #default="{ row }">
-                <el-tag :type="expiryTagType(row.expiry_date)" size="small">
-                  {{ row.expiry_date || '长期' }}
-                </el-tag>
+                <el-tag :type="row.is_active ? 'success' : 'info'" size="small">{{ row.is_active ? '有效' : '已停' }}</el-tag>
               </template>
             </el-table-column>
           </el-table>
@@ -262,15 +270,13 @@ onMounted(fetchStaff)
             </div>
           </template>
           <el-table v-loading="trainLoading" :data="trainList" stripe border>
-            <el-table-column prop="topic" label="培训主题" min-width="180" />
-            <el-table-column label="类型" width="100">
-              <template #default="{ row }">{{ trainTypeLabel(row.type) }}</template>
-            </el-table-column>
-            <el-table-column prop="start_date" label="开始日期" width="120" />
-            <el-table-column prop="end_date" label="结束日期" width="120" />
+            <el-table-column prop="title" label="培训主题" min-width="180" />
+            <el-table-column prop="training_date" label="培训日期" width="120" />
             <el-table-column prop="hours" label="学时" width="70" align="center" />
-            <el-table-column prop="institution" label="培训机构" width="160" />
-            <el-table-column prop="result" label="考核结果" width="100" />
+            <el-table-column prop="trainer" label="培训讲师" width="140" />
+            <el-table-column label="考核结果" width="100">
+              <template #default="{ row }">{{ row.assessment_result_display || trainResultLabel(row.assessment_result) }}</template>
+            </el-table-column>
           </el-table>
         </el-card>
       </el-tab-pane>
@@ -286,11 +292,11 @@ onMounted(fetchStaff)
           </template>
           <el-table v-loading="evalLoading" :data="evalList" stripe border>
             <el-table-column prop="eval_date" label="评价日期" width="120" />
-            <el-table-column prop="evaluator" label="评价人" width="100" />
-            <el-table-column prop="type" label="评价类型" width="120" />
+            <el-table-column prop="eval_type" label="评价类型" width="120" />
             <el-table-column prop="score" label="得分" width="80" align="center" />
-            <el-table-column prop="conclusion" label="结论" width="120" />
-            <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
+            <el-table-column prop="conclusion_display" label="结论" width="120" />
+            <el-table-column prop="evaluator_name" label="评价人" width="100" />
+            <el-table-column prop="comment" label="备注" min-width="140" show-overflow-tooltip />
           </el-table>
         </el-card>
       </el-tab-pane>
@@ -299,9 +305,9 @@ onMounted(fetchStaff)
     <!-- Certificate Dialog -->
     <el-dialog v-model="certDialogVisible" title="新增资质证书" width="520px" destroy-on-close>
       <el-form :model="certForm" label-width="90px">
-        <el-form-item label="证书名称"><el-input v-model="certForm.name" /></el-form-item>
+        <el-form-item label="证书类型"><el-input v-model="certForm.cert_type" placeholder="如：检测员证、见证员证" /></el-form-item>
         <el-form-item label="证书编号"><el-input v-model="certForm.cert_no" /></el-form-item>
-        <el-form-item label="发证机构"><el-input v-model="certForm.issuer" /></el-form-item>
+        <el-form-item label="发证机构"><el-input v-model="certForm.issuing_authority" /></el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="发证日期">
@@ -314,7 +320,6 @@ onMounted(fetchStaff)
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="备注"><el-input v-model="certForm.remark" type="textarea" /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="certDialogVisible = false">取消</el-button>
@@ -323,24 +328,24 @@ onMounted(fetchStaff)
     </el-dialog>
 
     <!-- Authorization Dialog -->
-    <el-dialog v-model="authDialogVisible" title="新增上岗授权" width="520px" destroy-on-close>
+    <el-dialog v-model="authDialogVisible" title="新增上岗授权" width="560px" destroy-on-close>
       <el-form :model="authForm" label-width="90px">
-        <el-form-item label="检测参数"><el-input v-model="authForm.parameter_name" /></el-form-item>
-        <el-form-item label="参数编号"><el-input v-model="authForm.parameter_no" /></el-form-item>
-        <el-form-item label="授权范围"><el-input v-model="authForm.scope" /></el-form-item>
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="授权日期">
-              <el-date-picker v-model="authForm.auth_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="有效期至">
-              <el-date-picker v-model="authForm.expiry_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-form-item label="备注"><el-input v-model="authForm.remark" type="textarea" /></el-form-item>
+        <el-form-item label="检测类别">
+          <el-select v-model="authForm.test_category" placeholder="选择检测类别" filterable clearable style="width: 100%">
+            <el-option v-for="c in categoryOptions" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="授权参数">
+          <el-select v-model="authForm.parameters" multiple filterable placeholder="选择检测参数" style="width: 100%">
+            <el-option v-for="p in parameterOptions" :key="p.id" :label="`${p.code} ${p.name}`" :value="p.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="授权日期">
+          <el-date-picker v-model="authForm.authorized_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="是否生效">
+          <el-switch v-model="authForm.is_active" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="authDialogVisible = false">取消</el-button>
@@ -351,36 +356,25 @@ onMounted(fetchStaff)
     <!-- Training Dialog -->
     <el-dialog v-model="trainDialogVisible" title="新增培训记录" width="520px" destroy-on-close>
       <el-form :model="trainForm" label-width="90px">
-        <el-form-item label="培训主题"><el-input v-model="trainForm.topic" /></el-form-item>
-        <el-form-item label="类型">
-          <el-select v-model="trainForm.type" style="width: 100%">
-            <el-option v-for="t in trainTypeOptions" :key="t.value" :label="t.label" :value="t.value" />
-          </el-select>
-        </el-form-item>
+        <el-form-item label="培训主题"><el-input v-model="trainForm.title" /></el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="开始日期">
-              <el-date-picker v-model="trainForm.start_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+            <el-form-item label="培训日期">
+              <el-date-picker v-model="trainForm.training_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="结束日期">
-              <el-date-picker v-model="trainForm.end_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="学时">
               <el-input-number v-model="trainForm.hours" :min="0" style="width: 100%" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="考核结果"><el-input v-model="trainForm.result" /></el-form-item>
-          </el-col>
         </el-row>
-        <el-form-item label="培训机构"><el-input v-model="trainForm.institution" /></el-form-item>
-        <el-form-item label="备注"><el-input v-model="trainForm.remark" type="textarea" /></el-form-item>
+        <el-form-item label="培训讲师"><el-input v-model="trainForm.trainer" /></el-form-item>
+        <el-form-item label="考核结果">
+          <el-select v-model="trainForm.assessment_result" style="width: 100%">
+            <el-option v-for="t in trainResultOptions" :key="t.value" :label="t.label" :value="t.value" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="trainDialogVisible = false">取消</el-button>
@@ -396,23 +390,22 @@ onMounted(fetchStaff)
         </el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="评价人"><el-input v-model="evalForm.evaluator" /></el-form-item>
+            <el-form-item label="评价类型"><el-input v-model="evalForm.eval_type" placeholder="如：年度评价" /></el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="评价类型"><el-input v-model="evalForm.type" /></el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="得分">
               <el-input-number v-model="evalForm.score" :min="0" :max="100" style="width: 100%" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="结论"><el-input v-model="evalForm.conclusion" /></el-form-item>
-          </el-col>
         </el-row>
-        <el-form-item label="备注"><el-input v-model="evalForm.remark" type="textarea" /></el-form-item>
+        <el-form-item label="结论">
+          <el-select v-model="evalForm.conclusion" style="width: 100%">
+            <el-option label="胜任" value="competent" />
+            <el-option label="待提高" value="needs_improvement" />
+            <el-option label="不胜任" value="incompetent" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="备注"><el-input v-model="evalForm.comment" type="textarea" /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="evalDialogVisible = false">取消</el-button>

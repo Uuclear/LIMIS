@@ -103,7 +103,7 @@ class TestParameterViewSet(BaseModelViewSet):
 class TestTaskViewSet(BaseModelViewSet):
     queryset = TestTask.objects.select_related(
         'sample', 'commission',
-        'test_parameter', 'assigned_tester',
+        'test_parameter', 'assigned_tester', 'created_by',
     )
     lims_module = 'task'
     lims_action_map = {
@@ -231,7 +231,7 @@ class TestTaskViewSet(BaseModelViewSet):
         rows = [{
             'time': task.created_at,
             'label': '任务创建',
-            'actor': task.created_by_name or '',
+            'actor': (task.created_by.get_full_name() if task.created_by else '') or '',
             'detail': f'任务号：{task.task_no}',
         }]
         if task.assigned_tester_id:

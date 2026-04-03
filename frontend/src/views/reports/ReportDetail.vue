@@ -10,6 +10,7 @@ import {
   auditReport,
   approveReport,
   issueReport,
+  archiveReport,
   getReportTimeline,
   downloadReport,
   previewReport,
@@ -31,6 +32,7 @@ const statusMap: Record<string, string> = {
   pending_approve: '待批准',
   approved: '已批准',
   issued: '已发放',
+  archived: '已归档',
   voided: '已作废',
 }
 
@@ -40,6 +42,7 @@ const statusTagType: Record<string, string> = {
   pending_approve: '',
   approved: 'success',
   issued: 'success',
+  archived: 'success',
   voided: 'danger',
 }
 
@@ -135,6 +138,18 @@ async function handleAuditSubmit() {
   })
 }
 
+async function handleArchive() {
+  await runLocked('archive', async () => {
+    try {
+      await ElMessageBox.confirm('确认归档报告？归档后不可修改。', '提示')
+      await archiveReport(reportId.value)
+      ElMessage.success('报告已归档')
+      fetchReport()
+      fetchTimeline()
+    } catch { /* cancelled */ }
+  })
+}
+
 async function handleIssue() {
   await runLocked('issue', async () => {
     try {
@@ -215,10 +230,6 @@ onMounted(fetchTimeline)
           <el-descriptions-item label="报告类型">{{ report.report_type }}</el-descriptions-item>
           <el-descriptions-item label="编制日期">{{ report.compile_date }}</el-descriptions-item>
           <el-descriptions-item label="编制人">{{ report.compiler_name }}</el-descriptions-item>
-          <el-descriptions-item label="CMA标志">
-            <el-tag v-if="report.has_cma" type="success" size="small">CMA</el-tag>
-            <span v-else>-</span>
-          </el-descriptions-item>
           <el-descriptions-item label="发放日期">{{ report.issue_date || '-' }}</el-descriptions-item>
           <el-descriptions-item label="结论" :span="3">
             {{ report.conclusion || '-' }}
@@ -329,6 +340,12 @@ onMounted(fetchTimeline)
         </template>
 
         <template v-if="report.status === 'issued'">
+          <el-button v-permission="'report:export'" :icon="Download" @click="handleDownload">下载</el-button>
+          <el-button v-permission="'report:view'" :icon="Printer" @click="handlePrint">打印</el-button>
+          <el-button v-permission="'report:edit'" type="info" :loading="isLocked('archive')" @click="handleArchive">归档</el-button>
+        </template>
+
+        <template v-if="report.status === 'archived'">
           <el-button v-permission="'report:export'" :icon="Download" @click="handleDownload">下载</el-button>
           <el-button v-permission="'report:view'" :icon="Printer" @click="handlePrint">打印</el-button>
         </template>

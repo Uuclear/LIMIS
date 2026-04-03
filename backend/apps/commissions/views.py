@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import os
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.request import Request
@@ -46,22 +44,6 @@ class CommissionViewSet(BaseModelViewSet):
         return CommissionDetailSerializer
 
     def list(self, request: Request, *args, **kwargs) -> Response:
-        # region agent log
-        try:
-            os.makedirs('/opt/limis/.cursor', exist_ok=True)
-            with open('/opt/limis/.cursor/debug-66f994.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({
-                    'sessionId': '66f994',
-                    'runId': 'initial',
-                    'hypothesisId': 'H2',
-                    'location': 'commissions/views.py:CommissionViewSet.list',
-                    'message': 'commission_list_api_entry',
-                    'data': {'query_params': dict(request.query_params)},
-                    'timestamp': int(__import__('time').time() * 1000),
-                }, ensure_ascii=False) + os.linesep)
-        except Exception:
-            pass
-        # endregion
         return super().list(request, *args, **kwargs)
 
     def perform_create(self, serializer) -> None:

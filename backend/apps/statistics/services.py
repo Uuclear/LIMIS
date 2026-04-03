@@ -119,7 +119,7 @@ def get_qualification_rate(start_date: date, end_date: date) -> list[dict[str, A
         judgment__in=['qualified', 'unqualified'],
     )
     results = qs.values(
-        category=F('task__test_method__category__name'),
+        category=F('task__test_parameter__category__name'),
     ).annotate(
         total=Count('id'),
         qualified=Count('id', filter=Q(judgment='qualified')),
@@ -246,7 +246,7 @@ def get_task_counts_by_method(
             created_at__date__gte=start_date,
             created_at__date__lte=end_date,
         )
-        .values(method_name=F('test_method__name'))
+        .values(method_name=F('test_parameter__name'))
         .annotate(count=Count('id'))
         .order_by('-count')[:limit]
     )

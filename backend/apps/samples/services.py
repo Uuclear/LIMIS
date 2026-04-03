@@ -47,9 +47,16 @@ def create_samples_from_commission(commission_id: int) -> list[Sample]:
 
     commission = Commission.objects.select_related('project').get(pk=commission_id)
 
-    # Idempotency: skip if samples already exist for this commission
-    if Sample.objects.filter(commission=commission, is_deleted=False).exists():
-        return list(Sample.objects.filter(commission=commission, is_deleted=False))
+    # Idempotency: if samples already exist, just ensure tasks are created for them
+    existing = list(Sample.objects.filter(commission=commission, is_deleted=False))
+    if existing:
+        from apps.testing.services import create_tasks_for_sample
+        for sample in existing:
+            try:
+                create_tasks_for_sample(sample.id)
+            except Exception:
+                pass
+        return existing
 
     items = commission.items.filter(is_deleted=False).select_related('test_parameter')
     created_samples: list[Sample] = []

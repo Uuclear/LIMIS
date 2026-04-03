@@ -30,7 +30,6 @@ const tasksLoading = ref(false)
 const tasksLoaded = ref(false)
 
 async function fetchTasks() {
-  if (detail.value.status !== 'testing') return
   tasksLoading.value = true
   try {
     const res: any = await getTestTaskList({
@@ -61,12 +60,7 @@ async function fetchDetail() {
   loading.value = true
   try {
     detail.value = await getSample(sampleId.value) as any
-    if (detail.value.status === 'testing') {
-      await fetchTasks()
-    } else {
-      tasks.value = []
-      tasksLoaded.value = false
-    }
+    await fetchTasks()
   } finally {
     loading.value = false
   }
@@ -233,6 +227,35 @@ onMounted(() => { fetchDetail(); fetchTimeline() })
           {{ detail.disposal_date }}
         </el-descriptions-item>
       </el-descriptions>
+    </el-card>
+
+    <!-- Testing Tasks -->
+    <el-card v-if="tasksLoaded && tasks.length" shadow="never" style="margin-top: 16px">
+      <template #header>
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <span>检测任务</span>
+          <el-button type="primary" link @click="goTasks">查看全部</el-button>
+        </div>
+      </template>
+      <el-table :data="tasks" stripe border size="small">
+        <el-table-column prop="task_no" label="任务编号" min-width="140">
+          <template #default="{ row }">
+            <router-link :to="`/testing/tasks/${row.id}`" class="link-primary">{{ row.task_no }}</router-link>
+          </template>
+        </el-table-column>
+        <el-table-column prop="parameter_name" label="检测参数" min-width="120" />
+        <el-table-column prop="standard_no" label="标准编号" min-width="120" />
+        <el-table-column prop="tester_name" label="检测人员" width="100">
+          <template #default="{ row }">{{ row.tester_name || '未分配' }}</template>
+        </el-table-column>
+        <el-table-column label="状态" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag :type="{ unassigned: 'info', in_progress: 'warning', completed: 'success' }[row.status as string] ?? 'info'" size="small">
+              {{ { unassigned: '待分配', in_progress: '检测中', completed: '已完成' }[row.status as string] ?? row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
     </el-card>
 
     <!-- Timeline -->

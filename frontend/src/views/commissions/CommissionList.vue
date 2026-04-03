@@ -11,7 +11,7 @@ const router = useRouter()
 const loading = ref(false)
 const tableData = ref<Commission[]>([])
 const total = ref(0)
-const activeStatus = ref('')
+const activeStatus = ref('draft')
 const { isLocked, runLocked } = useActionLock()
 
 const query = reactive({
@@ -19,21 +19,20 @@ const query = reactive({
 })
 
 const statusTabs = [
-  { label: '全部', value: '' },
   { label: '草稿', value: 'draft' },
-  { label: '已提交', value: 'reviewed' },
+  { label: '待评审', value: 'pending_review' },
+  { label: '已评审', value: 'reviewed' },
   { label: '已退回', value: 'rejected' },
+  { label: '已终止', value: 'cancelled' },
+  { label: '全部', value: '' },
 ]
 
 async function fetchList() {
   loading.value = true
   try {
-    const statusParam = activeStatus.value === 'draft' ? undefined : (activeStatus.value || undefined)
+    const statusParam = activeStatus.value || undefined
     const res: any = await getCommissionList({ ...query, status: statusParam })
-    const rows = (res.results ?? res.list ?? []) as Commission[]
-    tableData.value = activeStatus.value === 'draft'
-      ? rows.filter((r: any) => r.status === 'draft' || r.status === 'rejected')
-      : rows
+    tableData.value = (res.results ?? res.list ?? []) as Commission[]
     total.value = res.total ?? res.count ?? 0
   } finally {
     loading.value = false
@@ -109,7 +108,7 @@ function statusTagType(status: string) {
 
 function statusLabel(status: string) {
   const map: Record<string, string> = {
-    draft: '草稿', pending_review: '待评审', reviewed: '已提交', rejected: '已退回',
+    draft: '草稿', pending_review: '待评审', reviewed: '已评审', rejected: '已退回',
     cancelled: '已终止',
   }
   return map[status] ?? status
@@ -145,7 +144,11 @@ onMounted(fetchList)
       </el-tabs>
 
       <el-table v-loading="loading" :data="tableData" stripe border style="margin-top: 8px">
-        <el-table-column prop="commission_no" label="委托编号" width="180" />
+        <el-table-column prop="commission_no" label="委托编号" width="180">
+          <template #default="{ row }">
+            <router-link :to="`/entrustment/${row.id}`" class="link-primary">{{ row.commission_no }}</router-link>
+          </template>
+        </el-table-column>
         <el-table-column prop="project_name" label="工程名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="sample_names" label="样品名称" min-width="160" show-overflow-tooltip />
         <el-table-column prop="construction_part" label="工程部位" min-width="140" show-overflow-tooltip />
@@ -155,13 +158,14 @@ onMounted(fetchList)
             <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
+            <el-button link type="primary" @click="router.push(`/entrustment/${row.id}`)">查看</el-button>
             <el-button
-              v-if="row.status === 'draft' || row.status === 'rejected' || row.status === 'pending_review'"
+              v-if="row.status === 'draft' || row.status === 'rejected'"
               v-permission="'commission:edit'"
               link
-              type="primary"
+              type="default"
               @click="goEdit(row)"
             >
               编辑
@@ -186,7 +190,7 @@ onMounted(fetchList)
               删除
             </el-button>
             <el-button
-              v-if="row.status === 'pending_review' || row.status === 'reviewed' || row.status === 'rejected'"
+              v-if="row.status === 'pending_review' || row.status === 'reviewed'"
               v-permission="'commission:edit'"
               link
               type="warning"

@@ -258,7 +258,7 @@ class ReportViewSet(BaseModelViewSet):
         nodes = [{
             'time': report.created_at,
             'label': '报告创建',
-            'actor': report.created_by_name or '',
+            'actor': (report.created_by.get_full_name() if report.created_by else '') or '',
             'detail': f'报告编号：{report.report_no}',
         }]
         for approval in report.approvals.select_related('user').order_by('created_at'):

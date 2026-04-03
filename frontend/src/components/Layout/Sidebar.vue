@@ -49,7 +49,6 @@ const rawMenuItems: MenuItem[] = [
     children: [
       { index: '/testing/tasks', title: '检测任务' },
       { index: '/testing/records', title: '原始记录' },
-      { index: '/testing/results', title: '检测结果' },
     ],
   },
   {

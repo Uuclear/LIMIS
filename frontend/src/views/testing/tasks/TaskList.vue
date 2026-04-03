@@ -319,10 +319,11 @@ onMounted(() => {
               @click="goDetail(task)"
             >
               <div class="kanban-card-title">{{ task.task_no }}</div>
+              <div class="kanban-card-info">{{ task.commission_no }} / {{ task.sample_no }}</div>
               <div class="kanban-card-info">{{ task.sample_name }}</div>
-              <div class="kanban-card-info">{{ task.parameter_name }}</div>
+              <div class="kanban-card-info" style="color: var(--el-color-primary)">{{ task.parameter_name }}</div>
               <div class="kanban-card-footer">
-                <span>{{ task.planned_date }}</span>
+                <span>{{ task.planned_date || '未排期' }}</span>
                 <span v-if="task.tester_name">{{ task.tester_name }}</span>
               </div>
               <div class="kanban-card-actions" @click.stop>
@@ -352,6 +353,15 @@ onMounted(() => {
                   @click="handleChangeCommission(task)"
                 >
                   变更委托
+                </el-button>
+                <el-button
+                  v-if="task.status === 'in_progress'"
+                  v-permission="'testing:create'"
+                  size="small"
+                  type="primary"
+                  @click.stop="router.push(`/testing/records/new?task_id=${task.id}`)"
+                >
+                  填写记录
                 </el-button>
                 <el-button
                   v-if="task.status === 'in_progress'"

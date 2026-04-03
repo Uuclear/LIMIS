@@ -8,6 +8,7 @@ export const submitForAudit = (id: number) => request.post(`/v1/reports/${id}/su
 export const auditReport = (id: number, data: any) => request.post(`/v1/reports/${id}/audit/`, data)
 export const approveReport = (id: number, data: any) => request.post(`/v1/reports/${id}/approve/`, data)
 export const issueReport = (id: number) => request.post(`/v1/reports/${id}/issue/`)
+export const archiveReport = (id: number) => request.post(`/v1/reports/${id}/archive/`)
 export const getReportTimeline = (id: number) => request.get(`/v1/reports/${id}/timeline/`)
 export const voidReport = (id: number, data: any) => request.post(`/v1/reports/${id}/void/`, data)
 export const previewReport = (id: number) => request.get(`/v1/reports/${id}/preview/`, { responseType: 'blob' } as any)

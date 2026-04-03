@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getQualificationProfiles, createQualificationProfile, updateQualificationProfile } from '@/api/quality'
@@ -12,6 +12,46 @@ const profileList = ref<any[]>([])
 const standards = ref<any[]>([])
 const parameters = ref<any[]>([])
 const templates = ref<any[]>([])
+
+// --- Detail view ---
+const detailVisible = ref(false)
+const detailProfile = ref<any>(null)
+
+const detailStandards = computed(() => {
+  if (!detailProfile.value) return []
+  const ids = new Set(detailProfile.value.allowed_standards ?? [])
+  return standards.value.filter(s => ids.has(s.id))
+})
+
+const detailParameters = computed(() => {
+  if (!detailProfile.value) return []
+  const ids = new Set(detailProfile.value.allowed_parameters ?? [])
+  return parameters.value.filter(p => ids.has(p.id))
+})
+
+const detailTemplates = computed(() => {
+  if (!detailProfile.value) return []
+  const ids = new Set(detailProfile.value.allowed_record_templates ?? [])
+  return templates.value.filter(t => ids.has(t.id))
+})
+
+/** Group parameters by standard_no for hierarchical display */
+const capabilityTree = computed(() => {
+  const groups: Record<string, { standard_no: string; standard_name: string; params: any[] }> = {}
+  for (const p of detailParameters.value) {
+    const key = p.standard_no || '(未关联标准)'
+    if (!groups[key]) {
+      groups[key] = { standard_no: key, standard_name: p.standard_name || '', params: [] }
+    }
+    groups[key].params.push(p)
+  }
+  return Object.values(groups)
+})
+
+function openDetail(row: any) {
+  detailProfile.value = row
+  detailVisible.value = true
+}
 
 const optionsLoading = ref(false)
 
@@ -147,6 +187,7 @@ onMounted(async () => {
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
+            <el-button type="primary" link @click="openDetail(row)">查看</el-button>
             <el-button v-permission="'quality:edit'" type="primary" link @click="openEdit(row)">编辑</el-button>
           </template>
         </el-table-column>
@@ -238,6 +279,56 @@ onMounted(async () => {
         <el-button v-permission="form.id ? 'quality:edit' : 'quality:create'" type="primary" @click="handleSubmit">
           {{ dialogMode === 'create' ? '创建' : '保存' }}
         </el-button>
+      </template>
+    </el-dialog>
+    <!-- Detail Dialog -->
+    <el-dialog v-model="detailVisible" title="资质能力范围" width="900px" destroy-on-close>
+      <template v-if="detailProfile">
+        <el-descriptions :column="2" border style="margin-bottom: 16px">
+          <el-descriptions-item label="配置名称">{{ detailProfile.name }}</el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="detailProfile.is_active ? 'success' : 'info'" size="small">
+              {{ detailProfile.is_active ? '生效中' : '未生效' }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="有效期起">{{ detailProfile.valid_from || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="有效期止">{{ detailProfile.valid_to || '—' }}</el-descriptions-item>
+        </el-descriptions>
+
+        <el-divider content-position="left">能力范围表（按标准分组）</el-divider>
+        <template v-if="capabilityTree.length">
+          <el-card v-for="group in capabilityTree" :key="group.standard_no" shadow="never" style="margin-bottom: 12px">
+            <template #header>
+              <span style="font-weight: 600">{{ group.standard_no }}</span>
+              <span v-if="group.standard_name" style="margin-left: 8px; color: var(--el-text-color-secondary)">{{ group.standard_name }}</span>
+            </template>
+            <el-table :data="group.params" border size="small">
+              <el-table-column type="index" label="序号" width="60" align="center" />
+              <el-table-column prop="name" label="检测参数" min-width="140" />
+              <el-table-column prop="code" label="参数代码" width="100" />
+              <el-table-column prop="unit" label="单位" width="80" />
+              <el-table-column prop="precision" label="精度" width="70" />
+            </el-table>
+          </el-card>
+        </template>
+        <el-empty v-else description="暂未配置检测参数" :image-size="60" />
+
+        <template v-if="detailStandards.length">
+          <el-divider content-position="left">允许标准（{{ detailStandards.length }}项）</el-divider>
+          <el-tag v-for="s in detailStandards" :key="s.id" style="margin: 0 8px 8px 0">
+            {{ s.standard_no }} {{ s.name }}
+          </el-tag>
+        </template>
+
+        <template v-if="detailTemplates.length">
+          <el-divider content-position="left">允许原始记录模板（{{ detailTemplates.length }}项）</el-divider>
+          <el-tag v-for="t in detailTemplates" :key="t.id" style="margin: 0 8px 8px 0">
+            {{ t.name }}
+          </el-tag>
+        </template>
+      </template>
+      <template #footer>
+        <el-button @click="detailVisible = false">关闭</el-button>
       </template>
     </el-dialog>
   </div>

@@ -26,8 +26,19 @@ def submit_commission(commission_id: int, user) -> Commission:
     commission.status = 'pending_review'
     commission.save(update_fields=['status', 'updated_at'])
 
-    from apps.system.services import notify_users_by_permission_code
+    # Auto-create tasks for any samples already registered under this commission
+    from apps.samples.models import Sample
+    from apps.testing.services import create_tasks_for_sample
+    existing_samples = list(Sample.objects.filter(
+        commission=commission, is_deleted=False,
+    ))
+    for sample in existing_samples:
+        try:
+            create_tasks_for_sample(sample.id, user=user)
+        except Exception:
+            pass
 
+    from apps.system.services import notify_users_by_permission_code
     notify_users_by_permission_code(
         'commission:approve',
         'commission_review',
@@ -57,6 +68,15 @@ def review_commission(
     commission.save(update_fields=[
         'status', 'reviewer', 'review_date', 'review_comment', 'updated_at',
     ])
+
+    if approved:
+        # Auto-create samples from commission items
+        from apps.samples.services import create_samples_from_commission
+        try:
+            create_samples_from_commission(commission.id)
+        except Exception:
+            pass  # Don't fail the review if sample creation has issues
+
     return commission
 
 

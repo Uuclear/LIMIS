@@ -5,7 +5,7 @@ export interface Report {
   commission_no: string
   report_type: string
   template_name: string
-  status: 'draft' | 'pending_audit' | 'pending_approve' | 'approved' | 'issued' | 'voided'
+  status: 'draft' | 'pending_audit' | 'pending_approve' | 'approved' | 'issued' | 'archived' | 'voided'
   status_display: string
   compiler: number | null
   compiler_name: string

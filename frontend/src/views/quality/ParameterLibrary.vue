@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Setting } from '@element-plus/icons-vue'
+import { Plus, Setting, Delete } from '@element-plus/icons-vue'
 import { getStandardList } from '@/api/standards'
 import {
   getTestCategories,
   getTestParameters,
   createTestParameter,
   updateTestParameter,
+  deleteTestParameter,
 } from '@/api/testing'
 
 const loading = ref(false)
@@ -129,6 +130,16 @@ async function submitParam() {
   loadParameters()
 }
 
+async function handleDeleteParam(row: any) {
+  try {
+    await deleteTestParameter(row.id)
+    ElMessage.success('参数已删除')
+    loadParameters()
+  } catch {
+    ElMessage.error('删除失败')
+  }
+}
+
 onMounted(async () => {
   await fetchCategories()
   await fetchStandards()
@@ -166,52 +177,57 @@ onMounted(async () => {
       </el-select>
     </el-card>
 
-    <div class="layout">
-      <el-card shadow="never" class="panel">
-        <template #header>
-          <span>标准规范</span>
-        </template>
-        <el-table
-          v-loading="loading"
-          :data="standards"
-          highlight-current-row
-          height="420"
-          empty-text="暂无标准，请先在「标准规范」中录入"
-          @row-click="selectStandard"
-        >
-          <el-table-column prop="standard_no" label="标准号" width="140" />
-          <el-table-column prop="name" label="名称" min-width="160" show-overflow-tooltip />
-        </el-table>
-      </el-card>
+    <el-card shadow="never" style="margin-bottom: 16px">
+      <template #header>
+        <span>标准规范</span>
+      </template>
+      <el-table
+        v-loading="loading"
+        :data="standards"
+        highlight-current-row
+        max-height="300"
+        empty-text="暂无标准，请先在「标准规范」中录入"
+        @row-click="selectStandard"
+      >
+        <el-table-column prop="standard_no" label="标准号" width="160" />
+        <el-table-column prop="name" label="名称" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="status" label="状态" width="100" />
+      </el-table>
+    </el-card>
 
-      <el-card shadow="never" class="panel wide">
-        <template #header>
-          <div class="card-header">
-            <span>
-              <el-icon><Setting /></el-icon>
-              检测参数 — {{ standardTitle }}
-            </span>
-            <el-button v-permission="'testing:create'" type="primary" size="small" :icon="Plus" @click="openParamDialog()">新增参数</el-button>
-          </div>
-        </template>
-        <el-table v-loading="paramLoading" :data="parameters" border stripe height="420">
-          <el-table-column prop="code" label="代码" width="100" />
-          <el-table-column prop="name" label="参数名称" min-width="160" />
-          <el-table-column prop="category_name" label="检测类别" width="120" />
-          <el-table-column prop="unit" label="单位" width="80" />
-          <el-table-column prop="precision" label="精度" width="70" />
-          <el-table-column label="必填" width="70" align="center">
-            <template #default="{ row }">{{ row.is_required ? '是' : '否' }}</template>
-          </el-table-column>
-          <el-table-column prop="description" label="说明" min-width="120" show-overflow-tooltip />
-          <el-table-column label="操作" width="90" fixed="right">
-            <template #default="{ row }">
-              <el-button v-permission="'testing:edit'" link type="primary" :icon="Plus" @click="openParamDialog(row)">编辑</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
-    </div>
+    <el-card shadow="never">
+      <template #header>
+        <div class="card-header">
+          <span>
+            <el-icon><Setting /></el-icon>
+            检测参数 — {{ standardTitle }}
+          </span>
+          <el-button v-permission="'testing:create'" type="primary" size="small" :icon="Plus" @click="openParamDialog()">新增参数</el-button>
+        </div>
+      </template>
+      <el-table v-loading="paramLoading" :data="parameters" border stripe max-height="420">
+        <el-table-column type="index" label="序号" width="60" align="center" />
+        <el-table-column prop="name" label="参数名称" min-width="160" />
+        <el-table-column prop="code" label="代码" width="100" />
+        <el-table-column prop="category_name" label="检测类别" width="120" />
+        <el-table-column prop="unit" label="单位" width="80" />
+        <el-table-column prop="precision" label="精度" width="70" />
+        <el-table-column label="必填" width="70" align="center">
+          <template #default="{ row }">{{ row.is_required ? '是' : '否' }}</template>
+        </el-table-column>
+        <el-table-column prop="description" label="说明" min-width="120" show-overflow-tooltip />
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <el-button v-permission="'testing:edit'" link type="primary" @click="openParamDialog(row)">编辑</el-button>
+            <el-popconfirm title="确认删除该参数？" @confirm="handleDeleteParam(row)">
+              <template #reference>
+                <el-button v-permission="'testing:edit'" link type="danger" :icon="Delete">删除</el-button>
+              </template>
+            </el-popconfirm>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
     <el-dialog v-model="paramDialog" :title="paramForm.id ? '编辑参数' : '新增参数'" width="560px" destroy-on-close>
       <el-form label-width="100px">
@@ -278,14 +294,6 @@ onMounted(async () => {
   margin: 0;
   color: var(--el-text-color-secondary);
   font-size: 13px;
-}
-.param-lib .layout {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 16px;
-}
-.param-lib .panel.wide {
-  /* spans full width when grid only has 2 cols */
 }
 .param-lib .card-header {
   display: flex;

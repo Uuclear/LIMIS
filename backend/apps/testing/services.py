@@ -112,8 +112,11 @@ def assign_task(
             'planned_date': str(planned_date) if planned_date else None,
         },
     )
-    from apps.system.services import notify_user
 
+    # Auto-create draft OriginalRecord for this task if one doesn't exist
+    _ensure_record_for_task(task, user)
+
+    from apps.system.services import notify_user
     notify_user(
         tester_id,
         'task_assigned',
@@ -122,6 +125,46 @@ def assign_task(
         f'/testing/tasks/{task.pk}',
     )
     return task
+
+
+def _ensure_record_for_task(task, user=None) -> None:
+    """Auto-create a draft OriginalRecord for a task if one doesn't already exist."""
+    from django.db.models import Q
+
+    if OriginalRecord.objects.filter(task=task).exists():
+        return
+
+    param = task.test_parameter
+    if not param:
+        return
+
+    # Find matching active template (same logic as build_merged_record_schema_for_task)
+    from .models import RecordTemplate
+    tpl = (
+        RecordTemplate.objects.filter(is_active=True)
+        .filter(Q(test_parameter=param) | Q(test_parameters=param))
+        .distinct().order_by('-created_at').first()
+    )
+    if tpl is None:
+        tpl = (
+            RecordTemplate.objects.filter(
+                test_parameter__isnull=True, is_active=True,
+            ).order_by('-created_at').first()
+        )
+    if tpl is None:
+        return  # No template available — tester must select manually
+
+    try:
+        OriginalRecord.objects.create(
+            task=task,
+            template=tpl,
+            template_version=tpl.version,
+            record_data={},
+            status='draft',
+            recorder=user if user and getattr(user, 'is_authenticated', False) else None,
+        )
+    except Exception:
+        pass  # Don't fail assignment if record creation fails
 
 
 @transaction.atomic
