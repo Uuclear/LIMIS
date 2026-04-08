@@ -50,7 +50,7 @@ export interface ReportDistribution {
   report: number
   recipient: string
   recipient_unit: string
-  method: 'email' | 'print' | 'pickup'
+  method: 'paper' | 'electronic' | 'both'
   method_display: string
   copies: number
   distribution_date: string

@@ -2,8 +2,9 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Printer } from '@element-plus/icons-vue'
+import { Printer, DocumentAdd } from '@element-plus/icons-vue'
 import { getCommission, reviewCommission } from '@/api/commissions'
+import { createReport } from '@/api/reports'
 import type { Commission } from '@/types/commission'
 import { useActionLock } from '@/composables/useActionLock'
 
@@ -25,6 +26,7 @@ async function fetchDetail() {
 }
 
 const canReview = computed(() => detail.value.status === 'pending_review')
+const canCreateReport = computed(() => detail.value.status === 'reviewed')
 
 const reviewDialogVisible = ref(false)
 // 后端评审接口字段：approved（bool） + comment（string）
@@ -45,6 +47,23 @@ async function handleReview() {
     ElMessage.success('评审完成')
     reviewDialogVisible.value = false
     fetchDetail()
+  })
+}
+
+async function handleCreateReport() {
+  await runLocked('create_report', async () => {
+    try {
+      const res: any = await createReport({ commission: commissionId.value })
+      const reportId = res.id ?? res.data?.id
+      ElMessage.success('报告已创建')
+      if (reportId) {
+        router.push(`/reports/${reportId}`)
+      } else {
+        router.push('/reports')
+      }
+    } catch {
+      ElMessage.error('创建报告失败')
+    }
   })
 }
 
@@ -82,6 +101,16 @@ onMounted(fetchDetail)
       </template>
       <template #extra>
         <el-button :icon="Printer" @click="handlePrint">打印委托单</el-button>
+        <el-button
+          v-if="canCreateReport"
+          v-permission="'report:create'"
+          type="success"
+          :icon="DocumentAdd"
+          :loading="isLocked('create_report')"
+          @click="handleCreateReport"
+        >
+          新建报告
+        </el-button>
         <el-button
           v-if="canReview"
           v-permission="'commission:approve'"

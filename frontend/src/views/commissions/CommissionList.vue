@@ -81,7 +81,7 @@ async function handleDelete(row: Commission) {
 
 async function handleTerminate(row: Commission) {
   await runLocked(`commission_terminate_${row.id}`, async () => {
-    let reason = ''
+    let reason: string
     try {
       const prompt = await ElMessageBox.prompt('可选填终止原因', '终止委托', {
         confirmButtonText: '确定终止',

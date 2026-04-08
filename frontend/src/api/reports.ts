@@ -13,6 +13,13 @@ export const getReportTimeline = (id: number) => request.get(`/v1/reports/${id}/
 export const voidReport = (id: number, data: any) => request.post(`/v1/reports/${id}/void/`, data)
 export const previewReport = (id: number) => request.get(`/v1/reports/${id}/preview/`, { responseType: 'blob' } as any)
 export const downloadReport = (id: number) => request.get(`/v1/reports/${id}/download/`, { responseType: 'blob' } as any)
+export const uploadReportPdf = (id: number, file: File) => {
+  const form = new FormData()
+  form.append('pdf_file', file)
+  return request.post(`/v1/reports/${id}/upload_pdf/`, form)
+}
+export const distributeReport = (id: number, data: any) => request.post(`/v1/reports/${id}/distribute/`, data)
+export const getReportDistributions = (id: number) => request.get(`/v1/reports/${id}/distributions/`)
 export const verifyReport = (id: number) => request.get(`/v1/reports/${id}/verify/`)
 /** 无需登录：公开防伪查询（与二维码 URL 一致） */
 export const verifyReportPublic = (id: number) =>

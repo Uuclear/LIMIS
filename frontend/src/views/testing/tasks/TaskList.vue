@@ -30,23 +30,26 @@ const statusColumns = [
   { key: 'unassigned', label: '待分配', type: 'info' as const },
   { key: 'in_progress', label: '检测中', type: '' as const },
   { key: 'completed', label: '已完成', type: 'success' as const },
+  { key: 'abnormal', label: '异常', type: 'danger' as const },
 ]
 
 const statusMap: Record<string, string> = {
   unassigned: '待分配',
   in_progress: '检测中',
   completed: '已完成',
+  abnormal: '异常',
 }
 
 const statusTagType: Record<string, string> = {
   unassigned: 'info',
   in_progress: '',
   completed: 'success',
+  abnormal: 'danger',
 }
 
 const kanbanData = computed(() => {
   const grouped: Record<string, TestTask[]> = {
-    unassigned: [], in_progress: [], completed: [],
+    unassigned: [], in_progress: [], completed: [], abnormal: [],
   }
   for (const task of tableData.value) {
     if (grouped[task.status]) {
@@ -81,8 +84,6 @@ async function fetchList() {
     const res: any = await getTestTaskList(params)
     tableData.value = res.results ?? res.list ?? []
     total.value = res.total ?? res.count ?? 0
-  } catch (e: any) {
-    throw e
   } finally {
     loading.value = false
   }
