@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Download, Printer } from '@element-plus/icons-vue'
+import { ArrowLeft, Download, Printer, UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getReport,
@@ -14,6 +14,8 @@ import {
   getReportTimeline,
   downloadReport,
   previewReport,
+  distributeReport,
+  uploadReportPdf,
 } from '@/api/reports'
 import type { Report } from '@/types/report'
 import { useActionLock } from '@/composables/useActionLock'
@@ -195,12 +197,87 @@ function handlePrint() {
   }
 }
 
-function goBack() {
-  router.push('/reports')
+// PDF Upload
+const uploadInputRef = ref<HTMLInputElement | null>(null)
+
+function triggerUpload() {
+  uploadInputRef.value?.click()
+}
+
+async function handleUploadPdf(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  if (!file.name.toLowerCase().endsWith('.pdf')) {
+    ElMessage.warning('请选择PDF格式文件')
+    input.value = ''
+    return
+  }
+  await runLocked('upload_pdf', async () => {
+    try {
+      await uploadReportPdf(reportId.value, file)
+      ElMessage.success('PDF上传成功')
+      fetchReport()
+    } catch {
+      ElMessage.error('上传失败')
+    } finally {
+      input.value = ''
+    }
+  })
+}
+
+// Distribute report
+const distributeDialogVisible = ref(false)
+const distributeForm = ref({
+  recipient: '',
+  recipient_unit: '',
+  method: 'paper' as 'paper' | 'electronic' | 'both',
+  copies: 1,
+  distribution_date: '',
+  receiver_signature: '',
+})
+
+function openDistributeDialog() {
+  const today = new Date().toISOString().slice(0, 10)
+  distributeForm.value = {
+    recipient: '',
+    recipient_unit: '',
+    method: 'paper',
+    copies: 1,
+    distribution_date: today,
+    receiver_signature: '',
+  }
+  distributeDialogVisible.value = true
+}
+
+async function handleDistributeSubmit() {
+  if (!distributeForm.value.recipient.trim()) {
+    ElMessage.warning('请填写接收人')
+    return
+  }
+  if (!distributeForm.value.distribution_date) {
+    ElMessage.warning('请选择发放日期')
+    return
+  }
+  await runLocked('distribute', async () => {
+    try {
+      await distributeReport(reportId.value, distributeForm.value)
+      ElMessage.success('发放记录已创建')
+      distributeDialogVisible.value = false
+      fetchReport()
+      fetchTimeline()
+    } catch {
+      ElMessage.error('创建发放记录失败')
+    }
+  })
 }
 
 function approvalTagType(action: string) {
   return action === 'pass' ? 'success' : 'danger'
+}
+
+function goBack() {
+  router.push('/reports')
 }
 
 onMounted(fetchReport)
@@ -289,22 +366,36 @@ onMounted(fetchTimeline)
 
       <!-- Distribution Records -->
       <el-card
-        v-if="report.distributions?.length"
         shadow="never"
         style="margin-top: 16px"
       >
-        <template #header><span>发放记录</span></template>
-        <el-table :data="report.distributions" border stripe>
+        <template #header>
+          <div class="card-header">
+            <span>发放记录</span>
+            <el-button
+              v-if="report.status === 'issued' || report.status === 'archived'"
+              v-permission="'report:edit'"
+              type="primary"
+              size="small"
+              @click="openDistributeDialog"
+            >
+              新增发放记录
+            </el-button>
+          </div>
+        </template>
+        <el-table v-if="report.distributions?.length" :data="report.distributions" border stripe>
           <el-table-column prop="recipient" label="接收人" min-width="140" />
+          <el-table-column prop="recipient_unit" label="接收单位" min-width="140" show-overflow-tooltip />
           <el-table-column prop="method" label="发放方式" width="120">
             <template #default="{ row }">
-              {{ { email: '邮件', print: '打印', pickup: '自取' }[row.method as string] ?? row.method }}
+              {{ { paper: '纸质', electronic: '电子', both: '纸质+电子' }[row.method as string] ?? row.method }}
             </template>
           </el-table-column>
-          <el-table-column prop="operator_name" label="操作人" width="120" />
-          <el-table-column prop="distributed_at" label="发放时间" width="180" />
-          <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
+          <el-table-column prop="copies" label="份数" width="80" align="center" />
+          <el-table-column prop="distribution_date" label="发放日期" width="120" />
+          <el-table-column prop="receiver_signature" label="签收人" width="120" />
         </el-table>
+        <el-empty v-else description="暂无发放记录" :image-size="60" />
       </el-card>
 
       <!-- PDF Preview -->
@@ -324,10 +415,12 @@ onMounted(fetchTimeline)
 
         <template v-if="report.status === 'draft'">
           <el-button v-permission="'report:edit'" type="primary" :loading="isLocked('generate')" @click="handleGenerate">生成PDF</el-button>
+          <el-button v-permission="'report:edit'" :icon="UploadFilled" :loading="isLocked('upload_pdf')" @click="triggerUpload">上传PDF</el-button>
           <el-button v-permission="'report:edit'" type="warning" :loading="isLocked('submit_audit')" @click="handleSubmitAudit">提交审核</el-button>
         </template>
 
         <template v-if="report.status === 'pending_audit'">
+          <el-button v-permission="'report:edit'" :icon="UploadFilled" :loading="isLocked('upload_pdf')" @click="triggerUpload">上传PDF</el-button>
           <el-button v-permission="'report:approve'" type="success" @click="openAuditDialog('audit')">审核</el-button>
         </template>
 
@@ -340,6 +433,7 @@ onMounted(fetchTimeline)
         </template>
 
         <template v-if="report.status === 'issued'">
+          <el-button v-permission="'report:edit'" type="primary" @click="openDistributeDialog">分发报告</el-button>
           <el-button v-permission="'report:export'" :icon="Download" @click="handleDownload">下载</el-button>
           <el-button v-permission="'report:view'" :icon="Printer" @click="handlePrint">打印</el-button>
           <el-button v-permission="'report:edit'" type="info" :loading="isLocked('archive')" @click="handleArchive">归档</el-button>
@@ -350,6 +444,14 @@ onMounted(fetchTimeline)
           <el-button v-permission="'report:view'" :icon="Printer" @click="handlePrint">打印</el-button>
         </template>
       </div>
+      <!-- Hidden PDF upload input -->
+      <input
+        ref="uploadInputRef"
+        type="file"
+        accept=".pdf"
+        style="display: none"
+        @change="handleUploadPdf"
+      />
     </template>
 
     <!-- Audit/Approve Dialog -->
@@ -377,6 +479,51 @@ onMounted(fetchTimeline)
       <template #footer>
         <el-button @click="auditDialogVisible = false">取消</el-button>
         <el-button v-permission="'report:approve'" type="primary" :loading="isLocked('audit_submit')" @click="handleAuditSubmit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Distribute Report Dialog -->
+    <el-dialog v-model="distributeDialogVisible" title="分发报告" width="500px" destroy-on-close>
+      <el-form :model="distributeForm" label-width="90px">
+        <el-form-item label="接收人" required>
+          <el-input v-model="distributeForm.recipient" placeholder="请输入接收人姓名" />
+        </el-form-item>
+        <el-form-item label="接收单位">
+          <el-input v-model="distributeForm.recipient_unit" placeholder="请输入接收单位" />
+        </el-form-item>
+        <el-form-item label="发放方式" required>
+          <el-radio-group v-model="distributeForm.method">
+            <el-radio value="paper">纸质</el-radio>
+            <el-radio value="electronic">电子</el-radio>
+            <el-radio value="both">纸质+电子</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="份数">
+          <el-input-number v-model="distributeForm.copies" :min="1" :max="99" />
+        </el-form-item>
+        <el-form-item label="发放日期" required>
+          <el-date-picker
+            v-model="distributeForm.distribution_date"
+            type="date"
+            value-format="YYYY-MM-DD"
+            placeholder="选择发放日期"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="签收人">
+          <el-input v-model="distributeForm.receiver_signature" placeholder="请输入签收人" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="distributeDialogVisible = false">取消</el-button>
+        <el-button
+          v-permission="'report:edit'"
+          type="primary"
+          :loading="isLocked('distribute')"
+          @click="handleDistributeSubmit"
+        >
+          确定
+        </el-button>
       </template>
     </el-dialog>
   </div>

@@ -3,7 +3,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getOriginalRecordList, submitRecord } from '@/api/testing'
+import { getOriginalRecordList, submitRecord, reviewRecord } from '@/api/testing'
 import type { OriginalRecord } from '@/types/testing'
 import { useActionLock } from '@/composables/useActionLock'
 
@@ -78,6 +78,39 @@ async function handleSubmit(record: OriginalRecord) {
       ElMessage.success('提交成功')
       fetchList()
     } catch { /* cancelled */ }
+  })
+}
+
+// Review (复核) dialog
+const reviewDialogVisible = ref(false)
+const reviewTarget = ref<OriginalRecord | null>(null)
+const reviewForm = reactive({ approved: true as boolean, comment: '' })
+
+function openReviewDialog(record: OriginalRecord) {
+  reviewTarget.value = record
+  reviewForm.approved = true
+  reviewForm.comment = ''
+  reviewDialogVisible.value = true
+}
+
+async function handleReview() {
+  if (!reviewTarget.value) return
+  if (!reviewForm.approved && (reviewForm.comment || '').trim().length < 4) {
+    ElMessage.warning('退回原因至少4个字符')
+    return
+  }
+  await runLocked(`review_record_${reviewTarget.value.id}`, async () => {
+    try {
+      await reviewRecord(reviewTarget.value!.id, {
+        approved: reviewForm.approved,
+        comment: reviewForm.comment,
+      })
+      ElMessage.success(reviewForm.approved ? '复核通过' : '已退回')
+      reviewDialogVisible.value = false
+      fetchList()
+    } catch {
+      ElMessage.error('操作失败')
+    }
   })
 }
 
@@ -161,6 +194,16 @@ onMounted(fetchList)
             >
               提交审核
             </el-button>
+            <el-button
+              v-if="row.status === 'pending_review'"
+              v-permission="'testing:approve'"
+              link
+              type="warning"
+              :loading="isLocked(`review_record_${row.id}`)"
+              @click="openReviewDialog(row)"
+            >
+              复核
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -178,5 +221,36 @@ onMounted(fetchList)
         @size-change="(s: number) => { query.page_size = s; query.page = 1; fetchList() }"
       />
     </el-card>
+
+    <!-- Review Dialog -->
+    <el-dialog v-model="reviewDialogVisible" title="原始记录复核" width="450px" destroy-on-close>
+      <el-form :model="reviewForm" label-width="80px">
+        <el-form-item label="复核结果">
+          <el-radio-group v-model="reviewForm.approved">
+            <el-radio :value="true">通过</el-radio>
+            <el-radio :value="false">退回</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="复核意见">
+          <el-input
+            v-model="reviewForm.comment"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入复核意见（退回时必填，至少4个字符）"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="reviewDialogVisible = false">取消</el-button>
+        <el-button
+          v-permission="'testing:approve'"
+          type="primary"
+          :loading="reviewTarget ? isLocked(`review_record_${reviewTarget.id}`) : false"
+          @click="handleReview"
+        >
+          确定
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>

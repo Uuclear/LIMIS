@@ -56,6 +56,7 @@ class ReportViewSet(BaseModelViewSet):
     lims_module = 'report'
     lims_action_map = {
         'generate': 'edit',
+        'upload_pdf': 'edit',
         'submit_audit': 'edit',
         'audit': 'approve',
         'approve': 'approve',
@@ -132,6 +133,36 @@ class ReportViewSet(BaseModelViewSet):
         return Response({
             'code': 200,
             'message': 'PDF已生成',
+            'data': ReportDetailSerializer(report).data,
+        })
+
+    @action(detail=True, methods=['post'], url_path='upload_pdf')
+    def upload_pdf(self, request: Request, pk: str = None) -> Response:
+        report = self.get_object()
+        if report.status not in ('draft', 'pending_audit'):
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError('只有草稿或待审核状态可以上传PDF')
+        pdf_file = request.FILES.get('pdf_file')
+        if not pdf_file:
+            return Response(
+                {'code': 400, 'message': '请上传PDF文件'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not pdf_file.name.lower().endswith('.pdf'):
+            return Response(
+                {'code': 400, 'message': '只支持PDF格式文件'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        report.pdf_file.save(
+            f'{report.report_no}.pdf',
+            pdf_file,
+            save=True,
+        )
+        report.qr_code = generator.generate_qr_verification(report.pk)
+        report.save(update_fields=['qr_code', 'updated_at'])
+        return Response({
+            'code': 200,
+            'message': 'PDF已上传',
             'data': ReportDetailSerializer(report).data,
         })
 
