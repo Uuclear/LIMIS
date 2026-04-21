@@ -21,7 +21,7 @@ def clear_lims_demo_data() -> None:
     from apps.reports.models import Report, ReportApproval, ReportDistribution
     from apps.testing.models import (
         JudgmentRule, OriginalRecord, RecordRevision, RecordTemplate,
-        TestParameter, TestMethod, TestCategory, TestResult, TestTask,
+        TestParameter, TestCategory, TestResult, TestTask,
     )
     from apps.samples.models import Sample, SampleDisposal, SampleGroup
     from apps.commissions.models import Commission, CommissionItem, ContractReview
@@ -75,10 +75,9 @@ def clear_lims_demo_data() -> None:
     RecordTemplate.objects.filter(code__startswith=f'{P}-TPL').delete()
     JudgmentRule.objects.filter(
         test_parameter__code__in=['fcu', 'Rel', 'Rm', 'A', 'Mx'],
-        test_parameter__method__standard_no__in=list(_STD_NOS),
+        test_parameter__standard_no__in=list(_STD_NOS),
     ).delete()
-    TestParameter.objects.filter(method__standard_no__in=list(_STD_NOS)).delete()
-    TestMethod.objects.filter(standard_no__in=list(_STD_NOS)).delete()
+    TestParameter.objects.filter(standard_no__in=list(_STD_NOS)).delete()
     TestCategory.objects.filter(code__startswith=f'{P}-CAT').delete()
     for std_no in _STD_NOS:
         Standard.objects.filter(standard_no=std_no).delete()
