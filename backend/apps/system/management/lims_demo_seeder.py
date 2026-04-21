@@ -75,7 +75,7 @@ class LimsDemoSeeder:
 
     def phase_standards_and_parameters(self) -> None:
         from apps.standards.models import Standard
-        from apps.testing.models import TestCategory, TestMethod, TestParameter
+        from apps.testing.models import TestCategory, TestParameter
         self.log('阶段：标准规范 → 检测类别 → 方法 → 参数（项目参数库数据源）')
         cats: dict[str, Any] = {}
         for code, name, order in [
@@ -117,50 +117,28 @@ class LimsDemoSeeder:
             },
         )
 
-        m_conc, _ = TestMethod.objects.get_or_create(
-            standard_no=STANDARDS[0][0],
-            name='立方体抗压强度',
-            defaults={
-                'standard_name': STANDARDS[0][1],
-                'category': cats[f'{P}-CAT-HNT'],
-                'description': '演示：混凝土立方体抗压强度',
-                'is_active': True,
-            },
-        )
-        m_steel, _ = TestMethod.objects.get_or_create(
-            standard_no=STANDARDS[1][0],
-            name='钢筋拉伸试验',
-            defaults={
-                'standard_name': STANDARDS[1][1],
-                'category': cats[f'{P}-CAT-GJ'],
-                'description': '演示：钢筋拉伸',
-                'is_active': True,
-            },
-        )
-        m_sand, _ = TestMethod.objects.get_or_create(
-            standard_no=STANDARDS[2][0],
-            name='砂筛分析（细度模数）',
-            defaults={
-                'standard_name': STANDARDS[2][1],
-                'category': cats[f'{P}-CAT-GU'],
-                'description': '演示：细度模数',
-                'is_active': True,
-            },
-        )
-        self.methods = {'conc': m_conc, 'steel': m_steel, 'sand': m_sand}
-
-        def p(method, name, code, unit, prec):
+        def p(standard_no, standard_name, category, name, code, unit, prec):
             o, _ = TestParameter.objects.get_or_create(
-                method=method, code=code,
-                defaults={'name': name, 'unit': unit, 'precision': prec, 'is_required': True},
+                standard_no=standard_no,
+                code=code,
+                defaults={
+                    'standard_name': standard_name,
+                    'standard': Standard.objects.filter(standard_no=standard_no).first(),
+                    'category': category,
+                    'name': name,
+                    'unit': unit,
+                    'precision': prec,
+                    'is_required': True,
+                },
             )
             return o
 
-        self.params['fc'] = p(m_conc, '抗压强度', 'fcu', 'MPa', 1)
-        self.params['ReL'] = p(m_steel, '下屈服强度', 'Rel', 'MPa', 0)
-        self.params['Rm'] = p(m_steel, '抗拉强度', 'Rm', 'MPa', 0)
-        self.params['A'] = p(m_steel, '断后伸长率', 'A', '%', 1)
-        self.params['Mx'] = p(m_sand, '细度模数', 'Mx', '', 2)
+        self.params['fc'] = p(STANDARDS[0][0], STANDARDS[0][1], cats[f'{P}-CAT-HNT'], '抗压强度', 'fcu', 'MPa', 1)
+        self.params['ReL'] = p(STANDARDS[1][0], STANDARDS[1][1], cats[f'{P}-CAT-GJ'], '下屈服强度', 'Rel', 'MPa', 0)
+        self.params['Rm'] = p(STANDARDS[1][0], STANDARDS[1][1], cats[f'{P}-CAT-GJ'], '抗拉强度', 'Rm', 'MPa', 0)
+        self.params['A'] = p(STANDARDS[1][0], STANDARDS[1][1], cats[f'{P}-CAT-GJ'], '断后伸长率', 'A', '%', 1)
+        self.params['Mx'] = p(STANDARDS[2][0], STANDARDS[2][1], cats[f'{P}-CAT-GU'], '细度模数', 'Mx', '', 2)
+        self.methods = {'conc': self.params['fc'], 'steel': self.params['ReL'], 'sand': self.params['Mx']}
         self.log('  标准、方法、参数就绪', ok=True)
 
     def phase_templates(self) -> None:
@@ -210,13 +188,13 @@ class LimsDemoSeeder:
                 code=code,
                 defaults={
                     'name': name,
-                    'test_method': m,
                     'test_parameter': param,
                     'version': '1.0',
                     'schema': schema,
                     'is_active': True,
                 },
             )
+            # 以检测参数所属标准号作为模板索引（与后续 self.templates[STANDARDS[n][0]] 一致）
             self.templates[m.standard_no] = t
         self.log('  模板 3 套', ok=True)
 
@@ -302,7 +280,7 @@ class LimsDemoSeeder:
                     'is_active': True,
                 },
             )
-            auth.test_methods.set([self.methods['conc']])
+            auth.parameters.set([self.params['fc']])
         self.log('  人员扩展信息已写入', ok=True)
 
     def phase_project(self) -> None:
@@ -542,7 +520,7 @@ class LimsDemoSeeder:
                     test_object=obj,
                     test_item=ti,
                     test_standard=ts,
-                    test_method=tm,
+                    test_method=str(tm),
                     grade=grade or '',
                     specification=spec or '',
                     quantity=qty,
@@ -578,12 +556,12 @@ class LimsDemoSeeder:
         e1, e2 = self.equipment[f'{P}-EQ-001'], self.equipment[f'{P}-EQ-002']
 
         plan = [
-            (f'{P}-YP-001', f'{P}-WT-001', '混凝土试块', 'C30', g1, 'tested', self.methods['conc'], e1, 'completed'),
-            (f'{P}-YP-002', f'{P}-WT-002', '热轧带肋钢筋', 'HRB400 Φ20', None, 'tested', self.methods['steel'], e2, 'completed'),
-            (f'{P}-YP-003', f'{P}-WT-003', '河砂', '中砂', None, 'pending', self.methods['sand'], None, 'unassigned'),
-            (f'{P}-YP-004', f'{P}-WT-004', '碎石', '5–25mm', None, 'pending', self.methods['sand'], None, 'unassigned'),
-            (f'{P}-YP-005', f'{P}-WT-002', '热轧带肋钢筋', 'HRB400 Φ25', None, 'pending', self.methods['steel'], e2, 'assigned'),
-            (f'{P}-YP-006', f'{P}-WT-001', '混凝土试块', 'C30', g1, 'testing', self.methods['conc'], e1, 'in_progress'),
+            (f'{P}-YP-001', f'{P}-WT-001', '混凝土试块', 'C30', g1, 'tested', self.params['fc'], e1, 'completed'),
+            (f'{P}-YP-002', f'{P}-WT-002', '热轧带肋钢筋', 'HRB400 Φ20', None, 'tested', self.params['ReL'], e2, 'completed'),
+            (f'{P}-YP-003', f'{P}-WT-003', '河砂', '中砂', None, 'pending', self.params['Mx'], None, 'unassigned'),
+            (f'{P}-YP-004', f'{P}-WT-004', '碎石', '5–25mm', None, 'pending', self.params['Mx'], None, 'unassigned'),
+            (f'{P}-YP-005', f'{P}-WT-002', '热轧带肋钢筋', 'HRB400 Φ25', None, 'pending', self.params['ReL'], e2, 'assigned'),
+            (f'{P}-YP-006', f'{P}-WT-001', '混凝土试块', 'C30', g1, 'testing', self.params['fc'], e1, 'in_progress'),
         ]
         for sno, cno, name, spec, grp, samp_st, method, eq, tstatus in plan:
             comm = self.commissions[cno]
@@ -623,8 +601,7 @@ class LimsDemoSeeder:
                 defaults={
                     'sample': sa,
                     'commission': comm,
-                    'test_method': method,
-                    'test_parameter': None,
+                    'test_parameter': method,
                     'assigned_tester': ut if tstatus != 'unassigned' else None,
                     'assigned_equipment': eq,
                     'planned_date': planned,
